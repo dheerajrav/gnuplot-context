@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 dnl configure.in for gnuplot on Unix.
 dnl
-dnl $Id: configure.in,v 1.236 2008/09/10 18:12:33 sfeam Exp $
+dnl $Id: configure.in,v 1.240 2009/01/07 00:44:25 sfeam Exp $
 dnl
 dnl this is actually major.minor ...
 dnl note that for a non-beta release, we need to
@@ -270,10 +270,11 @@ AC_ARG_WITH(xmi,dnl
         AC_CHECK_HEADERS(ggi/xmi.h)])
    fi])
 
-dnl Use builtin readline or GNU readline
+dnl Use builtin readline or GNU readline or NetBSD editline
 AC_ARG_WITH(readline,dnl
 [  --with-readline=builtin  use the built-in minimal readline
   --with-readline=gnu      use the GNU readline library (default; 4.2 or newer required)
+  --with-readline=bsd      use the NetBSD editline library
   --with-readline=DIR      specify the location of GNU readline
   --without-readline       do not use any readline function], ,
   test -z "$with_readline" && with_readline=gnu)
@@ -286,6 +287,31 @@ AC_ARG_ENABLE(history-file,dnl
 dnl GNU readline and the required terminal library
 if test "$with_readline" != no; then
   if test "$with_readline" != builtin; then
+
+    if test "$with_readline" = bsd; then
+
+      AC_CHECK_LIB(edit, readline,
+        [TERMLIBS="-ledit $TERMLIBS"],
+	 [AC_MSG_WARN([Could not find BSD editline library ])
+	  with_readline=builtin],)
+
+      AC_CHECK_LIB(curses, tputs,
+        [TERMLIBS="-lcurses $TERMLIBS"],,)
+
+      if test "$ac_cv_lib_edit_readline" = yes; then
+        AC_DEFINE(HAVE_LIBEDITLINE,1,
+                [ Define if you are using the BSD editline library. ])
+        AC_CHECK_HEADERS(editline/readline.h,,
+          AC_MSG_WARN([found BSD editline library but not readline.h please add path to readline.h to CPPFLAGS in Makefile]))
+
+        if test "$enable_history_file" = yes; then
+            AC_DEFINE(GNUPLOT_HISTORY,1,
+                      [ Define if you want to use a gnuplot history file. ])
+        fi
+      fi
+
+    else # !bsd
+
     dnl check for terminal library
     dnl this is a very cool solution from octave's configure.in
     gp_tcap=""
@@ -324,8 +350,13 @@ if test "$with_readline" != no; then
     fi
 
     if [test "$ac_cv_lib_readline_remove_history" != no || test "$ac_cv_lib_history_remove_history" != no]; then
-      AC_DEFINE(HAVE_LIBREADLINE,1,
+      if test "$with_readline" = bsd; then
+          AC_DEFINE(HAVE_LIBEDITLINE,1,
+                [ Define if you are using the BSD editline library. ])
+      else
+          AC_DEFINE(HAVE_LIBREADLINE,1,
                 [ Define if you are using the GNU readline library. ])
+      fi
       AC_CHECK_HEADERS(readline/readline.h,,
         AC_MSG_WARN([found GNU readline library but not readline.h
 please add path to readline.h to CPPFLAGS in Makefile]))
@@ -340,6 +371,8 @@ please add path to history.h to CPPFLAGS in Makefile]))
       fi
 
     fi # ! ac_cv_lib_readline_readline = no
+
+   fi # ! with_readline = bsd
 
   fi # ! with_readline != builtin 
 
@@ -421,7 +454,7 @@ if test "$with_gd" != no; then
   CPPFLAGS="$CPPFLAGS $libgd_CPPFLAGS"
   LDFLAGS="$LDFLAGS $libgd_LDFLAGS"
 
-  AC_CHECK_LIB(gd,gdImageCreate,
+  AC_CHECK_LIB(gd,gdImageCreateTrueColor,
     [dnl found gd library
      AC_DEFINE(HAVE_LIBGD,1,[ Define if you have gd library. ])
      AC_CHECK_HEADERS(gd.h,,
@@ -463,6 +496,7 @@ if test "$with_gd" != no; then
      LIBS="$_libs"
 
     ],[dnl gd library not found
+       AC_MSG_WARN([libgd not found or too old, version >= 2.0 is required])
        with_gd=no
     ])
 
@@ -538,6 +572,38 @@ if test "$with_pdf" != no; then
 
 fi
 dnl end pdf
+
+dnl check presence of lua/TikZ support
+AC_ARG_WITH(lua,dnl
+[  --with-lua            enable lua/TikZ terminal driver],,
+  with_lua=yes)
+
+if test "${with_lua}" = yes ; then
+  PKG_CHECK_MODULES(LUA, [lua], LUAFOUND=yes, [LUAFOUND=no])
+  if test $pkg_failed != no; then
+    AC_MSG_WARN([The lua terminal will not be compiled.])
+    with_lua=no
+  else
+    _libs="$LIBS"
+    LIBS="$LIBS $LUA_LIBS"
+  fi
+
+  AC_CHECK_LIB(lua,luaL_openlibs,
+    [dnl found lua library
+     AC_DEFINE(HAVE_LUA,1, [ Define if you want the lua/TikZ terminal. ])
+     AC_CHECK_HEADERS(lua.h,,
+       AC_MSG_WARN([please add path to lua.h to CPPFLAGS in Makefile]))
+    ],
+    with_lua=no)
+ 
+  LIBS="$_libs"
+  if test "$with_lua" != no; then
+    TERMLIBS="$TERMLIBS $LUA_LIBS"
+  fi
+
+fi
+AM_CONDITIONAL(BUILD_LUA, test "${with_lua}" = yes)
+dnl end lua
 
 dnl How do we detect the Ultrix X libraries?
 dnl Or is it really a server (run-time) problem?
@@ -1036,15 +1102,15 @@ if test "$no_x" != yes; then
   fi
 
   if test "$enable_x11_external" = yes; then
-    AC_MSG_RESULT([    (enable plotting to windows opened by external apps (EXPERIMENTAL)])
+    AC_MSG_RESULT([    (enable plotting to windows opened by external apps) ])
   else
-    AC_MSG_RESULT([    (disable plotting to windows opened by external apps (EXPERIMENTAL)])
+    AC_MSG_RESULT([    (disable plotting to windows opened by external apps) ])
   fi
 
   if test "$enable_binary_x11_polygon" = yes; then
-    AC_MSG_RESULT([    (with binary polygon protocol (EXPERIMENTAL))])
+    AC_MSG_RESULT([    (with binary polygon protocol )])
   else
-    AC_MSG_RESULT([    (without binary polygon protocol (EXPERIMENTAL))])
+    AC_MSG_RESULT([    (without binary polygon protocol )])
   fi
 else
     AC_MSG_RESULT([  X Window System terminal: no (requires X libraries)])
@@ -1172,9 +1238,15 @@ else
 fi
 
 if test "$with_cairo" = yes; then
-  AC_MSG_RESULT([  cairo-based pdf and png terminals: yes (EXPERIMENTAL)])
+  AC_MSG_RESULT([  cairo-based pdf and png terminals: yes ])
 else
   AC_MSG_RESULT([  cairo-based terminals: no (requires cairo>1.2, pango>1.10)])
+fi
+
+if test "$with_lua" = yes; then
+  AC_MSG_RESULT([  lua/TikZ terminal: yes (EXPERIMENTAL)])
+else
+  AC_MSG_RESULT([  lua/TikZ terminal: no ])
 fi
 
 AC_MSG_RESULT([])
@@ -1224,13 +1296,13 @@ else
 fi
 
 if test "$enable_objects" = yes; then
-  AC_MSG_RESULT([  Placement of rectangles and other objects: yes (EXPERIMENTAL)])
+  AC_MSG_RESULT([  Placement of rectangles and other objects: yes ])
 else
   AC_MSG_RESULT([  Placement of rectangles and other objects: no])
 fi
 
 if test "$enable_with_image" = yes; then
-  AC_MSG_RESULT([  Plot style image: yes (EXPERIMENTAL)])
+  AC_MSG_RESULT([  Plot style image: yes ])
 else
   AC_MSG_RESULT([  Plot style image: no])
 fi
@@ -1241,8 +1313,15 @@ AC_MSG_RESULT([])
 
 if test "$with_readline" = no; then
   AC_MSG_RESULT([  No readline support (use --with-readline=gnu or --with-readline=builtin)])
-else
-  if test "$with_readline" != builtin; then
+fi
+
+  if test "$with_readline" = bsd; then
+    if test -n "$gp_tcap"; then
+      AC_MSG_RESULT([  Readline library: BSD editline with $gp_tcap])
+    else
+      AC_MSG_RESULT([  Readline library: BSD editline library])
+    fi
+  else if test "$with_readline" != builtin; then
     if test -n "$gp_tcap"; then
       AC_MSG_RESULT([  Readline library: GNU readline library with $gp_tcap])
     else
@@ -1320,6 +1399,10 @@ if test "$TUTORIAL" = tutorial; then
   AC_MSG_RESULT([  LaTeX tutorial: yes])
 else
   AC_MSG_RESULT([  LaTeX tutorial: no])
+fi
+
+if test "$with_lua" != no; then
+  AC_MSG_RESULT([  TeX *.sty for lua/tikz terminal: yes])
 fi
 
 AC_MSG_RESULT([  Help file: yes (always), in $GIHDIR/gnuplot.gih])

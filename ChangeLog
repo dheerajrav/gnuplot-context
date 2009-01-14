@@ -1,3 +1,155 @@
+2009-01-07  Ethan Merritt  <merritt@u.washington.edu>
+
+	* src/util3d.c (edge3d_intersect):  Fix long-standing bug in which
+	the z coordinate was clipping against xmax rather than zmax.
+	Bug #2472621
+
+2009-01-05  Ethan Merritt  <merritt@u.washington.edu>
+
+	* src/graphics.c (plot_image_or_update_axes): The failsafe mode for
+	'with rgbimage' was failing to take advantage of a terminal's
+	alpha channel support.
+
+	* configure.in: Give up pretending to support libgd versions prior
+	to 2.0 (build fails because of missing truecolor and alpha channel).
+
+2009-01-04  Ralf Juengling  <juenglin@cs.pdx.edu>
+
+	* src/gp_types.h src/plot2d.c (get_data):  Fix column accounting for
+	variable color attribute in the case that no explicit 'using' spec
+	is given.
+
+2009-01-03  Ethan Merritt  <merritt@u.washington.edu>
+
+	* configure.in, docs/gnuplot.doc:
+	Remove the EXPERIMENTAL warning for plotstyle 'image', for 'set object',
+	for x11 terminal features 'binary polygons' and 'external window',
+	and for the cairo-based terminals pngcairo and pdfcairo.
+
+2009-01-02  Ethan Merritt  <merritt@u.washington.edu>
+
+	* src/pm3d.c (set_plot_with_palette is_plot_with_colorbox):
+	Fix an accounting error that caused unnecessary loading of a color
+	palette into plots that do not need one.
+
+2008-12-31  Ralf Juengling  <juenglin@cs.pdx.edu>
+
+	* src/gp_types.h: Fix duplicate plot style indices for 
+	RGBA_IMAGE and CIRCLES.
+
+2008-12-31  Ethan Merritt  <merritt@u.washington.edu>
+
+	* src/misc.c (lp_parse): Allow further options to modify a line style.
+	E.g.  plot ... with points ls 1 ps variable
+
+2008-12-27  Allin Cottrell  <cottrell@wfu.edu>
+
+	* util.c (gprintf): Allow '#' format character.
+
+2008-12-26  Shigeharu Takeno  <shige@iee.niit.ac.jp>
+
+	* docs/gnuplot.doc docs/Makefile.in term/lua.trm: Various fixes.
+
+2008-12-26  Ethan Merritt  <merritt@u.washington.edu>
+
+	* term/mac.trm: extra spaces are messing up the documentation..
+
+	* src/graphics.c (boundary) color.c (draw_color_smooth_box):
+	Clean up border placement code, fix colorbox bug.
+
+2008-12-24  Mike Sutton  <mws115@usa.com>
+
+	* term/x11.trm src/gplt_x11.c: Added size and position options for X11.
+
+2008-12-23  Ethan Merritt  <merritt@u.washington.edu>
+
+	* demo/Makefile.am.in demo/all.dem src/Makefile.am:
+	Clean up autoconf dependencies for lua terminal and for demos.
+
+2008-12-21  Peter Hedwig  <peter@affenbande.org>
+
+	* configure.in src/Makefile.am src/term.h term/Makefile.am.in
+	term/lua/ChangeLog term/lua/gnuplot.lua term/lua/gnuplot-lua-tikz.sty
+	term/lua/INSTALL term/lua/NEWS term/lua/README term/lua/TODO:
+
+	Generic Lua terminal with PGF/TikZ support.
+	The current implementation supports output via TikZ/pdflatex:
+		set term lua standalone
+		set output 'plot.tex'
+		plot foo
+		unset output
+		!pdflatex plot
+
+2008-12-17  Ethan Merritt  <merritt@u.washington.edu>
+
+	* src/show.c (show_version) term/x11.trm (parse_driver):
+	Do not overwrite the environmental variable GNUPLOT_DRIVER_DIR.
+
+2008-12-14  Ethan Merritt  <merritt@u.washington.edu>
+
+	* src/graph3d.c src/graph3d.h:  More work on "set view equal {xy|xyz}'.
+	It now works well for terminals with isotropic coordinate systems, but 
+	unfortunately not for x11 or windows.
+
+2008-12-13  Ethan Merritt  <merritt@u.washington.edu>
+
+	* term/emf.trm: Replace assert() statements with int_warn().
+	Fix handling of enhanced text for which the rotation angle is non-zero.
+	Bug #2424595
+
+2008-12-11  Bastian Maerkisch  <bmaerkisch@web.de>
+            Axel Thimm <thimm@users.sourceforge.net>
+
+	* configure.in NEWS src/command.c src/gp_hist.h src/graphics.c
+	src/history.c src/plot.c src/readline.c src/readline.h src/show.c
+	src/term_api.h src/term.c (term_initialise):
+
+	./configure --with-readline=bsd
+	Allow gnuplot to use the NetBSD editline library as an alternative to
+	gnu readline. This adaptation was originally coded by Bastian Maerkisch
+	and subsequently improved by Axel Thimm and by Tormod Volden.
+	The routine term_init() is renamed to term_initialise()
+	to avoid conflict with an identically named routine in libedit.
+	SF Patch #1504831
+
+2008-12-10  Ethan Merritt  <merritt@u.washington.edu>
+
+	* src/datafile.c: Revise syntax of binary datafile record= and array=
+	options. This allows the use of variables and expressions, adds several
+	features that were documented but never implemented, and generally 
+	cleans up the code.
+	    old syntax:    set datafile binary array=128x128
+	    new syntax:    set datafile binary array=(128,128)
+	The old syntax is still accepted, but is now deprecated
+	Bug #2378535
+
+	* docs/gnuplot.doc demo/image.dem demo/rgbalpha.dem demo/image2.dem
+	demo/circles.dem: Update docs and demos to use the new syntax.
+
+	* src/gadgets.c src/gadgets.h src/graph3d.c src/save.c src/set.c
+	src/show.c src/unset.c docs/gnuplot.doc:
+	Modify command 'set view equal_axes' to accept suboptions xy and xyz.
+	`set view equal xy` uses the same scale for the x and y axes (as before)
+	`set view equal xyz` additionally uses that same scale for the z axis 
+
+2008-12-09  Ethan Merritt  <merritt@u.washington.edu>
+
+	* src/color.h src/gadgets.c src/gadgets.h src/graphics.c src/misc.c
+	src/misc.h src/plot2d.c src/save.c src/set.c src/show.c src/term_api.h
+	src/unset.c docs/gnuplot.doc:
+
+	Upgrade the fillstyle border field to take a color specifier rather than
+	a simple line type.
+	Bug #2345832
+
+2008-12-07  Ethan Merritt  <merritt@u.washington.edu>
+
+	* src/graphics.c (do_key_sample do_rectangle): Fill style EMPTY
+	should be no fill at all, rather than fill with background.
+	Also, the first empty box in a boxplot was being drawn in the wrong
+	color.
+	Bug #2345832
+
 2008-12-03  Ethan Merritt  <merritt@u.washington.edu>
 
 	* src/datafile.c (plot_option_binary_format): Code cleanup.

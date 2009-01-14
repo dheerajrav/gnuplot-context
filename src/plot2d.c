@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: plot2d.c,v 1.187 2008/10/12 17:58:13 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: plot2d.c,v 1.189 2009/01/04 22:45:41 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - plot2d.c */
@@ -517,20 +517,21 @@ get_data(struct curve_points *current_plot)
 	    cp_extend(current_plot, i + i + 1000);
 	}
 
-	/* Allow for optional columns.  Currently only used for a few styles, */
-	/* but could be extended to a more general mechanism.                 */
-	variable_color_value = 0;
-	if (variable_color) {
-	    static char *errmsg = "Not enough columns for variable color";
-	    switch (current_plot->plot_style) {
-	    case VECTOR:	if (j < 5) int_error(NO_CARET,errmsg);
-	    case CIRCLES: 	if (j < 4) int_error(NO_CARET,errmsg);
-	    case BOXES:		if (j < 3) int_error(NO_CARET,errmsg);
-				variable_color_value = v[--j];
-	    default:		break;
-	    }
-	}
-
+        if (j > 0) {
+            /* Allow for optional columns.  Currently only used for a few styles, */
+            /* but could be extended to a more general mechanism.                 */
+            variable_color_value = 0;
+            if (variable_color) {
+                static char *errmsg = "Not enough columns for variable color";
+                switch (current_plot->plot_style) {
+                case VECTOR:	if (j < 5) int_error(NO_CARET,errmsg);
+                case CIRCLES: 	if (j < 4) int_error(NO_CARET,errmsg);
+                case BOXES:	if (j < 3) int_error(NO_CARET,errmsg);
+                    variable_color_value = v[--j];
+                default:	break;
+                }
+            }
+        }
 	switch (j) {
 	default:
 	    {
@@ -1453,7 +1454,7 @@ eval_plots()
 
 		/* Allow explicit starting color or pattern for this histogram */
 		lp_parse(&lp, FALSE, FALSE);
-		parse_fillstyle(&fs, FS_SOLID, 100, fs.fillpattern, -1);
+		parse_fillstyle(&fs, FS_SOLID, 100, fs.fillpattern, default_fillstyle.border_color);
 
 		} while (c_token != previous_token);
 
@@ -1766,7 +1767,7 @@ eval_plots()
 				default_fillstyle.fillstyle,
 				default_fillstyle.filldensity,
 				pattern_num,
-				default_fillstyle.border_linetype);
+				default_fillstyle.border_color);
 			if (this_plot->plot_style == FILLEDCURVES
 			&& this_plot->fill_properties.fillstyle == FS_EMPTY)
 			    this_plot->fill_properties.fillstyle = FS_SOLID;
@@ -1857,7 +1858,7 @@ eval_plots()
 				default_fillstyle.fillstyle,
 				default_fillstyle.filldensity,
 				pattern_num,
-				default_fillstyle.border_linetype);
+				default_fillstyle.border_color);
 		if ((this_plot->fill_properties.fillstyle == FS_PATTERN)
 		  ||(this_plot->fill_properties.fillstyle == FS_TRANSPARENT_PATTERN))
 		    pattern_num = this_plot->fill_properties.fillpattern + 1;

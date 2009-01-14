@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: graphics.c,v 1.286 2008/11/28 19:13:23 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: graphics.c,v 1.291 2009/01/06 19:36:53 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - graphics.c */
@@ -491,7 +491,7 @@ boundary(struct curve_points *plots, int count)
 	plot_bounds.xleft = lmargin.x * (float)t->xmax;
     else
 	plot_bounds.xleft = xoffset * t->xmax
-			  + t->h_char * (lmargin.x >= 0 ? lmargin.x : 2);
+			  + t->h_char * (lmargin.x >= 0 ? lmargin.x : 1);
     /*}}} */
 
 
@@ -509,7 +509,8 @@ boundary(struct curve_points *plots, int count)
     /* Make room for the color box if anything in the graph uses a palette. */
     set_plot_with_palette(0, MODE_PLOT); /* EAM FIXME - 1st parameter is a dummy */
     if (rmargin.scalex != screen) {
-	if (is_plot_with_palette() && (color_box.where != SMCOLOR_BOX_NO)
+	if (is_plot_with_colorbox()
+	&& (color_box.where != SMCOLOR_BOX_NO)
 	&& (color_box.where != SMCOLOR_BOX_USER)) {
 	    plot_bounds.xright -= (int) (plot_bounds.xright-plot_bounds.xleft)*COLORBOX_SCALE;
 	    plot_bounds.xright -= (int) ((t->h_char) * WIDEST_COLORBOX_TICTEXT);
@@ -601,14 +602,6 @@ boundary(struct curve_points *plots, int count)
     }
 
     /*  end of preliminary plot_bounds.ybot calculation }}} */
-
-    /* EAM FIXME - 
-     * I don't understand why this is necessary, but it is.
-     * Didn't we already do this at line 488ff, and then add colorbox? */
-    if (lmargin.scalex != screen)
-	plot_bounds.xleft = xoffset * t->xmax;
-    if (rmargin.scalex != screen)
-	plot_bounds.xright = (xsize + xoffset) * (t->xmax-1) + 0.5;
 
     if (lkey) {
 	TBOOLEAN key_panic = FALSE;
@@ -1551,12 +1544,12 @@ do_plot(struct curve_points *plots, int pcount)
     adjust_offsets();
 
     /* EAM June 2003 - Although the comment below implies that font dimensions
-     * are known after term_init(), this is not true at least for the X11
+     * are known after term_initialise(), this is not true at least for the X11
      * driver.  X11 fonts are not set until an actual display window is
      * opened, and that happens in term->graphics(), which is called from
      * term_start_plot().
      */
-    term_init();		/* may set xmax/ymax */
+    term_initialise();		/* may set xmax/ymax */
     term_start_plot();
 
     /* compute boundary for plot (plot_bounds.xleft, plot_bounds.xright, plot_bounds.ytop, plot_bounds.ybot)
@@ -3642,12 +3635,8 @@ plot_boxes(struct curve_points *plot, int xaxis_y)
 		    } else
 			(*t->fillbox) (style, x, y, w, h);
 
-		    /* FIXME EAM - Is this still correct??? */
-		    if (strcmp(t->name, "fig") == 0) break;
-
-		    if (plot->fill_properties.border_linetype == LT_NODRAW)
+		    if (!need_fill_border(&plot->fill_properties))
 			break;
-		    need_fill_border(&plot->fill_properties);
 		}
 		newpath();
 		(*t->move) (xl, yb);
@@ -3657,7 +3646,7 @@ plot_boxes(struct curve_points *plot, int xaxis_y)
 		(*t->vector) (xl, yb);
 		closepath();
 
-		if( t->fillbox && plot->fill_properties.border_linetype != LT_DEFAULT) {
+		if( t->fillbox && plot->fill_properties.border_color.type != TC_DEFAULT) {
 		    (*t->linetype)(plot->lp_properties.l_type);
 		    if (plot->lp_properties.use_palette)
 			apply_pm3dcolor(&plot->lp_properties.pm3d_color,t);
@@ -3727,7 +3716,8 @@ plot_circles(struct curve_points *plot)
     int style = style_from_fill(fillstyle);
     TBOOLEAN withborder = FALSE;
 
-    if (fillstyle->border_linetype != LT_NODRAW)
+    if (fillstyle->border_color.type != TC_LT
+    ||  fillstyle->border_color.lt != LT_NODRAW)
 	withborder = TRUE;
 
     for (i = 0; i < plot->p_count; i++) {
@@ -4039,8 +4029,9 @@ plot_c_bars(struct curve_points *plot)
 	}
 
 	/* Reset to original color, if we changed it for the border */
-	if ((plot->fill_properties.border_linetype != LT_NODRAW)
-	&&  (plot->fill_properties.border_linetype != LT_DEFAULT)) {
+	if (plot->fill_properties.border_color.type != TC_DEFAULT
+	&& !( plot->fill_properties.border_color.type == TC_LT &&
+	      plot->fill_properties.border_color.lt == LT_NODRAW)) {
 		(*t->linetype)(plot->lp_properties.l_type);
 		if (plot->lp_properties.use_palette)
 		    apply_pm3dcolor(&plot->lp_properties.pm3d_color,t);
@@ -5273,8 +5264,7 @@ do_key_sample(
 	apply_pm3dcolor(&this_plot->lp_properties.pm3d_color,t);
 
     /* draw sample depending on bits set in plot_style */
-    if (this_plot->plot_style & PLOT_STYLE_HAS_FILL
-	&& t->fillbox) {
+    if (this_plot->plot_style & PLOT_STYLE_HAS_FILL && t->fillbox) {
 	struct fill_style_type *fs = &this_plot->fill_properties;
 	int style = style_from_fill(fs);
 	unsigned int x = xl + key_sample_left;
@@ -5288,14 +5278,17 @@ do_key_sample(
 	} else
 #endif
 	if (w > 0) {    /* All other plot types with fill */
-	    if (this_plot->lp_properties.use_palette && t->filled_polygon)
-		(*t->filled_polygon)(4, fill_corners(style,x,y,w,h));
-	    else
-		(*t->fillbox)(style,x,y,w,h);
+	    if (style != FS_EMPTY) {
+		if (this_plot->lp_properties.use_palette && t->filled_polygon)
+		    (*t->filled_polygon)(4, fill_corners(style,x,y,w,h));
+		else
+		    (*t->fillbox)(style,x,y,w,h);
+	    }
 
 	    /* need_fill_border will set the border linetype, but candlesticks don't want it */
-	    if ((this_plot->plot_style == CANDLESTICKS && fs->fillstyle == FS_EMPTY)
-	    ||  (this_plot->plot_style == CANDLESTICKS && fs->border_linetype == LT_NODRAW)
+	    if ((this_plot->plot_style == CANDLESTICKS && fs->border_color.type == TC_LT
+							&& fs->border_color.lt == LT_NODRAW)
+	    ||   style == FS_EMPTY
 	    ||   need_fill_border(fs)) {
 		newpath();
 		draw_clip_line( xl + key_sample_left,  yl - key_entry_height/4,
@@ -5308,8 +5301,8 @@ do_key_sample(
 			    xl + key_sample_left,  yl - key_entry_height/4);
 		closepath();
 	    }
-	    if (fs->fillstyle != FS_EMPTY && fs->border_linetype != LT_NODRAW
-	    &&  fs->fillstyle != FS_DEFAULT) {
+	    if (fs->fillstyle != FS_EMPTY && fs->fillstyle != FS_DEFAULT
+	    && !(fs->border_color.type == TC_LT && fs->border_color.lt == LT_NODRAW)) {
 		(*t->linetype)(this_plot->lp_properties.l_type);
 		if (this_plot->lp_properties.use_palette)
 		    apply_pm3dcolor(&this_plot->lp_properties.pm3d_color,t);
@@ -5473,10 +5466,12 @@ do_rectangle( int dimensions, t_object *this_object, int style )
 	term_apply_lp_properties(&lpstyle);
 	style = style_from_fill(fillstyle);
 
-	if (lpstyle.use_palette && term->filled_polygon) {
-	    (*term->filled_polygon)(4, fill_corners(style,x,y,w,h));
-	} else if (term->fillbox)
-	    (*term->fillbox) (style, x, y, w, h);
+	if (style != FS_EMPTY) {
+	    if (lpstyle.use_palette && term->filled_polygon) {
+		(*term->filled_polygon)(4, fill_corners(style,x,y,w,h));
+	    } else if (term->fillbox)
+		(*term->fillbox) (style, x, y, w, h);
+	}
 
 	if (need_fill_border(fillstyle)) {
 	    (*term->move)   (x, y);
@@ -6185,11 +6180,11 @@ plot_image_or_update_axes(void *plot, TBOOLEAN update_axes)
 			    set_rgbcolor(rgblt);
 			}
 			if (pixel_planes == IC_RGBA) {
-			    int alpha = points[i_image].CRD_A;
+			    int alpha = points[i_image].CRD_A * 100./255.;
 			    if (alpha == 0)
 				goto skip_pixel;
 			    if (term->flags & TERM_ALPHA_CHANNEL)
-				corners[0].style = FS_SOLID + (alpha<<4);
+				corners[0].style = FS_TRANSPARENT_SOLID + (alpha<<4);
 			}
 			(*term->filled_polygon) (N_corners, corners);
 		    }

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: misc.c,v 1.104 2008/10/27 03:37:28 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: misc.c,v 1.107 2009/01/01 21:48:54 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - misc.c */
@@ -719,21 +719,15 @@ filledcurves_options_tofile(filledcurves_opts *fco, FILE *fp)
 TBOOLEAN
 need_fill_border(struct fill_style_type *fillstyle)
 {
-    /* Wants a border in the current color */
-    if (fillstyle->border_linetype == LT_DEFAULT)
-	return TRUE;
+    /* Doesn't want a border at all */
+    if (fillstyle->border_color.type == TC_LT && fillstyle->border_color.lt == LT_NODRAW)
+	return FALSE;
 
     /* Wants a border in a new color */
-    if (fillstyle->border_linetype != LT_NODRAW) {
-	struct lp_style_type ls = DEFAULT_LP_STYLE_TYPE;
-	if (prefer_line_styles) {
-	    lp_use_properties(&ls, fillstyle->border_linetype+1);
-	    term_apply_lp_properties(&ls);
-	} else
-	    (*term->linetype)(fillstyle->border_linetype);
-	return TRUE;
-    }
-    return FALSE;
+    if (fillstyle->border_color.type != TC_DEFAULT)
+	apply_pm3dcolor(&fillstyle->border_color,term);
+    
+    return TRUE;
 }
 
 /*
@@ -746,14 +740,15 @@ need_fill_border(struct fill_style_type *fillstyle)
 void
 lp_parse(struct lp_style_type *lp, TBOOLEAN allow_ls, TBOOLEAN allow_point)
 {
-    if (allow_ls &&
-	(almost_equals(c_token, "lines$tyle") || equals(c_token, "ls"))) {
-	c_token++;
-	lp_use_properties(lp, int_expression());
-    } else {
 	/* avoid duplicating options */
 	int set_lt = 0, set_pal = 0, set_lw = 0, set_pt = 0, set_ps = 0;
 
+	if (allow_ls &&
+	    (almost_equals(c_token, "lines$tyle") || equals(c_token, "ls"))) {
+	    c_token++;
+	    lp_use_properties(lp, int_expression());
+	} 
+    
 	while (!END_OF_COMMAND) {
 	    if (almost_equals(c_token, "linet$ype") || equals(c_token, "lt")) {
 		if (set_lt++)
@@ -887,19 +882,12 @@ lp_parse(struct lp_style_type *lp, TBOOLEAN allow_ls, TBOOLEAN allow_point)
 
 	if (set_lt > 1 || set_pal > 1 || set_lw > 1 || set_pt > 1 || set_ps > 1)
 	    int_error(c_token, "duplicated arguments in style specification");
-
-#if defined(__FILE__) && defined(__LINE__) && defined(DEBUG_LP)
-	fprintf(stderr,
-		"lp_properties at %s:%d : lt: %d, lw: %.3f, pt: %d, ps: %.3f\n",
-		__FILE__, __LINE__, lp->l_type, lp->l_width, lp->p_type,
-		lp->p_size);
-#endif
-    }
 }
 
 /* <fillstyle> = {empty | solid {<density>} | pattern {<n>}} {noborder | border {<lt>}} */
 void
-parse_fillstyle(struct fill_style_type *fs, int def_style, int def_density, int def_pattern, int def_bordertype)
+parse_fillstyle(struct fill_style_type *fs, int def_style, int def_density, int def_pattern, 
+		t_colorspec def_bordertype)
 {
     TBOOLEAN set_fill = FALSE;
     TBOOLEAN set_param = FALSE;
@@ -909,7 +897,7 @@ parse_fillstyle(struct fill_style_type *fs, int def_style, int def_density, int 
     fs->fillstyle = def_style;
     fs->filldensity = def_density;
     fs->fillpattern = def_pattern;
-    fs->border_linetype = def_bordertype;
+    fs->border_color = def_bordertype;
 
     if (END_OF_COMMAND)
 	return;
@@ -939,13 +927,19 @@ parse_fillstyle(struct fill_style_type *fs, int def_style, int def_density, int 
 	if (END_OF_COMMAND)
 	    continue;
 	else if (almost_equals(c_token, "bo$rder")) {
-	    fs->border_linetype = LT_DEFAULT;
+	    fs->border_color.type = TC_DEFAULT;
 	    c_token++;
-	    if (!END_OF_COMMAND)
-		fs->border_linetype = int_expression() - 1;
+	    if (equals(c_token,"-") || isanumber(c_token)) {
+		fs->border_color.type = TC_LT;
+		fs->border_color.lt = int_expression() - 1;
+	    } else if (!END_OF_COMMAND) {
+		c_token--;
+		parse_colorspec(&fs->border_color, TC_Z);
+	    }
 	    continue;
 	} else if (almost_equals(c_token, "nobo$rder")) {
-	    fs->border_linetype = LT_NODRAW;
+	    fs->border_color.type = TC_LT;
+	    fs->border_color.lt = LT_NODRAW;
 	    c_token++;
 	    continue;
 	}
@@ -1215,22 +1209,6 @@ arrow_parse(
 	if (set_layer>1 || set_line>1 || set_head>1 || set_headsize>1 || set_headfilled>1)
 	    int_error(c_token, "duplicated arguments in style specification");
 
-#if defined(__FILE__) && defined(__LINE__) && defined(DEBUG_LP)
-	arrow->layer = 0;
-	arrow->lp_properties = tmp_lp_style;
-	arrow->head = 1;
-	arrow->head_length = 0.0;
-	arrow->head_lengthunit = first_axes;
-	arrow->head_angle = 15.0;
-	arrow->head_backangle = 90.0;
-	arrow->head_filled = 0;
-	fprintf(stderr,
-		"arrow_properties at %s:%d : layer: %d, lt: %d, lw: %.3f, head: %d, headlength/unit: %.3f/%d, headangles: %.3f/%.3f, headfilled %d\n",
-		__FILE__, __LINE__, arrow->layer, arrow->lp_properties.l_type,
-		arrow->lp_properties.l_width, arrow->head, arrow->head_length,
-		arrow->head_lengthunit, arrow->head_angle,
-		arrow->head_backangle, arrow->head_filled);
-#endif
     }
 }
 
