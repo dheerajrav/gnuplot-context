@@ -1,3 +1,386 @@
+2009-03-03  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* configure.in:  Use AC_SEARCH_LIBS rather than AC_CHECK_LIB when
+	checking for lua support. This allows for the library to be named
+	something other than liblua.so.
+	Bug #2637549
+
+2009-03-02  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* term/hpgl.trm term/tgif.trm term/gd.trm src/graphics.c:
+	Fix dereference of uninitialized memory, overlapping memcpy, and
+	other problems found by valgrind.
+
+2009-03-02  Petr Mikulik  <mikulik@physics.muni.cz>
+
+	* term/post.trm (PS_encode_image print_five_operand_image): Fix
+	related to the patch of post.trm from 2009-01-26: images drawn
+	"with rgbimage" must always be drawn as rgb colour images.
+	SF Patch #2613919: postscript outputs colour RGB as palette image
+
+2009-02-28  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* term/canvas.term:  "set term canvas {linwidth <lw>}"
+
+2009-02-28  James R. Van Zandt  <jrvz@comcast.net>
+
+	* src/fit.c (fit_command): Allow fitting functions with up to five
+	independent variables.  If there is no data to fit, report how
+	many data lines were rejected by each range spec.  In fit.log,
+	report user-specified dummy variable names and all range
+	restrictions (including Z).
+
+	* demo/fit.dem: revise printed comments to show the fit commands.
+	Demonstrate fitting a function with three independent variables.
+
+2009-02-27  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* term/canvas.trm:  Introduce a structure canvas_state to hold internal
+	state variables.  This allows us to avoid redundant writes of the
+	current color, linewidth, fill settings.  The size of image and filled
+	curve plots is substantially reduced.
+
+	* src/graphics.c (plot_image_or_update_axes):  
+	The flag "rectangular_image" doesn't really indicate what it says.
+	Fix that so we can use it to call term->fillbox() rather than
+	term->filled_polygon() as appropriate in image plots.
+	This makes a significant difference for the canvas terminal, because
+	drawing a filled rectangle is a primitive operation, whereas filling
+	a polygon is a relatively verbose sequence of instructions.
+
+2009-02-25  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* term/gd.trm (PNG_text_angle): Force angle to fall in the range
+	[-pi/2 : pi/2].  Reported to avoid problems in some versions of libgd.
+
+2009-02-23  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* term/canvas.trm: Introduce helper routines bp() and cfp() into the
+	javascript output file.  This reduces the file size of plots containing
+	lots of filled polygons, e.g. images or 3D surfaces, by about 1/3.
+
+2009-02-22  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* term/canvas.trm: Add support for enhanced text mode.
+
+	* term/js/canvasmath.js:
+	Resize glyphs for - + / ×  so that they are all width 20 (same as 0-9).
+	Resize glyph = to width 24 (same as < > ~).
+
+2009-02-22  Benjamin Lindner  <lindnerb@users.sourceforge.net>
+
+	* src/mouse.c:  Fix broken FPRINTF debugging statements.
+
+2009-02-21  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* term/canvas.trm:  Specify UTF-8 encoding in HTML header.
+
+	* term/js/canvasmath.js:  This is a plug-in replacement for Jim Studt's
+	original canvastext.js, supplemented with additional character glyphs
+	from the Hershey font set including Greek letters and various math
+	symbols.  The additional glyphs are all indexed by their Unicode code
+	points.  If embedded in a UTF-8 document, everything works as it should.
+
+	* demo/approximate.dem demo/enhanced_utf8.dem:
+	Add {} to help terminals having trouble with character placement of
+	superscripts.
+
+2009-02-20  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* term/js/canvastext.js:  Correct some glyphs, modify slightly to allow
+	non-ascii characters, and add a few examples of non-ascii glyphs.
+
+2008-02-19  Peter Hedwig  <peter@affenbande.org>
+
+	* term/lua/gnuplot.lua:  More forgiving regexp to catch the
+	version/date string.
+
+2009-02-19  Manfred Schwarb  <manfred99@gmx.ch>
+
+	* src/gpexecute.c:  Remove a broken DEBUG section.
+
+2009-02-18  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/plot3d.c:  The iteration code was getting confused by 3D plots
+	that contain multiple data sets.  Do not assume that the Nth file
+	mentioned on the command line is the Nth data set.  Bugfix.
+
+2009-02-18  Benjamin Lindner  <lindnerb@users.sourceforge.net>
+
+	* docs/gnuplot.doc:  Do not use an explicit extension in the names of
+	figures to be processed by {pdf}latex.
+
+	* term/post.trm:  Add missing intializer to various #define statements.
+
+2009-02-16  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/gplt_x11.c:  Make variable definition comply with C standard.
+
+	* docs/gnuplot.doc docs/titlepag.tex term/cgm.trm term/canvas.trm:
+	Reconcile duplicate index entries.  Add current version to title.
+
+2009-02-15  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/term_api.h src/term.c (set_term) set.c (set_terminal):
+	Allow a string variable containing the requested terminal type.
+	E.g.  screen = 'x11';  set term screen
+
+2009-02-15  Petr Mikulik  <mikulik@physics.muni.cz>
+
+	SF Patch #2570385: GPVAL_TERM_WINDOWID
+	This patch adds automatic variable GPVAL_NAME_WINDOWID, which
+	contains ID of the current window running under X11 (e.g. x11 and wxt
+	terminals).
+
+	* src/eval.c (update_gpval_variables): Update GPVAL_TERM_WINDOWID.
+
+	* src/gadgets.h src/gadgets.c: New global variable current_x11_windowid
+	to be filled by terminals running on X11 (x11, wxt, qt, ...).
+
+	* src/mouse.c (do_event): Set global current_x11_windowid from ge->winid
+	and call update_gpval_variables() to update GPVAL_TERM_WINDOWID.
+
+	* src/gplt_x11.c (gp_execute_GE_plotdone): New routine to replace direct
+	call of gp_exec_event(GE_plotdone, ..., {0|X11 Window ID}) to notify
+	gnuplot of changed X11 Window ID.
+
+2009-02-14  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* docs/gnuplot.doc docs/plotstyles.gnu:  Add a figure showing the use
+	of image mode to create a heat map. Add a "heatmap" entry to the index.
+
+2009-02-11  Petr Mikulik  <mikulik@physics.muni.cz>
+
+	* config/makefile.mgw: Use $(CC) instead of gcc to compile pgnuplot.
+
+2009-02-07  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* term/x11.trm (X11_options): Call term->init() rather than X11_init(),
+	since the options routine is shared by x11 and xlib drivers.
+
+2009-02-05  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/util.c (type_udv) src/eval.c (add_udv_by_name) src/fit.c
+	src/plot2d.c: Prevent strange behaviour due to uninitialized field
+	udv_type in a udv entry that has been created but not yet defined.
+	Bug #2556225
+
+	* src/graph3d.c (draw_3d_graphbox): Allow Z axis label in 3D plots
+	to be rotated.
+
+2009-02-04  Petr Mikulik  <mikulik@physics.muni.cz>
+
+	* NEWS docs/gnuplot.doc src/pm3d.c (pm3d_plot) src/set.c (set_pm3d):
+	Let "pm3d interpolate m,n" for negative m,n interpolates the surface
+	for at least |m|, |n| points. The case m=n=0 means an optimal number
+	of interpolation points.
+	SF Patch #2558565: pm3d interpolate 0,0
+
+2009-02-03  Petr Mikulik  <mikulik@physics.muni.cz>
+
+	* src/eval.c (update_gpval_variables) src/command.c (changedir_command)
+	docs/gnuplot.doc: New automatic variable GPVAL_PWD for current working
+	directory.
+
+2009-02-02  Petr Mikulik  <mikulik@physics.muni.cz>
+
+	* src/mouse.c (lookup_key): Use exact match, otherwise F10, F11, or F12
+	hotkeys bind to F1.
+
+2009-02-02  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/graphics.c (boundary do_plot): Move test for colorbox outside of
+	boundary(), and only calculate placement of colorbox once.
+	Bugfix.
+
+	* term/canvas.trm: Taking the URL for associated javascripts from an
+	environmental variable turns out to be less than useful if the scripts
+	are tailored to the individual plots. Add a terminal option instead:
+	    set term canvas mouse jsdir 'URL/for/javascripts/'
+
+2009-02-01  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/command.c (define): Fix under-allocation of space for user
+	variables named GPFUN_*.
+
+2009-01-31  James R. Van Zandt  <jrvz@comcast.net>
+
+	* docs/gnuplot.doc: Update documentation: user functions can have
+	up to 12 variables.
+
+	* src/fit.c (fit_command): Allow second independent variable to be
+	renamed in a fit command.
+
+2009-01-30  James R. Van Zandt  <jrvz@comcast.net>
+
+	* src/command.c (define): save a function definition in a
+	user-accessible variable
+
+2009-01-28  Hans-Bernhard Broeker  <broeker@physik.rwth-achen.de>
+
+	* term/emf.trm (GP_TA_NOUPDATECP, GP_TA_UPDATECP, GP_TA_LEFT)
+	(GP_TA_RIGHT, GP_TA_CENTER, GP_TA_TOP, GP_TA_BOTTOM)
+	(GP_TA_BASELINE): Added a GP_ prefix to avoid collision between
+	these and the actual Windows API macros of the same names.
+
+2009-01-28  Petr Mikulik  <mikulik@physics.muni.cz>
+
+	* src/breaders.c (edf_filetype_function): Fix for long headers.
+
+2009-01-27  Petr Mikulik  <mikulik@physics.muni.cz>
+
+	* src/pm3d.c (pm3d_plot): Fix for "set pm3d depthorder" ignoring
+	"set pm3d interpolate".
+
+2009-01-26  Ethan Merritt  <merritt@u.washington.edu>
+
+	* src/wxterminal/gp_cairo.c (gp_cairo_draw_fillbox):
+	Fix segfault due to freeing an uninitialized buffer pointer.
+
+	* term/cairo.trm (cairotrm_filled_polygon):
+	Plug memory leak: image buffers were never freed.
+
+2009-01-26  Petr Mikulik  <mikulik@physics.muni.cz>
+
+	* term/post.trm (PS_make_header PS_image): Since the beginning of pm3d,
+	the "/Color def" switched between gray and colour map. Choosing "false"
+	for "Color", the gray map was always selected regardless the use of a
+	custom palette. This led to ambiguities for custom colour palettes if
+	they contain grays only. Thus let postscript choose always colour
+	palette for interpolated colours ('set palette defined', 'set palette
+	file') and colour/gray according to "Color" otherwise ('set palette
+	gray', 'set palette rgb').
+	SF Patch #2516634: custom colormap using postscript term
+
+2009-01-25  Shigeharu Takeno  <shige@iee.niit.ac.jp>
+
+	* docs/gnuplot-ja.doc docs/term-ja.diff:
+	Sync Japanese documentation to gnuplot.doc rev 1.553
+
+2009-01-25  Ethan Merritt  <merritt@u.washington.edu>
+
+	* term/canvas.trm: Clean up the bookkeeping for beginPath()/closePath().
+	This is a work-around for early versions of the opera web brower, which
+	seem to require a closePath() element even if the path has already been
+	stroked or filled.
+
+	* term/canvas.trm: CANVAS_fillbox() can use the primitive operation
+	ctx.fillRect() rather than the generic, but more expensive, routine
+	CANVAS_filled_polygon().  This is more likely to be handled correctly by
+	older versions of opera.
+
+2009-01-23  Ethan Merritt  <merritt@u.washington.edu>
+
+	* src/graphics.c src/term_api.h term/canvas.trm term/Makefile.am.in
+	term/js/gnuplot_mouse.css term/js/gnuplot_mouse.js term/js/grid.png:
+	Clean up mousing code for the canvas terminal.  Add a "mousebox"
+	table to the html output in standalone mode, including an icon that
+	toggles the grid lines. The table format is controlled by stylesheet
+	gnuplot_mouse.css, which can be locally customized.
+
+2009-01-22  Ethan Merritt  <merritt@u.washington.edu>
+
+	* term/svg.trm:  Add attribute  <svg xml:space="preserve"> in the
+	header.  Most browsers are ignoring this, so we still need to keep the
+	work-around that repeats this attribute for individual text segments.
+
+2009-01-21  Harald Harders  <h.harders@tu-bs.de>
+
+	* term/post.trm:  Add a user-editable toggle ClipToBoundingBox.
+	Default behaviour remains unchanged, but setting this toggle to "true"
+	tells PostScript to clip everything that outside the canvas area.
+
+2009-01-15  Timothee Lecomte  <timothee.lecomte@lpa.ens.fr>
+
+	* config/makefile.mgw:
+	Add gp_cairo_helpers.o in the list of object files to build for
+	wxt.
+
+2009-01-14  Ethan Merritt  <merritt@u.washington.edu>
+
+	* configure.in config/config.cyg config/config.dj2 config/config.mgw
+	config/config.nt config/config.os2 config/config.oww
+	src/gplt_x11.c src/gplt_x11.h src/show.c term/x11.trm:
+	Do away with the conditional code flag BINARY_X11_POLYGON.
+	No one has ever reported problems with it, so use it always.
+
+2009-01-14  Timothee Lecomte  <timothee.lecomte@lpa.ens.fr>
+
+	* src/wxterminal/gp_cairo.c (gp_cairo_draw_image):
+	* src/wxterminal/gp_cairo.h:
+	* src/wxterminal/wxt_gui.h:
+	* src/wxterminal/wxt_gui.cpp (wxt_image):
+	* term/cairo.trm (cairotrm_image):
+	Change gp_cairo_draw_image prototype so that the conversion from
+	gnuplot	internal image format to a unsigned int* is completely done
+	outside	gp_cairo.c. Modify callers in cairo-based terminals
+	accordingly. This is still preliminary work towards wxt-for-MacOSX.
+
+2009-01-14  Petr Mikulik  <mikulik@physics.muni.cz>
+
+	* src/gplt_x11.c (process_event): Change the status bar of a non-active
+	or persistent window only for almost2d plot.
+
+	* src/gplt_x11.c (exec_cmd): Add field almost2d to plot_struct and set
+	it according to sent ALMOST2D.
+
+	* term/x11.trm (X11_text): Send information about ALMOST2D.
+
+	* src/gadgets.h src/mouse.c: Move definition of macro ALMOST2D to
+	gadgets.h.
+
+2009-01-13  Ethan Merritt  <merritt@u.washington.edu>
+
+	* term/canvas.trm term/js/gnuplot_mouse.js:
+	Mousing code for standalone plots created by the canvas driver.
+	Embedded plots are mouseable also, but the user must provide the
+	appropriate document to wrap the embedded plots and link them to
+	the mousing code.
+
+2009-01-13  Petr Mikulik  <mikulik@physics.muni.cz>
+
+	* config/makefile.mgw: Option to run gdlib-config to determine libraries
+	for linking of gd. Fix link where to download hcw.
+
+2009-01-13  Timothee Lecomte  <timothee.lecomte@lpa.ens.fr>
+
+	* src/Makefile.am src/wxterminal/gp_cairo.c 
+	(gp_cairo_draw_image) src/wxterminal/gp_cairo_helpers.c 
+	src/wxterminal/gp_cairo_helpers.h src/wxterminal/Makefile.am:
+
+	Introduce a new source file, named gp_cairo_helpers.c, to
+	contain gp_cairo_* code that uses functions from gnuplot core.
+	Currently this is a small portion of code to convert a
+	coordval* to a char* buffer. This will be helpful for
+	wxt-as-a-separate-process where I need to separate clearly the
+	code used in the core, and the code used in the terminal process.
+
+2009-01-09  Ethan Merritt  <merritt@u.washington.edu>
+
+	* src/fit.c (fit_command):  Issue a warning if no fittable parameters
+	are found.
+	Bug #1964774
+
+2009-01-08  "Bruce Lueckenhoff" <lueckenhoff@users.sourceforge.net>
+
+	* /configure.in /docs/Makefile.in /src/makefile.all /src/Makefile.am
+	/src/makefile.awc /term/Makefile.am.in /src/term.h /term/canvas.trm
+	/term/js/canvastext.js:
+
+	New terminal driver "set term canvas" for the HTML 5 canvas element.
+	The HTML canvas tag supports compact, cross-platform graphics that can
+	easily be embedded in web pages and accessed by various browsers.
+
+	This terminal uses a single vector font implemented in canvastext.js
+	(released into the public domain by Jim Studt). The 'standalone' option
+	creates an html output file containing javascript code to actually draw
+	the plot.  The 'name <foo>' option instead creates pure javascript
+	output that contains a procedure foo() that draws the plot onto an
+	externally-created canvas named "foo".  You can thus include more than
+	one plot, each on a separate canvas, in a single html document.
+	In both standalone or embedded mode, the canvastext.js script is
+	referenced as an external resource.
+
 2009-01-07  Ethan Merritt  <merritt@u.washington.edu>
 
 	* src/util3d.c (edge3d_intersect):  Fix long-standing bug in which
@@ -98,7 +481,7 @@
 	Bug #2424595
 
 2008-12-11  Bastian Maerkisch  <bmaerkisch@web.de>
-            Axel Thimm <thimm@users.sourceforge.net>
+	    Axel Thimm <thimm@users.sourceforge.net>
 
 	* configure.in NEWS src/command.c src/gp_hist.h src/graphics.c
 	src/history.c src/plot.c src/readline.c src/readline.h src/show.c

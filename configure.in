@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 dnl configure.in for gnuplot on Unix.
 dnl
-dnl $Id: configure.in,v 1.240 2009/01/07 00:44:25 sfeam Exp $
+dnl $Id: configure.in,v 1.245 2009/03/03 20:06:16 sfeam Exp $
 dnl
 dnl this is actually major.minor ...
 dnl note that for a non-beta release, we need to
@@ -588,7 +588,7 @@ if test "${with_lua}" = yes ; then
     LIBS="$LIBS $LUA_LIBS"
   fi
 
-  AC_CHECK_LIB(lua,luaL_openlibs,
+  AC_SEARCH_LIBS(luaL_openlibs, lua,
     [dnl found lua library
      AC_DEFINE(HAVE_LUA,1, [ Define if you want the lua/TikZ terminal. ])
      AC_CHECK_HEADERS(lua.h,,
@@ -707,15 +707,6 @@ AC_ARG_ENABLE(x11-mbfonts,dnl
     LDFLAGS="$_ldflags"
   
   fi
-
-dnl binary_x11_polygon
-AC_ARG_ENABLE(binary_x11_polygon,dnl
-[  --disable-binary-x11-polygon  disable binary_x11_polygon],,
-  test -z "$enable_binary_x11_polygon" && enable_binary_x11_polygon=yes)
-
-if test "$enable_binary_x11_polygon" = yes; then
-  AC_DEFINE(BINARY_X11_POLYGON,1,[ Define if you want the x11 driver to transfer polygon information in binary format. ])
-fi
 
 dnl x11_external
 AC_ARG_ENABLE(x11_external,dnl
@@ -1086,11 +1077,11 @@ AC_MSG_RESULT([gnuplot will be compiled with the following terminals:])
 AC_MSG_RESULT([])
 
 AC_MSG_RESULT([  Standalone terminals: yes (always builtin)])
-AC_MSG_RESULT([    (aed512, aed767, aifm, bitgraph, cgm, corel, dumb, dxf, eepic, emf, emtex,])
+AC_MSG_RESULT([    (canvas, cgm, corel, dumb, dxf, eepic, emf, emtex,])
 AC_MSG_RESULT([    epslatex, epson_180dpi, epson_60dpi, epson_lx800, fig, gpic, hp2623A,])
-AC_MSG_RESULT([    hp2648, hp500c, hpdj, hpgl, hpljii, hppj, imagen, kc_tek40xx, km_tek40xx,])
+AC_MSG_RESULT([    hp2648, hp500c, hpdj, hpgl, hpljii, hppj, imagen,])
 AC_MSG_RESULT([    latex, metafont, metapost, mif, pbm, postscript, pslatex, nec_cp6, okidata,])
-AC_MSG_RESULT([    pcl5, pstex, pstricks, qms, regis, selanar, svg, starc, tandy_60dpi,])
+AC_MSG_RESULT([    pcl5, pstex, pstricks, qms, regis, svg, tandy_60dpi,])
 AC_MSG_RESULT([    tek40xx, tek410x, texdraw, tgif, tkcanvas, tpic, vttek)])
 
 if test "$no_x" != yes; then

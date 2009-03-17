@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: graphics.c,v 1.291 2009/01/06 19:36:53 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: graphics.c,v 1.295 2009/03/02 23:55:26 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - graphics.c */
@@ -504,19 +504,6 @@ boundary(struct curve_points *plots, int count)
     /*}}} */
 
 
-#define COLORBOX_SCALE 0.125
-#define WIDEST_COLORBOX_TICTEXT 3
-    /* Make room for the color box if anything in the graph uses a palette. */
-    set_plot_with_palette(0, MODE_PLOT); /* EAM FIXME - 1st parameter is a dummy */
-    if (rmargin.scalex != screen) {
-	if (is_plot_with_colorbox()
-	&& (color_box.where != SMCOLOR_BOX_NO)
-	&& (color_box.where != SMCOLOR_BOX_USER)) {
-	    plot_bounds.xright -= (int) (plot_bounds.xright-plot_bounds.xleft)*COLORBOX_SCALE;
-	    plot_bounds.xright -= (int) ((t->h_char) * WIDEST_COLORBOX_TICTEXT);
-	}
-    }
-
     /*{{{  preliminary plot_bounds.ybot calculation
      *     first compute heights of labels and tics */
 
@@ -888,10 +875,13 @@ boundary(struct curve_points *plots, int count)
 
     /* Make room for the color box if needed. */
     if (rmargin.scalex != screen) {
-	if (is_plot_with_palette() && is_plot_with_colorbox()
-	&& (color_box.where != SMCOLOR_BOX_NO) && (color_box.where != SMCOLOR_BOX_USER)) {
-	    plot_bounds.xright -= (int) (plot_bounds.xright-plot_bounds.xleft)*COLORBOX_SCALE;
-	    plot_bounds.xright -= (int) ((t->h_char) * WIDEST_COLORBOX_TICTEXT);
+	if (is_plot_with_colorbox()) {
+#define COLORBOX_SCALE 0.125
+#define WIDEST_COLORBOX_TICTEXT 3
+	    if ((color_box.where != SMCOLOR_BOX_NO) && (color_box.where != SMCOLOR_BOX_USER)) {
+		plot_bounds.xright -= (int) (plot_bounds.xright-plot_bounds.xleft)*COLORBOX_SCALE;
+		plot_bounds.xright -= (int) ((t->h_char) * WIDEST_COLORBOX_TICTEXT);
+	    }
 	}
 
 	if (rmargin.x < 0) {
@@ -1552,6 +1542,9 @@ do_plot(struct curve_points *plots, int pcount)
     term_initialise();		/* may set xmax/ymax */
     term_start_plot();
 
+    /* Figure out if we need a colorbox for this plot */
+    set_plot_with_palette(0, MODE_PLOT); /* EAM FIXME - 1st parameter is a dummy */
+
     /* compute boundary for plot (plot_bounds.xleft, plot_bounds.xright, plot_bounds.ytop, plot_bounds.ybot)
      * also calculates tics, since xtics depend on plot_bounds.xleft
      * but plot_bounds.xleft depends on ytics. Boundary calculations depend
@@ -1740,7 +1733,7 @@ do_plot(struct curve_points *plots, int pcount)
     }
 
     /* Add back colorbox if appropriate */
-    if (is_plot_with_palette() && is_plot_with_colorbox() && term->set_color
+    if (is_plot_with_colorbox() && term->set_color
 	&& color_box.layer == LAYER_BACK)
 	    draw_color_smooth_box(MODE_PLOT);
 
@@ -2046,7 +2039,7 @@ do_plot(struct curve_points *plots, int pcount)
 	plot_border();
 
     /* Add front colorbox if appropriate */
-    if (is_plot_with_palette() && is_plot_with_colorbox() && term->set_color
+    if (is_plot_with_colorbox() && term->set_color
 	&& color_box.layer == LAYER_FRONT)
 	    draw_color_smooth_box(MODE_PLOT);
 
@@ -4744,6 +4737,8 @@ xtick2d_callback(
     (void) axis;		/* avoid "unused parameter" warning */
 
     if (grid.l_type > LT_NODRAW) {
+	if (t->layer)
+	    (t->layer)(TERM_LAYER_BEGIN_GRID);
 	term_apply_lp_properties(&grid);
 	if (polar_grid_angle) {
 	    double x = place, y = 0, s = sin(0.1), c = cos(0.1);
@@ -4791,7 +4786,11 @@ xtick2d_callback(
 	    }
 	}
 	term_apply_lp_properties(&border_lp);	/* border linetype */
-    }
+	if (t->layer)
+	    (t->layer)(TERM_LAYER_END_GRID);
+    }	/* End of grid code */
+
+
     /* we precomputed tic posn and text posn in global vars */
 
     (*t->move) (x, tic_start);
@@ -4833,6 +4832,8 @@ ytick2d_callback(
     (void) axis;		/* avoid "unused parameter" warning */
 
     if (grid.l_type > LT_NODRAW) {
+	if (t->layer)
+	    (t->layer)(TERM_LAYER_BEGIN_GRID);
 	term_apply_lp_properties(&grid);
 	if (polar_grid_angle) {
 	    double x = 0, y = place, s = sin(0.1), c = cos(0.1);
@@ -4871,6 +4872,8 @@ ytick2d_callback(
 	    }
 	}
 	term_apply_lp_properties(&border_lp);	/* border linetype */
+	if (t->layer)
+	    (t->layer)(TERM_LAYER_END_GRID);
     }
     /* we precomputed tic posn and text posn */
 
@@ -5677,7 +5680,6 @@ plot_image_or_update_axes(void *plot, TBOOLEAN update_axes)
     t_imagecolor pixel_planes;
     TBOOLEAN project_points = FALSE;		/* True if 3D plot */
 
-
     if (((struct surface_points *)plot)->plot_type == DATA3D)
 	project_points = TRUE;
 
@@ -5804,6 +5806,7 @@ plot_image_or_update_axes(void *plot, TBOOLEAN update_axes)
      */
     {
     TBOOLEAN rectangular_image = FALSE;
+    TBOOLEAN fallback = FALSE;
 
 #define SHIFT_TOLERANCE 0.01
     if ( ( (fabs(delta_x_grid[0]) < SHIFT_TOLERANCE*fabs(delta_x_grid[1]))
@@ -5811,16 +5814,15 @@ plot_image_or_update_axes(void *plot, TBOOLEAN update_axes)
 	&& ( (fabs(delta_y_grid[0]) < SHIFT_TOLERANCE*fabs(delta_y_grid[1]))
 	|| (fabs(delta_y_grid[1]) < SHIFT_TOLERANCE*fabs(delta_y_grid[0])) ) ) {
 
+	rectangular_image = TRUE;
+
 	/* If the terminal does not have image support then fall back to
 	 * using polygons to construct pixels.
 	 */
-	TBOOLEAN fallback;
 	if (project_points)
 	    fallback = !splot_map || ((struct surface_points *)plot)->image_properties.fallback;
 	else
 	    fallback = ((struct curve_points *)plot)->image_properties.fallback;
-	if (term->image && !fallback)
-	    rectangular_image = TRUE;
     }
 
     if (pixel_planes == IC_PALETTE && make_palette()) {
@@ -5833,7 +5835,7 @@ plot_image_or_update_axes(void *plot, TBOOLEAN update_axes)
     }
     /* Use generic code to handle alpha channel if the terminal can't */
     if (pixel_planes == IC_RGBA && !(term->flags & TERM_ALPHA_CHANNEL))
-	rectangular_image = FALSE;
+	fallback = TRUE;
 
     view_port_x[0] = (X_AXIS.set_autoscale & AUTOSCALE_MIN) ? X_AXIS.min : X_AXIS.set_min;
     view_port_x[1] = (X_AXIS.set_autoscale & AUTOSCALE_MAX) ? X_AXIS.max : X_AXIS.set_max;
@@ -5844,7 +5846,7 @@ plot_image_or_update_axes(void *plot, TBOOLEAN update_axes)
 	view_port_z[1] = (Z_AXIS.set_autoscale & AUTOSCALE_MAX) ? Z_AXIS.max : Z_AXIS.set_max;
     }
 
-    if (rectangular_image) {
+    if (rectangular_image && term->image && !fallback) {
 
 	/* There are eight ways that a valid pixel grid can be entered.  Use table
 	 * lookup instead of if() statements.  (Draw the various array combinations
@@ -6051,7 +6053,7 @@ plot_image_or_update_axes(void *plot, TBOOLEAN update_axes)
 	    return;
 	}
 
-    } else {	/* !rectangular_image  or "with image failsafe" */
+    } else {	/* no term->image  or "with image failsafe" */
 
 	/* Use sum of vectors to compute the pixel corners with respect to its center. */
 	struct {double x; double y; double z;} delta_grid[2], delta_pixel[2];
@@ -6186,7 +6188,18 @@ plot_image_or_update_axes(void *plot, TBOOLEAN update_axes)
 			    if (term->flags & TERM_ALPHA_CHANNEL)
 				corners[0].style = FS_TRANSPARENT_SOLID + (alpha<<4);
 			}
-			(*term->filled_polygon) (N_corners, corners);
+
+			if (N_corners == 4 && rectangular_image && term->fillbox) {
+			    /* Some terminals (canvas) can do filled rectangles */
+			    /* more efficiently than filled polygons. */
+			    (*term->fillbox)( corners[0].style,
+				GPMIN(corners[0].x, corners[2].x),
+				GPMIN(corners[0].y, corners[2].y),
+				abs(corners[2].x - corners[0].x),
+				abs(corners[2].y - corners[0].y));
+			} else {
+			    (*term->filled_polygon) (N_corners, corners);
+			}
 		    }
 		}
 skip_pixel:

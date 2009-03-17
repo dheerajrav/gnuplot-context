@@ -1,4 +1,4 @@
-C RCS $Id: gnuplot.doc,v 1.553 2009/01/04 05:47:14 sfeam Exp $
+C RCS $Id: gnuplot.doc,v 1.562 2009/02/28 20:54:20 vanzandt Exp $
 C
 C Copyright (C) 1986 - 1993, 1998, 1999, 2000, 2001, 2004   Thomas Williams, Colin Kelley et al.
 C
@@ -1592,13 +1592,13 @@ C ... and restart the table:
 ?user-defined variables
 ?user-defined
 ?variables
- New user-defined variables and functions of one through five variables may
+ New user-defined variables and functions of one through twelve variables may
  be declared and used anywhere, including on the `plot` command itself.
 
  User-defined function syntax:
-       <func-name>( <dummy1> {,<dummy2>} ... {,<dummy5>} ) = <expression>
+       <func-name>( <dummy1> {,<dummy2>} ... {,<dummy12>} ) = <expression>
 
- where <expression> is defined in terms of <dummy1> through <dummy5>.
+ where <expression> is defined in terms of <dummy1> through <dummy12>.
 
  User-defined variable syntax:
        <variable-name> = <constant-expression>
@@ -1642,6 +1642,12 @@ C ... and restart the table:
 
  Valid names are the same as in most programming languages: they must begin
  with a letter, but subsequent characters may be letters, digits, "$", or "_".
+
+ Each function definition is made available as a special string-valued
+ variable with the prefix 'GPFUN_'.
+ 
+ Example:
+       set label GPFUN_sinc at graph .05,.95
 
  See `show functions`, `functions`, `gnuplot-defined variables`, `macros`.
 2 Glossary
@@ -2870,14 +2876,25 @@ Ffigure_histcols
 ?image
 ?rgbimage
 ?rgbalpha
- The `image`, `rgbimage`, and `rgbalpha` plotting styles all project an input 2D
- image onto either a 2D or 3D plot.  It is assumed that the image data forms an
- equidistant sampling grid in the viewing plane along two, not necessarily
- orthogonal, directions.  In other words, each group of four adjacent points is
- assumed to form a uniformly sized parallelogram.  The paralleogram is painted
- using the color of the corresponding pixel in the input image.
- 
-Ffigure_rgb3D.pdf
+ The `image`, `rgbimage`, and `rgbalpha` plotting styles all project a
+ uniformly sampled grid of data values onto a plane  in either a 2D or 3D.
+ The input data may be an actual bitmapped image, perhaps converted from a
+ standard format such as PNG, or a simple array of numerical values.
+
+=heatmap
+Ffigure_heatmap
+ This figure illustrates generation of a heat map from an array of scalar values.
+ The current palette is used to map each value onto the color assigned to the
+ corresponding pixel.
+       plot '-' matrix with image
+       5 4 3 1 0
+       2 2 0 0 1
+       0 0 0 1 0
+       0 1 2 4 3
+       e
+       e
+
+Ffigure_rgb3D
  Each pixel (data point) of the input 2D image will become a rectangle or
  parallelipiped in the plot. The coordinates of each data point will determine
  the center of the parallelipiped.  That is, an M x N set of data will form an
@@ -3383,15 +3400,15 @@ Ffigure_mapcontours
 ?fit
 ?least-squares
 ?Marquardt
- The `fit` command can fit a user-defined function to a set of data points
- (x,y) or (x,y,z), using an implementation of the nonlinear least-squares
+ The `fit` command can fit a user-supplied expression to a set of data points
+ (x,z) or (x,y,z), using an implementation of the nonlinear least-squares
  (NLLS) Marquardt-Levenberg algorithm.  Any user-defined variable occurring in
- the function body may serve as a fit parameter, but the return type of the
- function must be real.
+ the expression may serve as a fit parameter, but the return type of the
+ expression must be real.
 
  Syntax:
-       fit {[xrange] {[yrange]}} <function> '<datafile>'
-           {datafile-modifiers}
+       fit {<ranges>} <expression>
+           '<datafile>' {datafile-modifiers}
            via '<parameter file>' | <var1>{,<var2>,...}
 
  Ranges may be specified to temporarily limit the data which is to be fitted;
@@ -3399,21 +3416,29 @@ Ffigure_mapcontours
        [{dummy_variable=}{<min>}{:<max>}],
  analogous to `plot`; see `plot ranges`.
 
- <function> is any valid `gnuplot` expression, although it is usual to use a
+ <expression> is any valid `gnuplot` expression, although it is usual to use a
  previously user-defined function of the form f(x) or f(x,y).
 
  <datafile> is treated as in the `plot` command.  All the `plot datafile`
  modifiers (`using`, `every`,...) except `smooth` and the deprecated `thru`
  are applicable to `fit`. See `plot datafile`.
 
- The default data formats for fitting functions with a single independent
- variable, y=f(x), are {x:}y or x:y:s; those formats can be changed with
- the datafile `using` qualifier.  The third item (a column number or an
- expression), if present, is interpreted as the standard deviation of the
- corresponding y value and is used to compute a weight for the datum, 1/s**2.
- Otherwise, all data points are weighted equally, with a weight of one.
- Note that if you don't specify a `using` option at all, no y deviations are
- read from the datafile even if it does have a third column, so you'll
+ The default data formats for fitting functions with a single
+ independent variable, z=f(x), are z or x:z.  That is, if there is
+ only a single column then it is the dependent variable and the line
+ numbers is the independent variable.  If there are two columns, the
+ first is the independent variable and the second is the dependent
+ variable.
+
+ Those formats can be changed with the datafile `using` qualifier, for
+ example to take the z value from a different column or to calculate
+ it from several columns.  A third `using` qualifier (a column number
+ or an expression), if present, is interpreted as the standard
+ deviation of the corresponding z value and is used to compute a
+ weight for the datum, 1/s**2.  Otherwise, all data points are
+ weighted equally, with a weight of one. Note that if you don't
+ specify a `using` option at all, no z standard deviations are read
+ from the datafile even if it does have a third column, so you'll
  always get unit weights.
 
  To fit a function with two independent variables, z=f(x,y), the required
@@ -3422,6 +3447,24 @@ Ffigure_mapcontours
  each data point are evaluated from 's' as above.  If error estimates are
  not available, a constant value can be specified as a constant expression
  (see `plot datafile using`), e.g., `using 1:2:3:(1)`.
+
+ The fit function may have up to five independent variables.  There
+ must be two more `using` qualifiers than there are independent
+ variables, unless there is only one variable.  The allowed formats,
+ and the default dummy variable names, are as follows:
+
+       z
+       x:z
+       x:z:s
+       x:y:z:s
+       x:y:t:z:s
+       x:y:t:u:z:s
+       x:y:t:u:v:z:s
+
+ The dummy variable names may be changed with ranges as noted above.
+ The first range corresponds to the first `using` spec, etc.  A range
+ may also be given for z (the dependent variable), but that name
+ cannot be changed.
 
  Multiple datasets may be simultaneously fit with functions of one
  independent variable by making y a 'pseudo-variable', e.g., the dataline
@@ -3438,6 +3481,12 @@ Ffigure_mapcontours
        fit f(x) 'measured.dat' using 3:($7-5) via 'start.par'
        fit f(x) './data/trash.dat' using 1:2:3 via a, b, c
        fit g(x,y) 'surface.dat' using 1:2:3:(1) via a, b, c
+       fit a0 + a1*x/(1 + a2*x/(1 + a3*x)) 'measured.dat' via a0,a1,a2,a3
+       fit a*x + b*y 'surface.dat' using 1:2:3:(1) via a,b
+       fit [*:*][yaks=*:*] a*x+b*yaks 'surface.dat' u 1:2:3:(1) via a,b
+       fit a*x + b*y + c*t 'foo.dat' using 1:2:3:4:(1) via a,b,c
+       h(x,y,t,u,v) = a*x + b*y + c*t + d*u + e*v
+       fit h(x,y,t,u,v) 'foo.dat' using 1:2:3:4:5:6:(1) via a,b,c,d,e
 
  After each iteration step, detailed information about the current state
  of the fit is written to the display.  The same information about the
@@ -5620,6 +5669,10 @@ Ffigure_mapcontours
 ?commands pwd
 ?pwd
  The `pwd` command prints the name of the working directory to the screen.
+
+ Note that if you wish to store the current directory into a string variable
+ or use it in string expressions, then you can use variable GPVAL_PWD, see
+ `show variables all`. This overcomes shell call by means of "`pwd`". 
 2 quit
 ?commands quit
 ?quit
@@ -7983,6 +8036,13 @@ Ffigure_mapcontours
        bfit = gprintf("b = %s*10^%S",par_b)
        set label bfit at 30,20
 
+ To display a function definition along with its fitted parameters, use:
+       f(x)=a+b*x
+       fit f(x) 'datafile' via a,b
+       set label GPFUN_f at graph .05,.95
+       set label sprintf("a = %g", a) at graph .05,.90 
+       set label sprintf("b = %g", b) at graph .05,.85
+
  To set a label displaced a little bit from a small point:
        set label 'origin' at 0,0 point lt 1 pt 2 ps 3 offset 1,-1
 
@@ -8847,7 +8907,7 @@ Ffigure_mapcontours
  Syntax (the options can be given in any order):
        set pm3d {
                   { at <bst combination> }
-                  { interpolate <steps in scan>,<steps between scans> }
+                  { interpolate <steps/points in scan, between scans> }
                   { scansautomatic | scansforward | scansbackward | depthorder }
                   { flush { begin | center | end } }
                   { ftriangles | noftriangles }
@@ -8949,12 +9009,17 @@ Ffigure_mapcontours
  filtering and color range scaling, respectively; and also `set (no)surface`
  seems to have a (side?) effect.
 
- The option `interpolate` will interpolate grid points into a finer mesh, and
- color each quadrangle appropriately. For data files, this will smoothen the
- color surface, and enhance spikes in a color surface. For functions,
+ The option `interpolate m,n` will interpolate grid points into a finer mesh,
+ and color each quadrangle appropriately.  For data files, this will smoothen
+ the color surface, and enhance spikes in a color surface. For functions,
  interpolation makes little sense, except to trade off precision for memory.
- It would usually make more sense to use `samples` and `isosamples` when working
- with functions.
+ It would usually make more sense to use `samples` and `isosamples` when
+ working with functions. For positive m and n, each quadrangle or triangle
+ is interpolated m-times and n-times in the respective direction.  For negative
+ m and n, the interpolation frequency is chosen so that there will be at least
+ |m| and |n| points drawn; you can consider this as a special gridding function.
+ Zeros, i.e. `interpolation 0,0`, will automatically choose an optimal number of
+ interpolated surface points.
 
  The coloring setup as well as the color box drawing are determined by
  `set palette`.  There can be only one palette for the current plot.  Drawing
@@ -10314,6 +10379,7 @@ Ffigure_mapcontours
  Please see `set xrange` for details.
 3 variables
 ?commands show variables
+?show variables all
 ?show variables
  The `show variables` command lists the current value of user-defined and
  internal variables. Gnuplot internally defines variables whose names begin
@@ -10381,6 +10447,7 @@ Ffigure_mapcontours
  to 0.5.
 4 equal_axes
 ?set view equal_axes
+?set view equal
 ?view equal_axes
  The command `set view equal xy` forces the unit length of the x and y axes
  to be on the same scale, and chooses that scale so that the plot will fit on

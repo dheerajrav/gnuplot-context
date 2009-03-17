@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: mouse.c,v 1.111 2008/11/07 11:55:46 mikulik Exp $"); }
+static char *RCSid() { return RCSid("$Id: mouse.c,v 1.116 2009/02/27 19:07:15 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - mouse.c */
@@ -293,22 +293,13 @@ stpcpy(char *s, const char *p)
 # endif
 
 
-/* a macro to check whether 2D functionality is allowed:
-   either the plot is a 2D plot, or it is a suitably oriented 3D plot
-*/
-# define ALMOST2D      \
-    ( !is_3d_plot ||  \
-      ( fabs(fmod(surface_rot_z,90.0))<0.1  \
-        && (surface_rot_x>179.9 || surface_rot_x<0.1) ) )
-
-
 /* main job of transformation, which is not device dependent
 */
 static void
 MousePosToGraphPosReal(int xx, int yy, double *x, double *y, double *x2, double *y2)
 {
     if (!is_3d_plot) {
-	FPRINTF(("POS: plot_bounds.xleft=%i, plot_bounds.xright=%i, plot_bounds.ybot=%i, plot_bounds.ytop=%i\n",
+	FPRINTF((stderr, "POS: plot_bounds.xleft=%i, plot_bounds.xright=%i, plot_bounds.ybot=%i, plot_bounds.ytop=%i\n",
 		 plot_bounds.xleft, plot_bounds.xright, plot_bounds.ybot, plot_bounds.ytop));
 
 	if (plot_bounds.xright == plot_bounds.xleft)
@@ -323,7 +314,7 @@ MousePosToGraphPosReal(int xx, int yy, double *x, double *y, double *x2, double 
 	    *y = AXIS_MAPBACK(FIRST_Y_AXIS, yy);
 	    *y2 = AXIS_MAPBACK(SECOND_Y_AXIS, yy);
 	}
-	FPRINTF(("POS: xx=%i, yy=%i  =>  x=%g  y=%g\n", xx, yy, *x, *y));
+	FPRINTF((stderr, "POS: xx=%i, yy=%i  =>  x=%g  y=%g\n", xx, yy, *x, *y));
 
     } else {
 	/* for 3D plots, we treat the mouse position as if it is
@@ -1853,6 +1844,10 @@ do_event(struct gp_event_t *ge)
     switch (ge->type) {
     case GE_plotdone:
 	event_plotdone();
+	if (ge->winid) {
+	    current_x11_windowid = ge->winid;
+	    update_gpval_variables(6); /* fill GPVAL_TERM_WINDOWID */
+	}
 	break;
     case GE_keypress:
 	event_keypress(ge, TRUE);
@@ -1995,7 +1990,8 @@ lookup_key(char *ptr, int *len)
     }
     /* second, search in the table of other keys */
     for (keyptr = special_keys; *keyptr; ++keyptr) {
-	if (!strncasecmp(ptr, *keyptr, (*len = strlen(*keyptr)))) {
+	if (!strcmp(ptr, *keyptr)) {
+	    *len = strlen(ptr);
 	    return keyptr - special_keys + GP_FIRST_KEY;
 	}
     }

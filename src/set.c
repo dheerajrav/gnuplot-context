@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: set.c,v 1.296 2008/12/11 06:53:14 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: set.c,v 1.298 2009/02/16 07:37:28 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - set.c */
@@ -3224,14 +3224,10 @@ set_pm3d()
 		    int_error(c_token, "expecting step values i,j");
 		} else {
 		    pm3d.interp_i = int_expression();
-		    if(pm3d.interp_i < 1)
-			pm3d.interp_i = 1;
 		    if (!equals(c_token,","))
 			int_error(c_token, "',' expected");
 		    c_token++;
 		    pm3d.interp_j = int_expression();
-		    if (pm3d.interp_j < 1)
-			pm3d.interp_j = 1;
 		    c_token--;
                 }
 		continue;
@@ -3990,8 +3986,7 @@ set_terminal()
 
     /* `set term <normal terminal>' */
     term = 0; /* in case set_term() fails */
-    term = set_term(c_token);
-    c_token++;
+    term = set_term();
     /* get optional mode parameters
      * not all drivers reset the option string before
      * strcat-ing to it, so we reset it for them

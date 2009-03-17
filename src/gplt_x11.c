@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: gplt_x11.c,v 1.189 2008/12/25 03:02:05 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: gplt_x11.c,v 1.193 2009/02/16 22:08:47 sfeam Exp $"); }
 #endif
 
 #define X11_POLYLINE 1
@@ -291,6 +291,7 @@ typedef struct plot_struct {
      * plot coordinates of a mouse click.  It is a snapshot of the contents of
      * gnuplot's axis_array structure at the time the plot was drawn.
      */
+    int almost2d;
     int axis_mask;		/* Bits set to show which axes are active */
     axis_scale_t axis_scale[2*SECOND_AXES];
 #endif
@@ -381,7 +382,7 @@ static void scan_palette_from_buf __PROTO((void));
 #if defined(WITH_IMAGE)
 static unsigned short BitMaskDetails __PROTO((unsigned long mask, unsigned short *left_shift, unsigned short *right_shift));
 #endif
-#if defined(WITH_IMAGE) || defined(BINARY_X11_POLYGON)
+
 TBOOLEAN swap_endian = 0;  /* For binary data. */
 /* Petr's byte swapping routine. */
 static inline void
@@ -409,7 +410,6 @@ char byteswap_char;
     byteswap_char = ((char *)x)[1]; \
     ((char *)x)[1] = ((char *)x)[2]; \
     ((char *)x)[2] = byteswap_char
-#endif
 
 static void store_command __PROTO((char *, plot_struct *));
 static void prepare_plot __PROTO((plot_struct *));
@@ -424,6 +424,8 @@ static void mainloop __PROTO((void));
 static void display __PROTO((plot_struct *));
 static void UpdateWindow __PROTO((plot_struct *));
 #ifdef USE_MOUSE
+static void gp_execute_GE_plotdone __PROTO((int windowid));
+
 static int ErrorHandler __PROTO((Display *, XErrorEvent *));
 static void DrawRuler __PROTO((plot_struct *));
 static void EventuallyDrawMouseAddOns __PROTO((plot_struct *));
@@ -1522,7 +1524,7 @@ record()
 		display(plot);
 #ifdef USE_MOUSE
 	    if (current_plot)
-		gp_exec_event(GE_plotdone, 0, 0, 0, 0, 0);	/* notify main program */
+		gp_execute_GE_plotdone(plot->window); /* notify main program */
 #endif
 	    return 1;
 	case 'R':		/* leave x11 mode */
@@ -1549,7 +1551,6 @@ record()
 	    }
 	    return 1;
 
-#if defined(WITH_IMAGE) || defined(BINARY_X11_POLYGON)
 	case X11_GR_CHECK_ENDIANESS:
 	    {
 	        /* Initialize variable in case short happens to be longer than two bytes. */
@@ -1560,7 +1561,6 @@ record()
 		else swap_endian = 1;
 	    }
 	    return 1;
-#endif
 
 	case 'X':		/* tell the driver about do_raise /  persist */
 	    {
@@ -2463,7 +2463,6 @@ exec_cmd(plot_struct *plot, char *command)
 	}
     }
 
-#ifdef BINARY_X11_POLYGON
     else if (*buffer == X11_GR_BINARY_COLOR) {	/* set color */
 	if (have_pm3d) {	/* ignore, if your X server is not supported */
 	    /* This command will fit within a single buffer so it doesn't
@@ -2505,7 +2504,6 @@ exec_cmd(plot_struct *plot, char *command)
 	    current_gc = &gc;
 	}
     }
-#endif
 
     else if (*buffer == X11_GR_FILLED_POLYGON) {	/* filled polygon */
 	if (have_pm3d) {	/* ignore, if your X server is not supported */
@@ -2579,7 +2577,6 @@ exec_cmd(plot_struct *plot, char *command)
 
     }
 
-#ifdef BINARY_X11_POLYGON
     else if (*buffer == X11_GR_BINARY_POLYGON) {	/* filled polygon */
 	if (have_pm3d) {	/* ignore, if your X server is not supported */
 	    static TBOOLEAN transferring = 0;
@@ -2680,7 +2677,6 @@ exec_cmd(plot_struct *plot, char *command)
 	}
 
     }
-#endif /* BINARY_X11_POLYGON */
 
 #ifdef WITH_IMAGE
     else if (*buffer == X11_GR_IMAGE) {	/* image */
@@ -3157,7 +3153,9 @@ exec_cmd(plot_struct *plot, char *command)
 	int axis, axis_mask;
 
 	sscanf(&buffer[1], "%d %d", &axis, &axis_mask);
-	if (axis < 0) {
+	if (axis == -2) {
+	    plot->almost2d = axis_mask;
+	} else if (axis < 0) {
 	    plot->axis_mask = axis_mask;
 	} else if (axis < 2*SECOND_AXES) {
 	    sscanf(&buffer[1], "%d %lg %d %lg %lg", &axis,
@@ -3716,6 +3714,19 @@ PaletteSetColor(plot_struct * plot, double gray)
 }
 
 #ifdef USE_MOUSE
+
+/* Notify main program, send windowid for GPVAL_TERM_WINDOWID if it has been changed. */
+static void
+gp_execute_GE_plotdone (int windowid)
+{
+    static int last_window_id = -1;
+    if (windowid == last_window_id)
+	gp_exec_event(GE_plotdone, 0, 0, 0, 0, 0);
+    else {
+	gp_exec_event(GE_plotdone, 0, 0, 0, 0, windowid);
+	last_window_id = windowid;
+    }
+}
 
 static int
 ErrorHandler(Display * display, XErrorEvent * error_event)
@@ -4729,7 +4740,7 @@ process_event(XEvent *event)
 		Call_display(plot);
 		gp_exec_event(GE_motion, (int) RevX(pos_x), (int) RevY(pos_y), 0, 0, 0);
 #if defined(USE_MOUSE) && defined(MOUSE_ALL_WINDOWS)
-	    } else if (plot->axis_mask && plot->mouse_on) {
+	    } else if (plot->axis_mask && plot->mouse_on && plot->almost2d) {
 		/* This is not the active plot window, but we can still update the mouse coords */
 		char mouse_format[60];
 		char *m = mouse_format;
@@ -5900,9 +5911,11 @@ pr_window(plot_struct *plot)
 	plot->width = gattr.width;
 	plot->height = gattr.height;
 	plot->gheight = gattr.height;
-	if (!plot->window)
+	if (!plot->window) {
 	    plot->window = XCreateWindow(dpy, plot->external_container, plot->x, plot->y, plot->width,
 					 plot->height, 0, dep, InputOutput, vis, 0, NULL);
+		gp_execute_GE_plotdone(plot->window); /* notify main program, send WINDOWID */
+	}
     }
 #endif /* EXTERNAL_X11_WINDOW */
 
@@ -5912,17 +5925,22 @@ pr_window(plot_struct *plot)
 	attr.background_pixel = plot->cmap->colors[0];
 	attr.border_pixel = plot->cmap->colors[1];
 	attr.colormap = plot->cmap->colormap;
-	if (!plot->window)
+	if (!plot->window) {
 	    plot->window = XCreateWindow(dpy, root, plot->x, plot->y, plot->width,
 					 plot->height, BorderWidth, dep, InputOutput, vis, mask, &attr);
+		gp_execute_GE_plotdone(plot->window); /* notify main program, send WINDOWID */
+	}
 	else
 	    XChangeWindowAttributes(dpy, plot->window, mask, &attr);
     } else
 #ifdef EXTERNAL_X11_WINDOW
     if (!plot->window)
 #endif
+	{
 	plot->window = XCreateSimpleWindow(dpy, root, plot->x, plot->y, plot->width, plot->height,
 					   BorderWidth, plot->cmap->colors[1], plot->cmap->colors[0]);
+		gp_execute_GE_plotdone(plot->window); /* notify main program, send WINDOWID */
+	}
 
     /* Return if something wrong. */
     if (plot->window == None)
