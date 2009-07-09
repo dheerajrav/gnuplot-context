@@ -1,5 +1,5 @@
 /*
- * $Id: gp_cairo.c,v 1.45 2009/03/01 05:04:53 sfeam Exp $
+ * $Id: gp_cairo.c,v 1.48 2009/03/26 00:49:17 sfeam Exp $
  */
 
 /* GNUPLOT - gp_cairo.c */
@@ -114,6 +114,9 @@ static gchar* gp_cairo_convert_symbol_to_unicode(plot_struct *plot, const char* 
 static void gp_cairo_add_attr(plot_struct *plot, PangoAttrList * AttrList, int start, int end );
 /* add a blank character to the text string and an associated custom shape to the attribute list */
 static void gp_cairo_add_shape( PangoRectangle rect,int position);
+
+/* Average character height as reported back through term->v_char */
+static int avg_vchar = 150;
 
 /* set a cairo pattern or solid fill depending on parameters */
 static void gp_cairo_fill(plot_struct *plot, int fillstyle, int fillpar);
@@ -743,7 +746,10 @@ void gp_cairo_draw_text(plot_struct *plot, int x1, int y1, const char* string)
 
 	pango_layout_get_extents(layout, &ink_rect, &logical_rect);
 
-	vert_just = ((double)ink_rect.height/2 +(double)ink_rect.y) / PANGO_SCALE;
+	/* EAM Mar 2009 - Adjusting the vertical position for every character fragment */
+	/* leads to uneven baselines.  Better to adjust to the "average" character height */
+	/* vert_just = ((double)ink_rect.height/2 +(double)ink_rect.y) / PANGO_SCALE; */
+	vert_just = avg_vchar/2;
 
 	x = (double) x1;
 	y = (double) y1;
@@ -995,7 +1001,6 @@ void gp_cairo_draw_fillbox(plot_struct *plot, int x, int y, int width, int heigh
 }
 
 
-#ifdef WITH_IMAGE
 /*	corner[0] = (x1,y1) is the upper left corner (in terms of plot location) of
  *	the outer edge of the image.  Similarly, corner[1] = (x2,y2) is the lower
  *	right corner of the outer edge of the image.  (Outer edge means the
@@ -1053,7 +1058,6 @@ void gp_cairo_draw_image(plot_struct *plot, unsigned int * image, int x1, int y1
 	cairo_pattern_destroy( pattern );
 	cairo_surface_destroy( image_surface );
 }
-#endif /*WITH_IMAGE*/
 
 /* =======================================================================
  * Enhanced text mode support
@@ -1423,7 +1427,8 @@ void gp_cairo_enhanced_finish(plot_struct *plot, int x, int y)
 	pango_layout_set_attributes (layout, gp_cairo_enhanced_AttrList);
 
 	pango_layout_get_extents(layout, &ink_rect, &logical_rect);
-	vert_just = ((double)ink_rect.height/2 +(double)ink_rect.y) / PANGO_SCALE;
+	/* vert_just = ((double)ink_rect.height/2 +(double)ink_rect.y) / PANGO_SCALE; */
+	vert_just = avg_vchar/2;
 	
 	arg = plot->text_angle * M_PI/180;
 	enh_x = x - vert_just * sin(arg);
@@ -1655,6 +1660,8 @@ void gp_cairo_set_termvar(plot_struct *plot, unsigned int *v_char,
 		*v_char = tmp_v_char;
 	if (h_char)
 		*h_char = tmp_h_char;
+
+	avg_vchar = tmp_v_char;
 }
 
 void gp_cairo_solid_background(plot_struct *plot)

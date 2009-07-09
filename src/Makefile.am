@@ -26,6 +26,7 @@ GNUPLOT_PS_DIR=$(pkgdatadir)/$(VERSION_MAJOR)/PostScript
 
 bin_PROGRAMS = gnuplot
 noinst_PROGRAMS = bf_test
+binonly: $(bin_PROGRAMS)
 
 transform = @program_transform_name@
 GNUPLOT_X11 = `echo gnuplot_x11 | sed '$(transform)'`$(EXEEXT)
@@ -59,10 +60,10 @@ gnuplot_x11_LDADD = getcolor_x11.o $(XLIBS)
 endif
 
 if BUILD_LUA
-pkglibexec_PROGRAMS += gnuplot.lua
-gnuplot_lua_SOURCES =
-gnuplot.lua: $(top_srcdir)/term/lua/gnuplot.lua
-	cp $(top_srcdir)/term/lua/gnuplot.lua .
+gnuplot_tikz_lua_SOURCES =
+pkglibexec_PROGRAMS += gnuplot-tikz.lua
+gnuplot-tikz.lua: $(top_srcdir)/term/lua/gnuplot-tikz.lua
+	cp $(top_srcdir)/term/lua/gnuplot-tikz.lua .
 endif
 
 getcolor_x11.o: getcolor.c

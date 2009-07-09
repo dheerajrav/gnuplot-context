@@ -1,5 +1,5 @@
 /*
- * $Id: term_api.h,v 1.79 2009/02/16 07:37:28 sfeam Exp $
+ * $Id: term_api.h,v 1.82 2009/06/08 04:37:29 sfeam Exp $
  */
 
 /* GNUPLOT - term_api.h */
@@ -88,6 +88,7 @@ typedef struct lp_style_type {	/* contains all Line and Point properties */
     int     pointflag;		/* 0 if points not used, otherwise 1 */
     int     l_type;
     int	    p_type;
+    int     p_interval;		/* Every Nth point in style LINESPOINTS */
     double  l_width;
     double  p_size;
     TBOOLEAN use_palette;
@@ -95,7 +96,7 @@ typedef struct lp_style_type {	/* contains all Line and Point properties */
     /* ... more to come ? */
 } lp_style_type;
 
-#define DEFAULT_LP_STYLE_TYPE {0, -2, 0, 1.0, PTSZ_DEFAULT, FALSE, DEFAULT_COLORSPEC}
+#define DEFAULT_LP_STYLE_TYPE {0, -2, 0, 0, 1.0, PTSZ_DEFAULT, FALSE, DEFAULT_COLORSPEC}
 
 typedef enum e_arrow_head {
 	NOHEAD = 0,
@@ -144,7 +145,6 @@ typedef enum t_fillstyle { FS_EMPTY, FS_SOLID, FS_PATTERN, FS_DEFAULT,
 	     t_fillstyle;
 #define FS_OPAQUE (FS_SOLID + (100<<4))
 
-#ifdef WITH_IMAGE
 /* Color construction for an image, palette lookup or rgb components. */
 typedef enum t_imagecolor { IC_PALETTE, IC_RGB, IC_RGBA }
 	     t_imagecolor;
@@ -153,7 +153,6 @@ typedef struct t_image {
     t_imagecolor type; /* See above */
     TBOOLEAN fallback; /* true == don't use terminal-specific code */
 } t_image;
-#endif
 
 /* values for the optional flags field - choose sensible defaults
  * these aren't really very sensible names - multiplot attributes
@@ -171,6 +170,7 @@ typedef struct t_image {
 #define TERM_CAN_CLIP       128  /* terminal does its own clipping  */
 #define TERM_CAN_DASH       256  /* terminal supports dashed lines  */
 #define TERM_ALPHA_CHANNEL  512  /* alpha channel transparency      */
+#define TERM_MONOCHROME    1024  /* term is running in mono mode    */
 
 /* The terminal interface structure --- heart of the terminal layer.
  *
@@ -242,9 +242,7 @@ typedef struct TERMENTRY {
        specifying color.
      */
     void (*filled_polygon) __PROTO((int points, gpiPoint *corners));
-#ifdef WITH_IMAGE
     void (*image) __PROTO((unsigned int, unsigned int, coordval *, gpiPoint *, t_imagecolor));
-#endif
 
 /* Enhanced text mode driver call-backs */
     void (*enhanced_open) __PROTO((char * fontname, double fontsize,

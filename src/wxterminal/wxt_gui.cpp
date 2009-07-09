@@ -1,5 +1,5 @@
 /*
- * $Id: wxt_gui.cpp,v 1.71 2009/01/14 23:16:49 tlecomte Exp $
+ * $Id: wxt_gui.cpp,v 1.74 2009/06/13 05:23:56 sfeam Exp $
  */
 
 /* GNUPLOT - wxt_gui.cpp */
@@ -657,10 +657,8 @@ void wxtPanel::ClearCommandlist()
 			delete[] iter->string;
 		if (iter->command == command_filled_polygon)
 			delete[] iter->corners;
-#ifdef WITH_IMAGE
 		if (iter->command == command_image)
 			free(iter->image);
-#endif /* WITH_IMAGE */
 	}
 
 	command_list.clear();
@@ -1841,17 +1839,23 @@ void wxt_linetype(int lt)
 	gp_command temp_command;
 	gp_command temp_command2;
 
-	temp_command.command = command_color;
-	temp_command.color = gp_cairo_linetype2color( lt );
-
 	temp_command2.command = command_linestyle;
 	if (lt == -1)
 		temp_command2.integer_value = GP_CAIRO_DOTS;
-	else
+	else if (wxt_dashed && lt >= 0) {
+		temp_command2.integer_value = GP_CAIRO_DASH;
+		wxt_current_plot->dashlength = wxt_dashlength;
+	} else
 		temp_command2.integer_value = GP_CAIRO_SOLID;
-
-	wxt_command_push(temp_command);
 	wxt_command_push(temp_command2);
+
+	temp_command.command = command_linetype;
+	temp_command.integer_value = lt;
+	wxt_command_push(temp_command);
+
+	temp_command.command = command_color;
+	temp_command.color = gp_cairo_linetype2color( lt );
+	wxt_command_push(temp_command);
 }
 
 
@@ -2025,8 +2029,7 @@ void wxt_set_color(t_colorspec *colorspec)
 	gp_command temp_command;
 
 	if (colorspec->type == TC_LT) {
-		wxt_linetype(colorspec->lt);
-		return;
+		rgb1 = gp_cairo_linetype2color(colorspec->lt);
 	} else if (colorspec->type == TC_FRAC)
 		rgb1maxcolors_from_gray( colorspec->value, &rgb1 );
 	else if (colorspec->type == TC_RGB) {
@@ -2064,7 +2067,6 @@ void wxt_filled_polygon(int n, gpiPoint *corners)
 	wxt_command_push(temp_command);
 }
 
-#ifdef WITH_IMAGE
 void wxt_image(unsigned int M, unsigned int N, coordval * image, gpiPoint * corner, t_imagecolor color_mode)
 {
 	/* This routine is to plot a pixel-based image on the display device.
@@ -2120,7 +2122,6 @@ void wxt_image(unsigned int M, unsigned int N, coordval * image, gpiPoint * corn
 
 	wxt_command_push(temp_command);
 }
-#endif /*WITH_IMAGE*/
 
 #ifdef USE_MOUSE
 /* Display temporary text, after
@@ -2461,7 +2462,6 @@ void wxtPanel::wxt_cairo_exec_command(gp_command command)
 					command.x2, command.y2,
 					command.integer_value);
 		return;
-#ifdef WITH_IMAGE
 	case command_image :
 		gp_cairo_draw_image(&plot, command.image,
 				command.x1, command.y1,
@@ -2470,7 +2470,6 @@ void wxtPanel::wxt_cairo_exec_command(gp_command command)
 				command.x4, command.y4,
 				command.integer_value, command.integer_value2);
 		return;
-#endif /*WITH_IMAGE*/
 	}
 }
 

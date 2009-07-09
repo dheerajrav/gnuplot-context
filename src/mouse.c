@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: mouse.c,v 1.116 2009/02/27 19:07:15 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: mouse.c,v 1.118 2009/06/05 00:20:44 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - mouse.c */
@@ -119,7 +119,7 @@ static struct {
 
 /* the coordinates of the mouse cursor in gnuplot's internal coordinate system
  */
-static int mouse_x, mouse_y;
+static int mouse_x = -1, mouse_y = -1;
 
 
 /* the "real" coordinates of the mouse cursor, i.e., in the user's coordinate
@@ -184,12 +184,8 @@ static void alert __PROTO((void));
 static void MousePosToGraphPosReal __PROTO((int xx, int yy, double *x, double *y, double *x2, double *y2));
 static char *xy_format __PROTO((void));
 static char *zoombox_format __PROTO((void));
-static char *xy1_format __PROTO((char *leader));
 static char *GetAnnotateString __PROTO((char *s, double x, double y, int mode, char *fmt));
 static char *xDateTimeFormat __PROTO((double x, char *b, int mode));
-#ifdef OLD_STATUS_LINE
-static char *GetCoordinateString __PROTO((char *s, double x, double y));
-#endif
 static void GetRulerString __PROTO((char *p, double x, double y));
 static void apply_zoom __PROTO((struct t_zoom * z));
 static void do_zoom __PROTO((double xmin, double ymin, double x2min,
@@ -303,13 +299,13 @@ MousePosToGraphPosReal(int xx, int yy, double *x, double *y, double *x2, double 
 		 plot_bounds.xleft, plot_bounds.xright, plot_bounds.ybot, plot_bounds.ytop));
 
 	if (plot_bounds.xright == plot_bounds.xleft)
-	    *x = *x2 = 1e38;	/* protection */
+	    *x = *x2 = VERYLARGE;	/* protection */
 	else {
 	    *x = AXIS_MAPBACK(FIRST_X_AXIS, xx);
 	    *x2 = AXIS_MAPBACK(SECOND_X_AXIS, xx);
 	}
 	if (plot_bounds.ytop == plot_bounds.ybot)
-	    *y = *y2 = 1e38;	/* protection */
+	    *y = *y2 = VERYLARGE;	/* protection */
 	else {
 	    *y = AXIS_MAPBACK(FIRST_Y_AXIS, yy);
 	    *y2 = AXIS_MAPBACK(SECOND_Y_AXIS, yy);
@@ -335,7 +331,7 @@ MousePosToGraphPosReal(int xx, int yy, double *x, double *y, double *x2, double 
 						 axis_array[FIRST_X_AXIS].min);
 	} else {
 	    /* both diffs are zero (x axis points into the screen */
-	    *x = 1e38;
+	    *x = VERYLARGE;
 	}
 
 	if (abs(axis3d_y_dx) > abs(axis3d_y_dy)) {
@@ -348,10 +344,10 @@ MousePosToGraphPosReal(int xx, int yy, double *x, double *y, double *x2, double 
 						 axis_array[FIRST_Y_AXIS].min);
 	} else {
 	    /* both diffs are zero (y axis points into the screen */
-	    *y = 1e38;
+	    *y = VERYLARGE;
 	}
 
-	*x2 = *y2 = 1e38;	/* protection */
+	*x2 = *y2 = VERYLARGE;	/* protection */
     }
     /*
        Note: there is plot_bounds.xleft+0.5 in "#define map_x" in graphics.c, which
@@ -392,16 +388,6 @@ zoombox_format()
     return format;
 }
 
-static char *
-xy1_format(char *leader)
-{
-    static char format[0xff];
-    format[0] = NUL;
-    strcat(format, leader);
-    strcat(format, mouse_setting.fmt);
-    return format;
-}
-
 /* formats the information for an annotation (middle mouse button clicked)
  */
 static char *
@@ -412,7 +398,7 @@ GetAnnotateString(char *s, double x, double y, int mode, char *fmt)
 	char format[0xff] = "[%s, ";
 	strcat(format, mouse_setting.fmt);
 	strcat(format, "]");
-	s += sprintf(s, format, xDateTimeFormat(x, buf, mode), y);
+	sprintf(s, format, xDateTimeFormat(x, buf, mode), y);
     } else if (mode == MOUSE_COORDINATES_FRACTIONAL) {
 	double xrange = axis_array[FIRST_X_AXIS].max - axis_array[FIRST_X_AXIS].min;
 	double yrange = axis_array[FIRST_Y_AXIS].max - axis_array[FIRST_Y_AXIS].min;
@@ -421,26 +407,27 @@ GetAnnotateString(char *s, double x, double y, int mode, char *fmt)
 	if (xrange) {
 	    char format[0xff] = "/";
 	    strcat(format, mouse_setting.fmt);
-	    s += sprintf(s, format, (x - axis_array[FIRST_X_AXIS].min) / xrange);
+	    sprintf(s, format, (x - axis_array[FIRST_X_AXIS].min) / xrange);
 	} else {
-	    s += sprintf(s, "/(undefined)");
+	    sprintf(s, "/(undefined)");
 	}
+	s += strlen(s);
 	if (yrange) {
 	    char format[0xff] = ", ";
 	    strcat(format, mouse_setting.fmt);
 	    strcat(format, "/");
-	    s += sprintf(s, format, (y - axis_array[FIRST_Y_AXIS].min) / yrange);
+	    sprintf(s, format, (y - axis_array[FIRST_Y_AXIS].min) / yrange);
 	} else {
-	    s += sprintf(s, ", (undefined)/");
+	    sprintf(s, ", (undefined)/");
 	}
     } else if (mode == MOUSE_COORDINATES_REAL1) {
-	s += sprintf(s, xy_format(), x, y);	/* w/o brackets */
+	sprintf(s, xy_format(), x, y);	/* w/o brackets */
     } else if (mode == MOUSE_COORDINATES_ALT && fmt) {
-	s += sprintf(s, fmt, x, y);	/* user defined format */
+	sprintf(s, fmt, x, y);	/* user defined format */
     } else {
-	s += sprintf(s, xy_format(), x, y);	/* usual x,y values */
+	sprintf(s, xy_format(), x, y);	/* usual x,y values */
     }
-    return s;
+    return s + strlen(s);
 }
 
 
@@ -497,35 +484,17 @@ xDateTimeFormat(double x, char *b, int mode)
  * value. Code is now closer to what setup_tics does. */
 #define MKSTR(sp,x,axis)					\
 do {								\
+    if (x >= VERYLARGE)	break;					\
     if (axis_array[axis].is_timedata) { 			\
 	char *format = copy_or_invent_formatstring(axis);	\
 	while (strchr(format,'\n'))				\
 	     *(strchr(format,'\n')) = ' ';			\
-	sp+=gstrftime(sp, 40, format, x);			\
-    } else							\
-	sp+=sprintf(sp, mouse_setting.fmt ,x);			\
+	gstrftime(sp, 40, format, x);				\
+    } else {							\
+	sprintf(sp, mouse_setting.fmt ,x);			\
+    }								\
+    sp += strlen(sp);						\
 } while (0)
-
-
-/* formats the information for an annotation (middle mouse button clicked)
- * returns pointer to the end of the string, for easy concatenation
-*/
-# ifdef OLD_STATUS_LINE
-static char *
-GetCoordinateString(char *s, double x, double y)
-{
-    char *sp;
-    s[0] = '[';
-    sp = s + 1;
-    MKSTR(sp, x, FIRST_X_AXIS);
-    *sp++ = ',';
-    *sp++ = ' ';
-    MKSTR(sp, y, FIRST_Y_AXIS);
-    *sp++ = ']';
-    *sp = 0;
-    return sp;
-}
-# endif
 
 
 /* ratio for log, distance for linear */
@@ -585,7 +554,7 @@ GetRulerString(char *p, double x, double y)
 # endif
 	} else { /* mouse_setting.polardistance==2: (distance, tangent) */
 	    phi = x - rx;
-	    phi = (phi == 0) ? ((y-ry>0) ? 1e308:-1e308) : (y - ry)/phi;
+	    phi = (phi == 0) ? ((y-ry>0) ? VERYLARGE : -VERYLARGE) : (y - ry)/phi;
 	    sprintf(format+strlen(format), ", tangent=%s)", mouse_setting.fmt);
 	}
 	sprintf(ptmp, format, rho, phi);
@@ -839,15 +808,8 @@ UpdateStatuslineWithMouseSetting(mouse_setting_t * ms)
 	sprintf(s0, format, surface_rot_x, surface_rot_z, surface_scale, surface_zscale);
     } else if (!TICS_ON(axis_array[SECOND_X_AXIS].ticmode) && !TICS_ON(axis_array[SECOND_Y_AXIS].ticmode)) {
 	/* only first X and Y axis are in use */
-# ifdef OLD_STATUS_LINE
-	sp = GetCoordinateString(s0, real_x, real_y);
-# else
 	sp = GetAnnotateString(s0, real_x, real_y, mouse_mode, mouse_alt_string);
-# endif
 	if (ruler.on) {
-# if 0
-	    MousePosToGraphPosReal(ruler.px, ruler.py, &ruler.x, &ruler.y, &ruler.x2, &ruler.y2);
-# endif
 	    GetRulerString(sp, real_x, real_y);
 	}
     } else {
@@ -875,17 +837,26 @@ UpdateStatuslineWithMouseSetting(mouse_setting_t * ms)
 	}
 	if (ruler.on) {
 	    /* ruler on? then also print distances to ruler */
-# if 0
-	    MousePosToGraphPosReal(ruler.px, ruler.py, &ruler.x, &ruler.y, &ruler.x2, &ruler.y2);
-# endif
-	    if (TICS_ON(axis_array[FIRST_X_AXIS].ticmode))
-		sp += sprintf(sp, xy1_format("dx="), DIST(real_x, ruler.x, FIRST_X_AXIS));
-	    if (TICS_ON(axis_array[FIRST_Y_AXIS].ticmode))
-		sp += sprintf(sp, xy1_format("dy="), DIST(real_y, ruler.y, FIRST_Y_AXIS));
-	    if (TICS_ON(axis_array[SECOND_X_AXIS].ticmode))
-		sp += sprintf(sp, xy1_format("dx2="), DIST(real_x2, ruler.x2, SECOND_X_AXIS));
-	    if (TICS_ON(axis_array[SECOND_Y_AXIS].ticmode))
-		sp += sprintf(sp, xy1_format("dy2="), DIST(real_y2, ruler.y2, SECOND_Y_AXIS));
+	    if (TICS_ON(axis_array[FIRST_X_AXIS].ticmode)) {
+		stpcpy(sp,"dx=");
+		sprintf(sp+3, mouse_setting.fmt, DIST(real_x, ruler.x, FIRST_X_AXIS));
+		sp += strlen(sp);
+	    }
+	    if (TICS_ON(axis_array[FIRST_Y_AXIS].ticmode)) {
+		stpcpy(sp,"dy=");
+		sprintf(sp+3, mouse_setting.fmt, DIST(real_y, ruler.y, FIRST_Y_AXIS));
+		sp += strlen(sp);
+	    }
+	    if (TICS_ON(axis_array[SECOND_X_AXIS].ticmode)) {
+		stpcpy(sp,"dx2=");
+		sprintf(sp+4, mouse_setting.fmt, DIST(real_x2, ruler.x2, SECOND_X_AXIS));
+		sp += strlen(sp);
+	    }
+	    if (TICS_ON(axis_array[SECOND_Y_AXIS].ticmode)) {
+		stpcpy(sp,"dy2=");
+		sprintf(sp+4, mouse_setting.fmt, DIST(real_y2, ruler.y2, SECOND_Y_AXIS));
+		sp += strlen(sp);
+	    }
 	}
 	*--sp = 0;		/* delete trailing space */
     }
@@ -2046,21 +2017,24 @@ bind_fmt_lhs(const bind_t * in)
 	sprintf(out, "Ctrl-");
     }
     if (in->modifier & Mod_Alt) {
-	sprintf(out, "%sAlt-", out);
+	strcat(out, "%sAlt-");
     }
     if (in->key > GP_FIRST_KEY && in->key < GP_LAST_KEY) {
-	sprintf(out, "%s%s", out, special_keys[in->key - GP_FIRST_KEY]);
+	strcat(out,special_keys[in->key - GP_FIRST_KEY]);
     } else {
 	int k = 0;
 	for ( ; usual_special_keys[k].value > 0; k++) {
 	    if (usual_special_keys[k].value == in->key) {
-		sprintf(out, "%s%s", out, usual_special_keys[k].key);
+		strcat(out, usual_special_keys[k].key);
 		k = -1;
 		break;
 	    }
 	}
-	if (k >= 0)
-	sprintf(out, "%s%c", out, in->key);
+	if (k >= 0) {
+	    char foo[2] = {'\0','\0'};
+	    foo[0] = in->key;
+	    strcat(out,foo);
+	}
     }
     return out;
 }

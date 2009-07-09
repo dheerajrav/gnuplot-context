@@ -1,5 +1,5 @@
 /*
- * $Id: graph3d.h,v 1.36 2009/02/19 04:53:20 sfeam Exp $
+ * $Id: graph3d.h,v 1.38 2009/04/12 22:27:04 sfeam Exp $
  */
 
 /* GNUPLOT - graph3d.h */
@@ -103,14 +103,13 @@ typedef struct surface_points {
     struct arrow_style_type arrow_properties;
     struct fill_style_type fill_properties;	/* FIXME: ignored in 3D */
     struct text_label *labels;	/* Only used if plot_style == LABELPOINTS */
-#ifdef WITH_IMAGE
     struct t_image image_properties;	/* only used if plot_style is IMAGE or RGB_IMAGE */
-#endif
 
     /* 2D and 3D plot structure fields overlay only to this point */
 
     TBOOLEAN opt_out_of_hidden3d; /* set by "nohidden" option to splot command */
     TBOOLEAN opt_out_of_contours; /* set by "nocontours" option to splot command */
+    TBOOLEAN opt_out_of_surface;  /* set by "nosurface" option to splot command */
     TBOOLEAN pm3d_color_from_column;
     int has_grid_topology;
     int iteration;		/* needed for tracking iteration */

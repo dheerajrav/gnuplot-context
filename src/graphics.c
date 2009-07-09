@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: graphics.c,v 1.295 2009/03/02 23:55:26 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: graphics.c,v 1.303 2009/06/06 18:28:43 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - graphics.c */
@@ -261,7 +261,7 @@ find_maxl_keys(struct curve_points *plots, int count, int *kcnt)
 	    cnt++;
 	/* Check for column-stacked histogram with key entries */
 	if (this_plot->plot_style == HISTOGRAMS &&  this_plot->labels) {
-	    text_label *key_entry = this_plot->labels;
+	    text_label *key_entry = this_plot->labels->next;
 	    for (; key_entry; key_entry=key_entry->next) {
 		cnt++;
 		len = key_entry->text ? estimate_strlen(key_entry->text) : 0;
@@ -270,7 +270,6 @@ find_maxl_keys(struct curve_points *plots, int count, int *kcnt)
 	    }
 	}
     }
-
 
     if (kcnt != NULL)
 	*kcnt = cnt;
@@ -329,6 +328,7 @@ boundary(struct curve_points *plots, int count)
     int ytic_textwidth;		/* width of ytic labels */
     int y2tic_textwidth;	/* width of y2tic labels */
     int x2tic_height;		/* 0 for tic_in or no x2tics, ticscale*v_tic otherwise */
+    int xtic_textwidth=0;	/* amount by which the xtic label protrude to the right */
     int xtic_height;
     int ytic_width;
     int y2tic_width;
@@ -367,8 +367,14 @@ boundary(struct curve_points *plots, int count)
 	label_width(axis_array[FIRST_Y_AXIS].label.text, &ylablin);
     if (axis_array[SECOND_Y_AXIS].label.text)
 	label_width(axis_array[SECOND_Y_AXIS].label.text, &y2lablin);
-    if (axis_array[FIRST_X_AXIS].ticmode)
+
+    if (axis_array[FIRST_X_AXIS].ticmode) {
 	label_width(axis_array[FIRST_X_AXIS].formatstring, &xticlin);
+	/* Reserve room for user tic labels even if format of autoticks is "" */
+	if (xticlin == 0 && axis_array[FIRST_X_AXIS].ticdef.def.user)
+	    xticlin = 1;
+    }
+
     if (axis_array[SECOND_X_AXIS].ticmode)
 	label_width(axis_array[SECOND_X_AXIS].formatstring, &x2ticlin);
     if (axis_array[FIRST_Y_AXIS].ticmode)
@@ -827,8 +833,8 @@ boundary(struct curve_points *plots, int count)
 	}
 	/* DBT 12-3-98  extra margin just in case */
 	plot_bounds.xleft += 0.5 * t->h_char;
-    } else if (lmargin.scalex != screen)
-	plot_bounds.xleft += (int) (lmargin.x * t->h_char);
+    }
+    /* Note: we took care of explicit 'set lmargin foo' at line 492 */
 
     /*  end of plot_bounds.xleft calculation }}} */
 
@@ -851,6 +857,39 @@ boundary(struct curve_points *plots, int count)
 	}
     } else {
 	y2tic_textwidth = 0;
+    }
+
+    /* EAM May 2009
+     * Check to see if any xtic labels are so long that they extend beyond
+     * the right boundary of the plot. If so, allow extra room in the margin.
+     * If the labels are too long to fit even with a big margin, too bad.
+     */
+    if (axis_array[FIRST_X_AXIS].ticdef.def.user) {
+	struct ticmark *tic = axis_array[FIRST_X_AXIS].ticdef.def.user;
+	int maxrightlabel = plot_bounds.xright;
+	while (tic) {
+	    if (tic->label) {
+		double xx;
+		int length = estimate_strlen(tic->label)
+			   * cos(DEG2RAD * (double)(axis_array[FIRST_X_AXIS].tic_rotate))
+			   * term->h_char;
+
+		/* We don't really know the plot layout yet, but try for an estimate */
+		AXIS_SETSCALE(FIRST_X_AXIS, plot_bounds.xleft, plot_bounds.xright);
+		axis_set_graphical_range(FIRST_X_AXIS, plot_bounds.xleft, plot_bounds.xright);
+		xx = axis_log_value_checked(FIRST_X_AXIS, tic->position, "xtic");
+	        xx = AXIS_MAP(FIRST_X_AXIS, xx);
+		xx += (axis_array[FIRST_X_AXIS].tic_rotate) ? length : length /2;
+		if (maxrightlabel < xx)
+		    maxrightlabel = xx;
+	    }
+	    tic = tic->next;
+	}
+	xtic_textwidth = maxrightlabel - plot_bounds.xright;
+	if (xtic_textwidth > term->xmax/2) {
+	    xtic_textwidth = term->xmax/2;
+	    int_warn(NO_CARET, "difficulty making room for xtic labels");
+	}
     }
 
     /* tics */
@@ -885,7 +924,6 @@ boundary(struct curve_points *plots, int count)
 	}
 
 	if (rmargin.x < 0) {
-	    /* plot_bounds.xright -= y2label_textwidth + y2tic_width + y2tic_textwidth; */
 	    plot_bounds.xright -= y2tic_width + y2tic_textwidth;
 	    if (y2label_textwidth > 0)
 		plot_bounds.xright -= y2label_textwidth;
@@ -894,10 +932,13 @@ boundary(struct curve_points *plots, int count)
 		/* make room for end of xtic or x2tic label */
 		plot_bounds.xright -= (int) (t->h_char * 2);
 	    }
+	    /* EAM 2009 - protruding xtic labels */
+	    if (term->xmax - plot_bounds.xright < xtic_textwidth)
+		plot_bounds.xright = term->xmax - xtic_textwidth;
 	    /* DBT 12-3-98  extra margin just in case */
 	    plot_bounds.xright -= 0.5 * t->h_char;
-	} else
-	    plot_bounds.xright -= (int) (rmargin.x * t->h_char);
+	}
+	/* Note: we took care of explicit 'set rmargin foo' at line 502 */
     }
 
     /*  end of plot_bounds.xright calculation }}} */
@@ -1839,9 +1880,10 @@ do_plot(struct curve_points *plots, int pcount)
 	    localkey = 0;
 	    if (this_plot->labels) {
 		struct lp_style_type save_lp = this_plot->lp_properties;
-		for (key_entry = this_plot->labels; key_entry; key_entry = key_entry->next) {
+		for (key_entry = this_plot->labels->next; key_entry; key_entry = key_entry->next) {
 		    key_count++;
 		    this_plot->lp_properties.l_type = key_entry->tag;
+		    this_plot->fill_properties.fillpattern = key_entry->tag;
 		    if (key_entry->text) {
 			if (prefer_line_styles)
 			    lp_use_properties(&this_plot->lp_properties, key_entry->tag + 1);
@@ -1981,7 +2023,6 @@ do_plot(struct curve_points *plots, int pcount)
 		place_labels( this_plot->labels->next, LAYER_PLOTLABELS, TRUE);
 		break;
 
-#ifdef WITH_IMAGE
 	    case IMAGE:
 		this_plot->image_properties.type = IC_PALETTE;
 		plot_image_or_update_axes(this_plot, FALSE);
@@ -1996,7 +2037,7 @@ do_plot(struct curve_points *plots, int pcount)
 		this_plot->image_properties.type = IC_RGBA;
 		plot_image_or_update_axes(this_plot, FALSE);
 		break;
-#endif
+
 #ifdef EAM_OBJECTS
 	    case CIRCLES:
 		plot_circles(this_plot);
@@ -2008,6 +2049,12 @@ do_plot(struct curve_points *plots, int pcount)
 
 	if (localkey && this_plot->title && !this_plot->title_is_suppressed) {
 	    /* we deferred point sample until now */
+	    if (this_plot->plot_style == LINESPOINTS
+	    &&  this_plot->lp_properties.p_interval < 0) {
+		(*t->linetype)(LT_BACKGROUND);
+		(*t->point)(xl + key_point_offset, yl, 6);
+		term_apply_lp_properties(&this_plot->lp_properties);
+	    }
 	    if (this_plot->plot_style & PLOT_STYLE_HAS_POINT) {
 		if (this_plot->lp_properties.p_size == PTSZ_VARIABLE)
 		    (*t->pointsize)(pointsize);
@@ -3552,6 +3599,8 @@ plot_boxes(struct curve_points *plot, int xaxis_y)
 			    apply_pm3dcolor(&ls.pm3d_color, term);
 			} else
 			    (*t->linetype)(histogram_linetype);
+			plot->fill_properties.fillpattern = histogram_linetype;
+			/* Fall through */
 		    case HT_STACKED_IN_LAYERS:
 
 			if( plot->points[i].y >= 0 ){
@@ -3617,12 +3666,6 @@ plot_boxes(struct curve_points *plot, int xaxis_y)
 
 		    style = style_from_fill(&plot->fill_properties);
 
-		    /* FIXME EAM - broken, and doesn't match key entries */
-		    if (plot->plot_style == HISTOGRAMS
-		    && plot->fill_properties.fillstyle == FS_PATTERN
-		    && histogram_opts.type == HT_STACKED_IN_TOWERS)
-			style += (i<<4);
-
 		    if (plot->lp_properties.use_palette && t->filled_polygon) {
 			(*t->filled_polygon)(4, fill_corners(style,x,y,w,h));
 		    } else
@@ -3670,9 +3713,13 @@ plot_points(struct curve_points *plot)
 {
     int i;
     int x, y;
+    int interval = plot->lp_properties.p_interval;
     struct termentry *t = term;
 
     for (i = 0; i < plot->p_count; i++) {
+	if ((plot->plot_style == LINESPOINTS) && (interval) && (i % interval)) {
+	    continue;
+	}
 	if (plot->points[i].type == INRANGE) {
 	    x = map_x(plot->points[i].x);
 	    y = map_y(plot->points[i].y);
@@ -3683,12 +3730,23 @@ plot_points(struct curve_points *plot)
 		    && x <= plot_bounds.xright - p_width
 		    && y <= plot_bounds.ytop - p_height)) {
 
-		/* rgb variable  -  color read from data column */
-		check_for_variable_color(plot, &plot->points[i]);
-
 		if ((plot->plot_style == POINTSTYLE || plot->plot_style == LINESPOINTS)
 		&&  plot->lp_properties.p_size == PTSZ_VARIABLE)
 		    (*t->pointsize)(pointsize * plot->points[i].z);
+
+		/* A negative interval indicates we should try to blank out the */
+		/* area behind the point symbol. This could be done better by   */
+		/* implementing a special point type, but that would require    */
+		/* modification to all terminal drivers. It might be worth it.  */
+		if (plot->plot_style == LINESPOINTS && interval < 0) {
+		    (*t->linetype)(LT_BACKGROUND);
+		    (*t->point) (x, y, 6);
+		    term_apply_lp_properties(&(plot->lp_properties));
+		}
+
+		/* rgb variable  -  color read from data column */
+		check_for_variable_color(plot, &plot->points[i]);
+
 		(*t->point) (x, y, plot->lp_properties.p_type);
 	    }
 	}
@@ -5338,7 +5396,7 @@ do_key_sample(
     /* oops - doing the point sample now would break the postscript
      * terminal for example, which changes current line style
      * when drawing a point, but does not restore it. We must wait
-     then draw the point sample at the end of do_plot (line 1625)
+     then draw the point sample at the end of do_plot (line 2058)
      */
 
     /* Restore previous clipping area */
@@ -5624,7 +5682,6 @@ check_for_variable_color(struct curve_points *plot, struct coordinate *point)
 	return FALSE;
 }
 	    
-#ifdef WITH_IMAGE
 
 /* Similar to HBB's comment above, this routine is shared with
  * graph3d.c, so it shouldn't be in this module (graphics.c).
@@ -6210,6 +6267,3 @@ skip_pixel:
     }
 
 }
-
-#endif
-

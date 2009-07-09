@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: pm3d.c,v 1.75 2009/02/04 17:18:59 mikulik Exp $"); }
+static char *RCSid() { return RCSid("$Id: pm3d.c,v 1.77 2009/03/26 00:49:16 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - pm3d.c */
@@ -691,7 +691,8 @@ pm3d_plot(struct surface_points *this_plot, int at_which_z)
 		       pointsB[ii1].x, pointsB[ii1].y, pointsA[i1].x, pointsA[i1].y));
 
 		/* set the color */
-		set_color(gray);
+		if (pm3d.direction != PM3D_DEPTH)
+		    set_color(gray);
 #ifdef EXTENDED_COLOR_SPECS
 	      }
 #endif
@@ -974,7 +975,7 @@ pm3d_draw_one(struct surface_points *plot)
     }
 
     /* for pm3dCompress.awk */
-    if (gppsfile)
+    if (gppsfile && (pm3d.direction != PM3D_DEPTH))
 	fputs("%pm3d_map_begin\n", gppsfile);
 
     for (; where[i]; i++) {
@@ -996,7 +997,7 @@ pm3d_draw_one(struct surface_points *plot)
     }
 
     /* for pm3dCompress.awk */
-    if (gppsfile)
+    if (gppsfile && (pm3d.direction != PM3D_DEPTH))
 	fputs("%pm3d_map_end\n", gppsfile);
 }
 
@@ -1062,10 +1063,8 @@ set_plot_with_palette(int plot_num, int plot_mode)
     /* Check 2D plots */
     if (plot_mode == MODE_PLOT) {
 	while (this_2dplot) {
-#ifdef WITH_IMAGE
 	    if (this_2dplot->plot_style == IMAGE)
 		return;
-#endif
 	    if (this_2dplot->lp_properties.use_palette
 	    &&  this_2dplot->lp_properties.pm3d_color.type > TC_RGB)
 		return;
@@ -1082,10 +1081,8 @@ set_plot_with_palette(int plot_num, int plot_mode)
 	while (surface++ < plot_num) {
 	    if (this_3dplot->plot_style == PM3DSURFACE)
 		return;
-#ifdef WITH_IMAGE
 	    if (this_3dplot->plot_style == IMAGE)
 		return;
-#endif
 	    if (this_3dplot->lp_properties.use_palette) {
 	        int type = this_3dplot->lp_properties.pm3d_color.type;
 		if (type == TC_LT || type == TC_LINESTYLE || type == TC_RGB)
