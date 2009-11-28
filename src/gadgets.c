@@ -54,7 +54,7 @@ legend_key keyT = DEFAULT_KEY_PROPS;
 
 /* Description of the color box associated with CB_AXIS */
 color_box_struct color_box; /* initialized in init_color() */
-color_box_struct default_color_box = {SMCOLOR_BOX_DEFAULT, 'v', 1, LT_BLACK, LAYER_FRONT,
+color_box_struct default_color_box = {SMCOLOR_BOX_DEFAULT, 'v', 1, LT_BLACK, LAYER_FRONT, 0,
 					{screen, screen, screen, 0.90, 0.2, 0.0},
 					{screen, screen, screen, 0.05, 0.6, 0.0}};
 
@@ -127,7 +127,8 @@ double zero = ZERO;
 double pointsize = 1.0;
 
 /* set border */
-int draw_border = 31;
+int draw_border = 31;	/* The current settings */
+int user_border = 31;	/* What the user last set explicitly */
 int border_layer = 1;
 # define DEFAULT_BORDER_LP { 0, -2, 0, 1.0, 1.0, 0 }
 struct lp_style_type border_lp = DEFAULT_BORDER_LP;

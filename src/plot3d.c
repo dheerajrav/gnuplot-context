@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: plot3d.c,v 1.171 2009/04/12 22:27:04 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: plot3d.c,v 1.176 2009/10/17 22:56:07 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - plot3d.c */
@@ -273,6 +273,15 @@ plot3drequest()
     CHECK_REVERSE(FIRST_X_AXIS);
     CHECK_REVERSE(FIRST_Y_AXIS);
     CHECK_REVERSE(FIRST_Z_AXIS);
+
+    /* Clear out any tick labels read from data files in previous plot */
+    for (u_axis=0; u_axis<AXIS_ARRAY_SIZE; u_axis++) {
+	struct ticdef *ticdef = &axis_array[u_axis].ticdef;
+	if (ticdef->def.user)
+	    ticdef->def.user = prune_dataticks(ticdef->def.user);
+	if (!ticdef->def.user && ticdef->type == TIC_USER)
+	    ticdef->type = TIC_COMPUTED;
+    }
 
     /* use the default dummy variable unless changed */
     if (dummy_token0 >= 0)
@@ -1213,6 +1222,7 @@ eval_3dplots()
     int start_token=0, end_token;
     int begin_token;
     TBOOLEAN some_data_files = FALSE, some_functions = FALSE;
+    TBOOLEAN was_definition = FALSE;
     int df_return = 0;
     int plot_num, line_num, point_num;
     /* part number of parametric function triplet: 0 = z, 1 = y, 2 = x */
@@ -1259,11 +1269,16 @@ eval_3dplots()
 	if (END_OF_COMMAND)
 	    int_error(c_token, "function to plot expected");
 
-	if (crnt_param == 0)
+	if (crnt_param == 0 && !was_definition)
 	    start_token = c_token;
 
 	if (is_definition(c_token)) {
 	    define();
+	    if (!equals(c_token,",")) {
+		was_definition = TRUE;
+		continue;
+	    }
+
 	} else {
 	    int specs = -1;
 	    struct surface_points *this_plot;
@@ -1274,8 +1289,10 @@ eval_3dplots()
 	    TBOOLEAN set_lpstyle = FALSE;
 	    TBOOLEAN checked_once = FALSE;
 	    TBOOLEAN set_labelstyle = FALSE;
-	    if (!parametric || crnt_param == 0)
+
+	    if (!was_definition && (!parametric || crnt_param == 0))
 		start_token = c_token;
+	    was_definition = FALSE;
 
 	    dummy_func = &plot_func;
 	    /* WARNING: do NOT free name_str */
@@ -1701,11 +1718,8 @@ eval_3dplots()
 
 	    if (this_plot->plot_type == DATA3D) {
 		/*{{{  read data */
-		/* remember settings for second surface in file */
-		struct lp_style_type *these_props = &(this_plot->lp_properties);
-		enum PLOT_STYLE this_style = this_plot->plot_style;
+		/* pointer to the plot of the first dataset (surface) in the file */
 		struct surface_points *first_dataset = this_plot;
-		    /* pointer to the plot of the first dataset (surface) in the file */
 		int this_token = this_plot->token;
 
 		do {
@@ -1754,10 +1768,14 @@ eval_3dplots()
 		    }
 
 		    this_plot->plot_type = DATA3D;
-		    this_plot->plot_style = this_style;
 		    this_plot->iteration = iteration;
-		    /* Struct copy */
-		    this_plot->lp_properties = *these_props;
+		    this_plot->plot_style = first_dataset->plot_style;
+		    this_plot->lp_properties = first_dataset->lp_properties;
+		    if (this_plot->plot_style == LABELPOINTS) {
+			this_plot->labels = new_text_label(-1);
+			*(this_plot->labels) = *(first_dataset->labels);
+			this_plot->labels->next = NULL;
+		    }
 		} while (df_return != DF_EOF);
 
 		df_close();
@@ -1889,14 +1907,20 @@ eval_3dplots()
 
 	/* Read through functions */
 	while (TRUE) {
+	    if (crnt_param == 0 && !was_definition)
+		start_token = c_token;
+
 	    if (is_definition(c_token)) {
 		define();
+		if (!equals(c_token,",")) {
+		    was_definition = TRUE;
+		    continue;
+		}
+
 	    } else {
 		struct at_type *at_ptr;
 		char *name_str;
-
-		if (crnt_param == 0)
-		    start_token = c_token;
+		was_definition = FALSE;
 
 		dummy_func = &plot_func;
 		name_str = string_or_express(&at_ptr);
@@ -1984,14 +2008,14 @@ eval_3dplots()
     }
 
     axis_checked_extend_empty_range(FIRST_X_AXIS, "All points x value undefined");
+    axis_revert_and_unlog_range(FIRST_X_AXIS);
     axis_checked_extend_empty_range(FIRST_Y_AXIS, "All points y value undefined");
+    axis_revert_and_unlog_range(FIRST_Y_AXIS);
     if (splot_map)
 	axis_checked_extend_empty_range(FIRST_Z_AXIS, NULL); /* Suppress warning message */
     else
 	axis_checked_extend_empty_range(FIRST_Z_AXIS, "All points z value undefined");
 
-    axis_revert_and_unlog_range(FIRST_X_AXIS);
-    axis_revert_and_unlog_range(FIRST_Y_AXIS);
     axis_revert_and_unlog_range(FIRST_Z_AXIS);
 
     setup_tics(FIRST_X_AXIS, 20);

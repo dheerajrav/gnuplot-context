@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: save.c,v 1.172 2009/06/06 18:28:43 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: save.c,v 1.174 2009/10/28 06:46:27 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - save.c */
@@ -573,8 +573,8 @@ set encoding %s\n\
 	fprintf(fp, "%g, %g, %g, %g",
 	    surface_rot_x, surface_rot_z, surface_scale, surface_zscale);
     }
-    fprintf(fp, "\nset view %s", aspect_ratio_3D == 2 ? "equal xy" :
-                                 aspect_ratio_3D == 3 ? "equal xyz": "");
+    fprintf(fp, "  %s", aspect_ratio_3D == 2 ? "equal xy" :
+			aspect_ratio_3D == 3 ? "equal xyz": "");
 
     fprintf(fp, "\n\
 set samples %d, %d\n\
@@ -1102,12 +1102,13 @@ save_fillstyle(FILE *fp, const struct fill_style_type *fs)
 	fprintf(fp, " empty ");
 	break;
     }
-    if (fs->border_color.type == TC_LT && fs->border_color.lt == LT_NODRAW)
+    if (fs->border_color.type == TC_LT && fs->border_color.lt == LT_NODRAW) {
 	fprintf(fp, "noborder\n");
-    else
+    } else {
 	fprintf(fp, "border");
 	save_pm3dcolor(fp, &fs->border_color);
 	fprintf(fp, "\n");
+    }
 }
 
 void

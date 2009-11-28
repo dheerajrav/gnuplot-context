@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: misc.c,v 1.109 2009/06/06 18:28:43 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: misc.c,v 1.112 2009/10/31 05:24:18 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - misc.c */
@@ -604,7 +604,7 @@ pop_terminal()
 	i = interactive;
 	interactive = 0;
 	sprintf(s,"set term %s %s", push_term_name, (push_term_opts ? push_term_opts : ""));
-	do_string(s, TRUE);
+	do_string_and_free(s);
 	interactive = i;
 	if (interactive)
 	    fprintf(stderr,"   restored terminal is %s %s\n", term->name, ((*term_options) ? term_options : ""));
@@ -613,8 +613,7 @@ pop_terminal()
 }
 
 
-/* Parse a plot style. Used by 'set style {data|function}' and by
- * (s)plot.  */
+/* Parse a plot style. Used by 'set style {data|function}' and by (s)plot.  */
 enum PLOT_STYLE
 get_style()
 {
@@ -627,17 +626,8 @@ get_style()
 
     c_token++;
 
-    if (ps == -1) {
-	int_error(c_token, "\
-expecting 'lines', 'points', 'linespoints', 'dots', 'impulses',\n\
-\t'yerrorbars', 'xerrorbars', 'xyerrorbars', 'steps', 'fsteps',\n\
-\t'histeps', 'filledcurves', 'boxes', 'boxerrorbars', 'boxxyerrorbars',\n\
-\t'vectors', 'financebars', 'candlesticks', 'errorlines', 'xerrorlines',\n\
-\t'yerrorlines', 'xyerrorlines', 'pm3d', 'labels', 'histograms'"
-",\n\t 'image', 'rgbimage'"
-);
-	ps = LINES;
-    }
+    if (ps == -1)
+	int_error(c_token, "unrecognized plot type");
 
     return ps;
 }
@@ -1179,7 +1169,7 @@ arrow_parse(
 		arrow->head_lengthunit = hsize.scalex;
 		arrow->head_angle = hsize.y;
 		arrow->head_backangle = hsize.z;
-		/* invalid backangle --> default of 90.0° */
+		/* invalid backangle --> default of 90.0 degrees */
 		if (arrow->head_backangle <= arrow->head_angle)
 		    arrow->head_backangle = 90.0;
 		continue;

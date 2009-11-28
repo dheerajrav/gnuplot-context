@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: term.c,v 1.186 2009/06/17 04:15:35 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: term.c,v 1.192 2009/10/31 03:22:37 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - term.c */
@@ -93,7 +93,6 @@ static char *RCSid() { return RCSid("$Id: term.c,v 1.186 2009/06/17 04:15:35 sfe
 
 #ifdef USE_MOUSE
 #include "mouse.h"
-static int save_mouse_state = 1;
 #endif
 
 #ifdef _Windows
@@ -652,6 +651,15 @@ term_start_multiplot()
 	    if ((s = try_to_get_string())) {
 		free(mp_layout.title.text);
 		mp_layout.title.text = s;
+ 	    }
+ 	    continue;
+       }
+
+       if (equals(c_token, "font")) {
+	    c_token++;
+ 	    if ((s = try_to_get_string())) {
+ 		free(mp_layout.title.font);
+ 		mp_layout.title.font = s;
 	    }
 	    continue;
 	}
@@ -776,11 +784,6 @@ term_start_multiplot()
     mp_layout_size_and_offset();
 
 #ifdef USE_MOUSE
-    /* save the state of mouse_setting.on and
-     * disable mouse; call UpdateStatusline()
-     * to eventually turn off statusline */
-    save_mouse_state = mouse_setting.on;
-    mouse_setting.on = 0;
     UpdateStatusline();
 #endif
 }
@@ -817,14 +820,9 @@ term_end_multiplot()
 
     term_end_plot();
 #ifdef USE_MOUSE
-    /* restore the state of mouse_setting.on;
-     * call UpdateStatusline() to turn on
-     * eventually statusline */
-    mouse_setting.on = save_mouse_state;
     UpdateStatusline();
 #endif
 }
-
 
 
 static void
@@ -1306,8 +1304,8 @@ do_arrow(
 #ifdef EAM_OBJECTS
 /* Generic routine for drawing circles or circular arcs.          */
 /* If this feature proves useful, we can add a new terminal entry */
-/* point term->arc() to the API and let termials either provide a */
-/* private implemenation or use this generic one.                 */
+/* point term->arc() to the API and let terminals either provide  */
+/* a private implemenation or use this generic one.               */
 
 void
 do_arc( 
@@ -1706,6 +1704,11 @@ init_terminal()
 	    term_name = "sun";
 #endif /* SUN */
 
+#ifdef QTTERM
+	if (term_name == (char *) NULL)
+		term_name = "qt";
+#endif
+
 #ifdef WXWIDGETS
 	if (term_name == (char *) NULL)
 		term_name = "wxt";
@@ -1930,7 +1933,7 @@ test_term()
 
     already_in_enhanced_text_mode = t->flags & TERM_ENHANCED_TEXT;
     if (!already_in_enhanced_text_mode)
-	do_string("set termopt enh",FALSE);
+	do_string("set termopt enh");
 
     term_start_plot();
     screen_ok = FALSE;
@@ -1997,7 +2000,7 @@ test_term()
 	(*t->put_text) (xmax_t * 0.5, ymax_t * 0.40, tmptext);
 	free(tmptext);
 	if (!already_in_enhanced_text_mode)
-	    do_string("set termopt noenh",FALSE);
+	    do_string("set termopt noenh");
     }
 
     /* test justification */
@@ -2772,10 +2775,9 @@ void
 enh_err_check(const char *str)
 {
     if (*str == '}')
-	fputs("enhanced text mode parser - ignoring spurious }\n", stderr);
+	int_warn(NO_CARET, "enhanced text mode parser - ignoring spurious }");
     else
-	fprintf(stderr, "enhanced text mode parsing error - *str=0x%x\n",
-		*str);
+	int_warn(NO_CARET, "enhanced text mode parsing error");
 }
 
 /* Helper function for multiplot auto layout to issue size and offest cmds */

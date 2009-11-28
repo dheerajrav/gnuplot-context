@@ -1,5 +1,5 @@
 /* Hello, Emacs, this is -*-C-*-
- * $Id: gd.trm,v 1.139 2009/06/05 02:57:43 sfeam Exp $
+ * $Id: gd.trm,v 1.145 2009/10/06 23:02:59 sfeam Exp $
  * based on gif.trm,v 1.26.2.1 2000/05/01 00:17:20 joze
  */
 
@@ -473,6 +473,7 @@ static int
 PNG_FillPattern(int style)
 {
     int rgb = png_state.rgb;
+    int brgb = png_state.rgb_table[0];
     int fillpar = (style >> 4) % 8;
     style = style & 0xf;
 
@@ -493,7 +494,8 @@ PNG_FillPattern(int style)
 	if (!((PNG_fill_tile.im = gdImageCreate(8, 8))))
 	    int_error(NO_CARET,"libgd: failed to create pattern-fill tile");
 
-	background = gdImageColorAllocate(PNG_fill_tile.im, 255, 255, 255);
+	background = gdImageColorAllocate(PNG_fill_tile.im,
+		(brgb >> 16) & 0xff, (brgb >> 8) & 0xff, brgb & 0xff);
 	if (style == FS_TRANSPARENT_PATTERN)
 	    gdImageColorTransparent(PNG_fill_tile.im, background);
 	gdImageFilledRectangle(PNG_fill_tile.im, 0, 0, 7, 7, background);
@@ -784,7 +786,7 @@ PNG_options()
 		png_state.default_ttffont = gp_strdup(png_state.ttffont);
 
 		/* First try the old GDFONTPATH mechanism for locating fonts */
-		err = gdUseFontConfig(0);
+		(void)gdUseFontConfig(0);
 		err = gdImageStringFT(NULL, &brect[0], 0,
 			png_state.ttffont, (double)png_state.default_ttfsize,
 			0.0, 0, 0, "test");
@@ -982,7 +984,7 @@ PNG_options()
 		png_state.default_ttfsize = 2 * term->h_char - 2;
 
 	/* First try the old GDFONTPATH mechanism for locating fonts */
-	err = gdUseFontConfig(0);
+	(void)gdUseFontConfig(0);
 	err = gdImageStringFT(NULL, &brect[0], 0,
 		png_state.ttffont, (double)png_state.default_ttfsize,
 		0.0, 0, 0, "test");
@@ -1428,6 +1430,11 @@ PNG_graphics()
 {
     int i;
     unsigned int rgb;
+ 
+    for (i = png_state.n_colors; i < GD_DEFINED_COLORS; i++)
+	png_state.rgb_table[i] = pm3d_color_names_tbl[i].value;
+    if (png_state.n_colors < GD_DEFINED_COLORS)
+	png_state.n_colors = GD_DEFINED_COLORS;
 
 #if (GD2_VERS >= 2)
     /* TrueColor images default to a black background; load white instead.	*/
@@ -1435,15 +1442,18 @@ PNG_graphics()
     /* but apply alpha for the rest of the image internally. Otherwise you	*/
     /* see only background through the topmost transparent layer.		*/
     if (png_state.TrueColor) {
+        unsigned int brgb = png_state.rgb_table[0];
 	png_state.image = gdImageCreateTrueColor(PNG_XMAX, PNG_YMAX);
 	if (!png_state.image)
 	    int_error(NO_CARET,"libgd: failed to create output image structure");
 	if (png_state.flags & PNG_USE_TRANSPARENT) {
-	    rgb = gdImageColorAllocateAlpha(png_state.image, 255, 255, 255, 127);
+	    rgb = gdImageColorAllocateAlpha(png_state.image,
+		(brgb >> 16) & 0xff, (brgb >> 8) & 0xff, brgb & 0xff, 127);
 	    gdImageSaveAlpha(png_state.image, 1);
 	    gdImageAlphaBlending(png_state.image, 0);
 	} else {
-	    rgb = gdImageColorAllocate(png_state.image, 255, 255, 255);
+	    rgb = gdImageColorAllocate(png_state.image,
+		(brgb >> 16) & 0xff, (brgb >> 8) & 0xff, brgb & 0xff);
 	}
 	gdImageFill(png_state.image, 1, 1, rgb);
 	gdImageAlphaBlending(png_state.image, 1);
@@ -1458,10 +1468,7 @@ PNG_graphics()
     png_state.charh = term->v_char;	/* png_state.font->h; */
     png_state.font = png_state.default_font;
     png_state.color = 0;
-    for (i = png_state.n_colors; i < GD_DEFINED_COLORS; i++)
-	png_state.rgb_table[i] = pm3d_color_names_tbl[i].value;
-    if (png_state.n_colors < GD_DEFINED_COLORS)
-	png_state.n_colors = GD_DEFINED_COLORS;
+
     for (i = 0; i < png_state.n_colors; i++) {
 	rgb = png_state.rgb_table[i];
 	png_state.color_table[i] =
@@ -1469,8 +1476,7 @@ PNG_graphics()
 				 (rgb >> 8) & 0xff, rgb & 0xff);
     }
     if (png_state.flags & PNG_USE_TRANSPARENT)
-	gdImageColorTransparent(png_state.image,
-				png_state.color_table[0]);
+	gdImageColorTransparent(png_state.image, png_state.color_table[0]);
     else
 	gdImageColorTransparent(png_state.image, -1);
 
@@ -2209,7 +2215,7 @@ TERM_TABLE_START(png_driver)
     PNG_linetype, PNG_put_text, PNG_text_angle,
     PNG_justify_text, PNG_point, do_arrow, PNG_set_font,
     PNG_pointsize,
-    TERM_CAN_MULTIPLOT | TERM_BINARY, /* TERM_ALPHA_CHANNEL only if truecolor */
+    TERM_CAN_MULTIPLOT|TERM_BINARY|TERM_LINEWIDTH, /* TERM_ALPHA_CHANNEL only if truecolor */
     0 /*suspend*/, 0 /*resume*/,
     PNG_boxfill /*EAM - fillbox*/,
     PNG_linewidth /*EAM - linewidth*/
@@ -2371,7 +2377,7 @@ TERM_TABLE_START(jpeg_driver)
     PNG_linetype, PNG_put_text, PNG_text_angle,
     PNG_justify_text, PNG_point, do_arrow, PNG_set_font,
     PNG_pointsize,
-    TERM_CAN_MULTIPLOT | TERM_BINARY | TERM_ALPHA_CHANNEL,
+    TERM_CAN_MULTIPLOT|TERM_BINARY|TERM_ALPHA_CHANNEL|TERM_LINEWIDTH,
     0 /*suspend*/, 0 /*resume*/,
     PNG_boxfill /*EAM - fillbox*/,
     PNG_linewidth /*EAM - linewidth*/
@@ -2524,7 +2530,7 @@ TERM_TABLE_START(gif_driver)
     PNG_linetype, PNG_put_text, PNG_text_angle,
     PNG_justify_text, PNG_point, do_arrow, PNG_set_font,
     PNG_pointsize,
-    TERM_CAN_MULTIPLOT | TERM_BINARY,
+    TERM_CAN_MULTIPLOT|TERM_BINARY|TERM_LINEWIDTH,
     0 /*suspend*/, 0 /*resume*/,
     PNG_boxfill /*EAM - fillbox*/,
     PNG_linewidth /*EAM - linewidth*/
@@ -2562,6 +2568,7 @@ START_HELP(gif)
 "              {tiny | small | medium | large | giant}",
 "              {font \"<face> {,<pointsize>}\"} {{no}enhanced}",
 "              {size <x>,<y>} {{no}crop}",
+"              {animate {delay <d>} {loop <n>} {{no}optimize}}",
 "              {<color0> <color1> <color2> ...}",
 "",
 " PNG, JPEG and GIF images are created using the external library libgd.",
@@ -2595,6 +2602,7 @@ START_HELP(gif)
 " the creation of animated gifs. The default delay between display of",
 " successive images may be specified in units of 1/100 second (default 5).",
 " The actual delay may vary depending on the program used as a viewer.",
+" Number of animation loops can be specified, default 0 means infinity.",
 " An animation sequence is terminated by the next `set output` or `set term`",
 " command.  The `optimize` option has two effects on the animation.",
 "",
@@ -2619,6 +2627,7 @@ START_HELP(gif)
 " The output plot size <x,y> is given in pixels---it defaults to 640x480.",
 " Please see additional information under `canvas` and `set size`.",
 " Blank space at the edges of the finished plot may be trimmed using the `crop`",
+" option, resulting in a smaller final image size. Default is `nocrop`.",
 "",
 " Each color must be of the form 'xrrggbb', where x is the literal character",
 " 'x' and 'rrggbb' are the red, green and blue components in hex.  For example,",

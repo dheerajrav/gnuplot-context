@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: datafile.c,v 1.172 2009/04/13 03:07:46 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: datafile.c,v 1.177 2009/10/10 18:43:30 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - datafile.c */
@@ -202,6 +202,8 @@ int df_datum;                   /* suggested x value if none given */
 AXIS_INDEX df_axis[MAXDATACOLS];
 TBOOLEAN df_matrix = FALSE;     /* indicates if data originated from a 2D or 3D format */
 TBOOLEAN df_binary = FALSE;     /* this is a binary file */
+
+void *df_datablock;		/* pixel data from an external library (e.g. libgd) */
 
 /* jev -- the 'thru' function --- NULL means no dummy vars active */
 /* HBB 990829: moved this here, from command.c */
@@ -433,13 +435,17 @@ static void (*binary_input_function)(void);	/* Will point to one of the above */
 static void auto_filetype_function(void){};	/* Just a placeholder for auto    */
 
 struct gen_ftable df_bin_filetype_table[] = {
-    {"gpbin", gpbin_filetype_function},
-    {"raw", raw_filetype_function},
-    {"rgb", raw_filetype_function},
-    {"bin", raw_filetype_function},
     {"avs", avs_filetype_function},
+    {"bin", raw_filetype_function},
     {"edf", edf_filetype_function},
     {"ehf", edf_filetype_function},
+    {"gif", gif_filetype_function},
+    {"gpbin", gpbin_filetype_function},
+    {"jpeg", jpeg_filetype_function},
+    {"jpg", jpeg_filetype_function},
+    {"png", png_filetype_function},
+    {"raw", raw_filetype_function},
+    {"rgb", raw_filetype_function},
     {"auto", auto_filetype_function},
     {NULL,   NULL}
 };
@@ -977,6 +983,7 @@ df_open(const char *cmd_filename, int max_using, struct curve_points *plot)
     lastpoint = lastline = MAXINT;
 
     df_binary_file = df_matrix_file = FALSE;
+    df_datablock = NULL;
 
     df_eof = 0;
 
@@ -1321,10 +1328,13 @@ plot_option_index()
     df_lower_index = int_expression();
     if (equals(c_token, ":")) {
 	++c_token;
-	df_upper_index = abs(int_expression());
-	if (df_upper_index < df_lower_index)
-	    int_error(c_token, "Upper index should be bigger than lower index");
-
+	if (equals(c_token, ":")) {
+	    df_upper_index = MAXINT;    /* If end index not specified */
+	} else {
+	    df_upper_index = int_expression();
+	    if (df_upper_index < df_lower_index)
+		int_error(c_token, "Upper index should be bigger than lower index");
+	}
 	if (equals(c_token, ":")) {
 	    ++c_token;
 	    df_index_step = abs(int_expression());
@@ -1747,7 +1757,7 @@ df_readascii(double v[], int max)
 
 		    if (df_current_plot
 			&& df_current_plot->plot_style == HISTOGRAMS) {
-			if (output == 2) /* Can only happen for HT_ERRORBARS */
+			if (output > 1) /* Can only happen for HT_ERRORBARS */
 			    xpos = (axcol == 0) ? df_datum : v[axcol-1];
 			xpos += df_current_plot->histogram->start;
 		    }
@@ -2873,6 +2883,8 @@ plot_option_binary(TBOOLEAN set_matrix, TBOOLEAN set_default)
     TBOOLEAN set_format = FALSE;
 
 	/* Binary file type must be the first word in the command following `binary`" */
+	if (df_bin_filetype_default >= 0)
+	    df_bin_filetype = df_bin_filetype_default;
 	if (almost_equals(c_token, "file$type") || (df_bin_filetype >= 0)) {
 	    int i;
 	    char file_ext[8] = {'\0','\0','\0','\0','\0','\0','\0','\0'};
@@ -2902,7 +2914,8 @@ plot_option_binary(TBOOLEAN set_matrix, TBOOLEAN set_default)
 		c_token++;
 	    }
 
-	    if (df_plot_mode != MODE_QUERY && binary_input_function == auto_filetype_function) {
+	    if (df_plot_mode != MODE_QUERY  
+	    && !strcmp("auto", df_bin_filetype_table[df_bin_filetype].key)) {
 		int i;
 		char *file_ext = strrchr(df_filename, '.');
 		if (file_ext++) {
@@ -4280,6 +4293,10 @@ df_readbinary(double v[], int max)
 		break;
 
 	    /* Read in a "column", i.e., a binary value of various types. */
+	    if (df_datablock) {
+		io_val.uc = df_libgd_get_pixel(df_M_count, df_N_count, i);
+	    } else
+
 	    if (memory_data) {
 		for (fread_ret = 0;
 		     fread_ret < df_column_bininfo[i].column.read_size;
@@ -4490,11 +4507,24 @@ df_readbinary(double v[], int max)
 			return DF_UNDEFINED; 
 
 		    v[output] = real(&a);
-		} else if (column == -5) {
-		    v[output] = o_value*delta[2];
-		} else if (column == -4) {
+		} else if (column == DF_SCAN_PLANE) {
+		    if ((df_current_plot->plot_style == IMAGE)
+		    ||  (df_current_plot->plot_style == RGBIMAGE))
+			v[output] = o_value*delta[2];
+		    /* EAM August 2009
+		     * This was supposed to be "z" in a 3D grid holding a binary
+		     * value at each voxel.  But in fact the binary code does not
+		     * support 3D grids, only 2D. So this always got set to 0,
+		     * making the whole thing pretty useless except for inherently.
+		     * planar objects like 2D images.
+		     * Now I set Z to be the pixel value, which allows you
+		     * to draw surfaces described by a 2D binary array.
+		     */ 
+		    else
+			v[output] = df_column[0].datum;
+		} else if (column == DF_SCAN_LINE) {
 		    v[output] = n_value*delta[1];
-		} else if (column == -3) {
+		} else if (column == DF_SCAN_POINT) {
 		    v[output] = m_value*delta[0];
 		} else if (column == -2) {
 		    v[output] = df_current_index;
@@ -4606,6 +4636,8 @@ df_generate_pseudodata()
     /* This code copied from that in second pass through eval_plots() */
     if (df_pseudodata == 1) {
 	static double t, t_min, t_max, t_step;
+	if (df_pseudorecord >= samples_1)
+	    return NULL;
 	if (df_pseudorecord == 0) {
 	    if (parametric || polar)
 		int_error(NO_CARET,"Pseudodata not yet implemented for polar or parametric graphs");
@@ -4621,8 +4653,7 @@ df_generate_pseudodata()
 	t = t_min + df_pseudorecord * t_step;
 	t = AXIS_DE_LOG_VALUE(x_axis, t);
 	sprintf(line,"%g",t);
-	if (++df_pseudorecord >= samples_1)
-	    return NULL;
+	++df_pseudorecord;
     }
 
     /* Pseudofile '++' returns a (samples X isosamples) grid of x,y coordinates */
@@ -4634,6 +4665,14 @@ df_generate_pseudodata()
 	double u, v;
 	AXIS_INDEX u_axis = FIRST_X_AXIS;
 	AXIS_INDEX v_axis = FIRST_Y_AXIS;
+
+	if ((df_pseudorecord >= nusteps) && (df_pseudorecord > 0)) {
+	    df_pseudorecord = 0;
+	    if (++df_pseudospan >= nvsteps)
+		return NULL;
+	    else
+		return ""; /* blank record for end of scan line */
+	}
 
 	if (df_pseudospan == 0) {
 	    if (samples_1 < 2 || samples_2 < 2 || iso_samples_1 < 2 || iso_samples_2 < 2)
@@ -4663,14 +4702,7 @@ df_generate_pseudodata()
 	u = u_min + df_pseudorecord * u_step;
 	v = v_max - df_pseudospan * v_isostep;
 	sprintf(line,"%g %g", AXIS_DE_LOG_VALUE(u_axis,u), AXIS_DE_LOG_VALUE(v_axis,v));
-
-	if (++df_pseudorecord > nusteps) {
-	    df_pseudorecord = 0;
-	    if (++df_pseudospan >= nvsteps)
-		return NULL;
-	    else
-		return ""; /* blank record for end of scan line */
-	}
+	++df_pseudorecord;
     }
 
     return line;

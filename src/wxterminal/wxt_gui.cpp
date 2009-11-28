@@ -1,5 +1,5 @@
 /*
- * $Id: wxt_gui.cpp,v 1.74 2009/06/13 05:23:56 sfeam Exp $
+ * $Id: wxt_gui.cpp,v 1.77 2009/10/24 19:57:50 sfeam Exp $
  */
 
 /* GNUPLOT - wxt_gui.cpp */
@@ -158,6 +158,7 @@ BEGIN_EVENT_TABLE( wxtPanel, wxPanel )
 	EVT_MIDDLE_UP( wxtPanel::OnMiddleUp )
 	EVT_RIGHT_DOWN( wxtPanel::OnRightDown )
 	EVT_RIGHT_UP( wxtPanel::OnRightUp )
+	EVT_MOUSEWHEEL( wxtPanel::OnMouseWheel )
 	EVT_CHAR( wxtPanel::OnKeyDownChar )
 #endif /*USE_MOUSE*/
 END_EVENT_TABLE()
@@ -483,16 +484,16 @@ void wxtFrame::OnConfig( wxCommandEvent& WXUNUSED( event ) )
 /* toolbar event : Help */
 void wxtFrame::OnHelp( wxCommandEvent& WXUNUSED( event ) )
 {
-	wxMessageBox( wxString(wxT("You are using an interactive terminal "\
-		"based on wxWidgets for the interface, Cairo "\
-		"for the drawing facilities, and Pango for the text layouts.\n"\
-		"Please note that toolbar icons in the terminal "\
-		"don't reflect the whole range of mousing "\
-		"possibilities in the terminal.\n"\
-		"Hit 'h' in the plot window "\
-		"and a help message for mouse commands "\
-		"will appear in the gnuplot console.\n"\
-		"See also 'help mouse'.\n")),
+	wxMessageBox( wxString(wxT("You are using an interactive terminal ")
+		wxT("based on wxWidgets for the interface, Cairo ")
+		wxT("for the drawing facilities, and Pango for the text layouts.\n")
+		wxT("Please note that toolbar icons in the terminal ")
+		wxT("don't reflect the whole range of mousing ")
+		wxT("possibilities in the terminal.\n")
+		wxT("Hit 'h' in the plot window ")
+		wxT("and a help message for mouse commands ")
+		wxT("will appear in the gnuplot console.\n")
+		wxT("See also 'help mouse'.\n")),
 		wxT("wxWidgets terminal help"), wxOK | wxICON_INFORMATION, this );
 }
 
@@ -931,6 +932,16 @@ void wxtPanel::OnRightUp( wxMouseEvent& event )
 	}
 }
 
+/* mouse wheel event */
+void wxtPanel::OnMouseWheel( wxMouseEvent& event )
+{
+	UpdateModifiers(event);
+
+	wxt_exec_event(GE_buttonpress, 0, 0, 
+			event.GetWheelRotation() > 0 ? 4 : 5, 
+			0, this->GetId());
+}
+
 /* the state of the modifiers is checked each time a key is pressed instead of
  * tracking the press and release events of the modifiers keys, because the
  * window manager catches some combinations, like ctrl+F1, and thus we do not
@@ -1289,7 +1300,7 @@ wxtConfigDialog::wxtConfigDialog(wxWindow* parent)
 	: wxDialog(parent, -1, wxT("Terminal configuration"), wxDefaultPosition, wxDefaultSize,
                    wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 {
-/* 	wxStaticBox *sb = new wxStaticBox( this, wxID_ANY, _T("&Explanation"),
+/* 	wxStaticBox *sb = new wxStaticBox( this, wxID_ANY, wxT("&Explanation"),
 		wxDefaultPosition, wxDefaultSize );
 	wxStaticBoxSizer *wrapping_sizer = new wxStaticBoxSizer( sb, wxVERTICAL );
 	wxStaticText *text1 = new wxStaticText(this, wxID_ANY,
@@ -1306,13 +1317,13 @@ wxtConfigDialog::wxtConfigDialog(wxWindow* parent)
 	pConfig->Read(wxT("hinting"),&hinting_setting);
 
 	wxCheckBox *check1 = new wxCheckBox (this, wxID_ANY,
-		_T("Put the window at the top of your desktop after each plot (raise)"),
+		wxT("Put the window at the top of your desktop after each plot (raise)"),
 		wxDefaultPosition, wxDefaultSize, 0, wxGenericValidator(&raise_setting));
 	wxCheckBox *check2 = new wxCheckBox (this, wxID_ANY,
-		_T("Don't quit until all windows are closed (persist)"),
+		wxT("Don't quit until all windows are closed (persist)"),
 		wxDefaultPosition, wxDefaultSize, 0, wxGenericValidator(&persist_setting));
 	wxCheckBox *check3 = new wxCheckBox (this, wxID_ANY,
-		_T("Replace 'q' by <ctrl>+'q' and <space> by <ctrl>+<space> (ctrl)"),
+		wxT("Replace 'q' by <ctrl>+'q' and <space> by <ctrl>+<space> (ctrl)"),
 		wxDefaultPosition, wxDefaultSize, 0, wxGenericValidator(&ctrl_setting));
 
 	wxString choices[3];
@@ -1321,7 +1332,7 @@ wxtConfigDialog::wxtConfigDialog(wxWindow* parent)
 	choices[2] = wxT("Antialiasing and oversampling");
 
 	wxStaticBox *sb2 = new wxStaticBox( this, wxID_ANY,
-		_T("Rendering options (applied to the next plot)"),
+		wxT("Rendering options (applied to the next plot)"),
 		wxDefaultPosition, wxDefaultSize );
 	wxStaticBoxSizer *box_sizer2 = new wxStaticBoxSizer( sb2, wxVERTICAL );
 

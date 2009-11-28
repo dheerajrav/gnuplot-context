@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: graph3d.c,v 1.222 2009/05/30 20:08:44 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: graph3d.c,v 1.225 2009/10/31 05:24:18 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - graph3d.c */
@@ -137,11 +137,11 @@ static void draw_3d_graphbox __PROTO((struct surface_points * plot,
 				      WHICHGRID whichgrid, int current_layer));
 /* HBB 20010118: these should be static, but can't --- HP-UX assembler bug */
 void xtick_callback __PROTO((AXIS_INDEX, double place, char *text,
-			     struct lp_style_type grid));
+			     struct lp_style_type grid, struct ticmark *userlabels));
 void ytick_callback __PROTO((AXIS_INDEX, double place, char *text,
-			     struct lp_style_type grid));
+			     struct lp_style_type grid, struct ticmark *userlabels));
 void ztick_callback __PROTO((AXIS_INDEX, double place, char *text,
-			     struct lp_style_type grid));
+			     struct lp_style_type grid, struct ticmark *userlabels));
 
 static int find_maxl_cntr __PROTO((struct gnuplot_contours * contours, int *count));
 static int find_maxl_keys3d __PROTO((struct surface_points *plots, int count, int *kcnt));
@@ -634,14 +634,14 @@ do_3dplot(
      *      graph_error("all points undefined!");
      */
 
+    /* absolute or relative placement of xyplane along z */
+    if (xyplane.absolute)
+	base_z = AXIS_LOG_VALUE(0, xyplane.z);
+    else
+	base_z = Z_AXIS.min - (Z_AXIS.max - Z_AXIS.min) * xyplane.z;
+
     /* If we are to draw the bottom grid make sure zmin is updated properly. */
     if (X_AXIS.ticmode || Y_AXIS.ticmode || some_grid_selected()) {
-	/* absolute or relative placement */
-	if (xyplane.absolute)
-	    base_z = AXIS_LOG_VALUE(0, xyplane.z);
-	else
-	    base_z = Z_AXIS.min
-		- (Z_AXIS.max - Z_AXIS.min) * xyplane.z;
 	if (Z_AXIS.range_flags & RANGE_REVERSE) {
 	    floor_z = GPMAX(Z_AXIS.min, base_z);
 	    ceiling_z = GPMIN(Z_AXIS.max, base_z);
@@ -650,7 +650,7 @@ do_3dplot(
 	    ceiling_z = GPMAX(Z_AXIS.max, base_z);
 	}
     } else {
-	floor_z = base_z = Z_AXIS.min;
+	floor_z = Z_AXIS.min;
 	ceiling_z = Z_AXIS.max;
     }
 
@@ -2064,7 +2064,7 @@ draw_3d_graphbox(struct surface_points *plot, int plot_num, WHICHGRID whichgrid,
 {
     int x, y;		/* point in terminal coordinates */
     struct termentry *t = term;
-    BoundingBox *clip_save;
+    BoundingBox *clip_save = clip_area;
 
     if (draw_border && splot_map) {
 	if (border_layer == current_layer) {
@@ -2277,10 +2277,8 @@ draw_3d_graphbox(struct surface_points *plot, int plot_num, WHICHGRID whichgrid,
     if (whichgrid == BORDERONLY)
 	return;
 
-    if (splot_map) {
-	clip_save = clip_area;
+    if (splot_map)
 	clip_area = NULL;
-    }
 
     /* Draw ticlabels and axis labels. x axis, first:*/
     if (X_AXIS.ticmode || X_AXIS.label.text) {
@@ -2609,7 +2607,8 @@ xtick_callback(
     AXIS_INDEX axis,
     double place,
     char *text,
-    struct lp_style_type grid)	/* linetype or -2 for none */
+    struct lp_style_type grid,		/* linetype or -2 for none */
+    struct ticmark *userlabels)	/* currently ignored in 3D plots */
 {
     vertex v1, v2;
     double scale = (text ? axis_array[axis].ticscale : axis_array[axis].miniticscale) * (axis_array[axis].tic_in ? 1 : -1);
@@ -2691,7 +2690,8 @@ ytick_callback(
     AXIS_INDEX axis,
     double place,
     char *text,
-    struct lp_style_type grid)
+    struct lp_style_type grid,
+    struct ticmark *userlabels)	/* currently ignored in 3D plots */
 {
     vertex v1, v2;
     double scale = (text ? axis_array[axis].ticscale : axis_array[axis].miniticscale) * (axis_array[axis].tic_in ? 1 : -1);
@@ -2773,7 +2773,8 @@ ztick_callback(
     AXIS_INDEX axis,
     double place,
     char *text,
-    struct lp_style_type grid)
+    struct lp_style_type grid,
+    struct ticmark *userlabels)	/* currently ignored in 3D plots */
 {
     /* HBB: inserted some ()'s to shut up gcc -Wall, here and below */
     int len = (text ? axis_array[axis].ticscale : axis_array[axis].miniticscale)

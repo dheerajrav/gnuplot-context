@@ -312,6 +312,7 @@ typedef struct {
   char border; /* if non-null, a border will be drawn around the box (default) */
   int border_lt_tag;
   int layer; /* front or back */
+  int xoffset;	/* To adjust left or right, e.g. for y2tics */
   struct position origin;
   struct position size;
   BoundingBox bounds;
@@ -378,6 +379,7 @@ extern double pointsize;
 #define border_north	(draw_border & NORTH)
 #define border_complete	((draw_border & 15) == 15)
 extern int draw_border;
+extern int user_border;
 extern int border_layer;
 
 extern struct lp_style_type border_lp;
@@ -451,23 +453,23 @@ extern fill_style_type default_fillstyle;
 extern struct object default_rectangle;
 #define DEFAULT_RECTANGLE_STYLE { NULL, -1, 0, OBJ_RECTANGLE,	\
 	{FS_SOLID, 100, 0, BLACK_COLORSPEC},   			\
-	{1, LT_BACKGROUND, 0, 1.0, 0.0},			\
+	{1, LT_BACKGROUND, 0, 0, 1.0, 0.0, FALSE, DEFAULT_COLORSPEC}, \
 	{.rectangle = {0, {0,0.,0.,0.}, {0,0.,0.,0.}, {0,0.,0.,0.}, {0,0.,0.,0.}}} }
 
 extern struct object default_circle;
 #define DEFAULT_CIRCLE_STYLE { NULL, -1, 0, OBJ_CIRCLE,       \
 	{FS_SOLID, 100, 0, BLACK_COLORSPEC},   			\
-	{1, LT_BACKGROUND, 0, 1.0, 0.0},			\
+	{1, LT_BACKGROUND, 0, 0, 1.0, 0.0, FALSE, DEFAULT_COLORSPEC},			\
 	{.circle = {1, {0,0.,0.,0.}, {0,0.,0.,0.}, 0., 360. }} }
 
 #define DEFAULT_ELLIPSE_STYLE { NULL, -1, 0, OBJ_CIRCLE,       \
 	{FS_SOLID, 100, 0, BLACK_COLORSPEC},   			\
-	{1, LT_BACKGROUND, 0, 1.0, 0.0},			\
+	{1, LT_BACKGROUND, 0, 0, 1.0, 0.0, FALSE, DEFAULT_COLORSPEC},			\
 	{.ellipse = {1, {0,0.,0.,0.}, {0,0.,0.,0.}, 0. }} }
 
 #define DEFAULT_POLYGON_STYLE { NULL, -1, 0, OBJ_POLYGON,       \
 	{FS_SOLID, 100, 0, BLACK_COLORSPEC},   			\
-	{1, LT_BLACK, 0, 1.0, 0.0},			\
+	{1, LT_BLACK, 0, 0, 1.0, 0.0, FALSE, DEFAULT_COLORSPEC},			\
 	{.polygon = {0, NULL} } }
 
 #endif

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: plot2d.c,v 1.193 2009/04/05 04:01:30 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: plot2d.c,v 1.197 2009/10/31 05:24:18 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - plot2d.c */
@@ -333,11 +333,13 @@ get_data(struct curve_points *current_plot)
     struct coordinate GPHUGE *cp;
 
     TBOOLEAN variable_color = FALSE;
-    double   variable_color_value;
+    double   variable_color_value = 0.;
     if ((current_plot->lp_properties.pm3d_color.type == TC_RGB)
     &&  (current_plot->lp_properties.pm3d_color.value < 0))
 	variable_color = TRUE;
     if (current_plot->lp_properties.pm3d_color.type == TC_Z)
+	variable_color = TRUE;
+    if (current_plot->lp_properties.l_type == LT_COLORFROMCOLUMN)
 	variable_color = TRUE;
 
     /* eval_plots has already opened file */
@@ -667,7 +669,7 @@ get_data(struct curve_points *current_plot)
 		    /* xlow and xhigh are same as x */
 		    /* auto width if boxes, else ignored */
 		    store2d_point(current_plot, i++, v[0], v[1], v[0], v[0], v[1],
-				  v[1], -1.0);
+				  variable_color_value, -1.0);
 	    }
 	    break;
 
@@ -1037,6 +1039,12 @@ store2d_point(
 					current_plot->noautoscale, NOOP, cp->z = -VERYLARGE);
     else
 	cp->z = width;
+
+    /* If we have variable color corresponding to a z-axis value, use it to autoscale */
+    if (current_plot->lp_properties.pm3d_color.type == TC_Z)
+	STORE_WITH_LOG_AND_UPDATE_RANGE(cp->z, cp->z, dummy_type, COLOR_AXIS, 
+					current_plot->noautoscale, NOOP, NOOP);
+
 }                               /* store2d_point */
 
 
@@ -1354,6 +1362,7 @@ eval_plots()
     int some_functions = 0;
     int plot_num, line_num, point_num;
     TBOOLEAN in_parametric = FALSE;
+    TBOOLEAN was_definition = FALSE;
     int pattern_num;
     char *xtitle = NULL;
     int begin_token = c_token;  /* so we can rewind for second pass */
@@ -1407,7 +1416,7 @@ eval_plots()
 	    int_error(c_token, "function to plot expected");
 
 	this_plot = NULL;
-	if (!in_parametric)
+	if (!in_parametric && !was_definition)
 	    start_token = c_token;
 
 	if (almost_equals(c_token,"newhist$ogram")) {
@@ -1450,6 +1459,10 @@ eval_plots()
 
 	if (is_definition(c_token)) {
 	    define();
+	    if (!equals(c_token,",")) {
+		was_definition = TRUE;
+		continue;
+	    }
 
 	} else {
 	    int specs = 0;
@@ -1465,6 +1478,7 @@ eval_plots()
 
 	    plot_num++;
 
+	    was_definition = FALSE;
 	    dummy_func = &plot_func;
 	    /* should this be saved in "this_plot"? */
 	    name_str = string_or_express(NULL);
@@ -2155,15 +2169,20 @@ eval_plots()
 
 	/* Read through functions */
 	while (TRUE) {
-	    if (!in_parametric)
+	    if (!in_parametric && !was_definition)
 		start_token = c_token;
 
 	    if (is_definition(c_token)) {
 		define();
+		if (!equals(c_token,",")) {
+		    was_definition = TRUE;
+		    continue;
+		}
 
 	    } else {
 		struct at_type *at_ptr;
 		char *name_str;
+		was_definition = FALSE;
 
 		/* HBB 20000820: now globals in 'axis.c' */
 		x_axis = this_plot->x_axis;
