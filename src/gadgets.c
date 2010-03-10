@@ -97,6 +97,7 @@ struct text_label *first_label = NULL;
 
 /* Pointer to first 'set linestyle' definition in linked list */
 struct linestyle_def *first_linestyle = NULL;
+struct linestyle_def *first_perm_linestyle = NULL;
 
 /* Pointer to first 'set style arrow' definition in linked list */
 struct arrowstyle_def *first_arrowstyle = NULL;
@@ -180,6 +181,8 @@ filledcurves_opts filledcurves_opts_func = EMPTY_FILLEDCURVES_OPTS;
 TBOOLEAN prefer_line_styles = FALSE;
 
 histogram_style histogram_opts = DEFAULT_HISTOGRAM_STYLE;
+
+boxplot_style boxplot_opts = DEFAULT_BOXPLOT_STYLE;
 
 /* WINDOWID to be filled by terminals running on X11 (x11, wxt, qt, ...) */
 int current_x11_windowid = 0;

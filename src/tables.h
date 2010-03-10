@@ -1,5 +1,5 @@
 /*
- * $Id: tables.h,v 1.68 2008/11/15 19:38:55 sfeam Exp $
+ * $Id: tables.h,v 1.71 2010/01/11 04:31:39 sfeam Exp $
  */
 
 /* GNUPLOT - tables.h */
@@ -80,7 +80,7 @@ enum set_id {
     S_FONTPATH, S_FORMAT,
     S_GRID, S_HIDDEN3D, S_HISTORYSIZE, S_ISOSAMPLES, S_KEY,
     S_KEYTITLE, S_LABEL,
-    S_LINESTYLE, S_LOADPATH, S_LOCALE, S_LOGSCALE, S_MACROS,
+    S_LINESTYLE, S_LINETYPE, S_LOADPATH, S_LOCALE, S_LOGSCALE, S_MACROS,
     S_MAPPING, S_MARGIN, S_LMARGIN, S_RMARGIN, S_TMARGIN, S_BMARGIN, S_MISSING,
 #ifdef USE_MOUSE
     S_MOUSE,
@@ -182,7 +182,7 @@ enum show_style_id {
     SHOW_STYLE_INVALID,
     SHOW_STYLE_DATA, SHOW_STYLE_FUNCTION, SHOW_STYLE_LINE,
     SHOW_STYLE_FILLING, SHOW_STYLE_ARROW, SHOW_STYLE_RECTANGLE,
-    SHOW_STYLE_INCREMENT, SHOW_STYLE_HISTOGRAM
+    SHOW_STYLE_INCREMENT, SHOW_STYLE_HISTOGRAM, SHOW_STYLE_BOXPLOT
 };
 
 enum filledcurves_opts_id {
@@ -198,6 +198,7 @@ enum filledcurves_opts_id {
 extern const struct gen_table command_tbl[];
 extern const struct gen_table plot_axes_tbl[];
 extern const struct gen_table plot_smooth_tbl[];
+extern const struct gen_table dgrid3d_mode_tbl[];
 extern const struct gen_table save_tbl[];
 extern const struct gen_table set_tbl[];
 extern const struct gen_table test_tbl[];

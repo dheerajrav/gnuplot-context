@@ -1,7 +1,16 @@
+New features, changes and fixes since gnuplot version 4.4
+=========================================================
+
+* NEW user-definable linetypes
+* NEW plot style "with boxplot"
+* NEW qt terminal driver 
+
 New features, changes and fixes since gnuplot version 4.2
 =========================================================
 
-* NEW linetype property 'pointinterval'
+* NEW Allow redefinition or customization of the basic linetypes
+* NEW CANDLESTICKS accept an option 6th input column specifying width
+* NEW point property 'pointinterval'
 * NEW gnuplot.exe is a full-featured console mode gnuplot executable for Windows
 * NEW plot style "with circles"
 * NEW object types circle, ellipse, and polygon

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: set.c,v 1.302 2009/09/13 17:44:20 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: set.c,v 1.307 2010/01/11 04:31:39 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - set.c */
@@ -73,12 +73,12 @@ static int assign_arrow_tag __PROTO((void));
 static void set_autoscale __PROTO((void));
 static void set_bars __PROTO((void));
 static void set_border __PROTO((void));
+static void set_boxplot __PROTO((void));
 static void set_boxwidth __PROTO((void));
 static void set_clabel __PROTO((void));
 static void set_clip __PROTO((void));
 static void set_cntrparam __PROTO((void));
 static void set_contour __PROTO((void));
-static void classic_set_dgrid3d __PROTO((void));
 static void set_dgrid3d __PROTO((void));
 static void set_decimalsign __PROTO((void));
 static void set_dummy __PROTO((void));
@@ -152,7 +152,7 @@ static void load_tics __PROTO((AXIS_INDEX axis));
 static void load_tic_user __PROTO((AXIS_INDEX axis));
 static void load_tic_series __PROTO((AXIS_INDEX axis));
 
-static void set_linestyle __PROTO((void));
+static void set_linestyle __PROTO((struct linestyle_def **head));
 static void set_arrowstyle __PROTO((void));
 static int assign_arrowstyle_tag __PROTO((void));
 static int looks_like_numeric __PROTO((char *));
@@ -207,11 +207,6 @@ set_command()
 	    else
 		func_style = temp_style;
 	}
-    } else if (almost_equals(c_token,"li$nestyle") || equals(c_token, "ls" )) {
-	if (interactive)
-	    int_warn(c_token, "deprecated syntax, use \"set style line\"");
-	c_token++;
-	set_linestyle();
     } else if (almost_equals(c_token,"noli$nestyle") || equals(c_token, "nols" )) {
 	c_token++;
 	set_nolinestyle();
@@ -321,6 +316,16 @@ set_command()
 	    break;
 	case S_KEYTITLE:
 	    set_keytitle();
+	    break;
+	case S_LINESTYLE:
+	    set_linestyle(&first_linestyle);
+	    break;
+	case S_LINETYPE:
+	    if (equals(c_token+1,"cycle")) {
+		c_token += 2;
+		linetype_recycle_count = int_expression();
+	    } else
+		set_linestyle(&first_perm_linestyle);
 	    break;
 	case S_LABEL:
 	    set_label();
@@ -944,6 +949,47 @@ set_border()
 }
 
 
+/* process 'set style boxplot' command */
+static void
+set_boxplot()
+{
+    c_token++;
+    if (END_OF_COMMAND) {
+	boxplot_style defstyle = DEFAULT_BOXPLOT_STYLE;
+	boxplot_opts = defstyle;
+    }
+    while (!END_OF_COMMAND) {
+	if (almost_equals(c_token, "noout$liers")) {
+	    boxplot_opts.outliers = FALSE;
+	    c_token++;
+	}
+	else if (almost_equals(c_token, "out$liers")) {
+	    boxplot_opts.outliers = TRUE;
+	    c_token++;
+	}
+	else if (almost_equals(c_token, "point$type") || equals (c_token, "pt")) {
+	    c_token++;
+	    boxplot_opts.pointtype = int_expression()-1;
+	}
+	else if (equals(c_token,"range")) {
+	    c_token++;
+	    boxplot_opts.limit_type = 0;
+	    boxplot_opts.limit_value = real_expression();
+	}
+	else if (almost_equals(c_token,"frac$tion")) {
+	    c_token++;
+	    boxplot_opts.limit_value = real_expression();
+	    if (boxplot_opts.limit_value < 0 || boxplot_opts.limit_value > 1)
+		int_error(c_token-1,"fraction must be less than 1");
+	    boxplot_opts.limit_type = 1;
+	}
+	else
+	    int_error(c_token,"unrecognized option");
+    }
+    
+}
+
+
 /* process 'set boxwidth' command */
 static void
 set_boxwidth()
@@ -1125,181 +1171,85 @@ set_contour()
 
 
 /* process 'set dgrid3d' command */
-/* PKJ: this is the original version, which is called by the new
-   set_dgrid3d() to handle the old syntax of this command. */
-static void
-classic_set_dgrid3d()
-{
-    int local_vals[3];
-    int i;
-    TBOOLEAN was_comma = TRUE;
-
-    c_token++;
-    local_vals[0] = dgrid3d_row_fineness;
-    local_vals[1] = dgrid3d_col_fineness;
-    local_vals[2] = dgrid3d_norm_value;
-
-    for (i = 0; i < 3 && !(END_OF_COMMAND);) {
-	if (equals(c_token,",")) {
-	    if (was_comma) i++;
-	    was_comma = TRUE;
-	    c_token++;
-	} else {
-	    if (!was_comma)
-		int_error(c_token, "',' expected");
-	    local_vals[i] = real_expression();
-	    i++;
-	    was_comma = FALSE;
-	}
-    }
-
-    if (local_vals[0] < 2 || local_vals[0] > 1000)
-	int_error(c_token, 
-		  "Row size must be in [2:1000] range; size unchanged");
-    if (local_vals[1] < 2 || local_vals[1] > 1000)
-	int_error(c_token,
-		  "Col size must be in [2:1000] range; size unchanged");
-    if (local_vals[2] < 1 || local_vals[2] > 100)
-	int_error(c_token, "Norm must be in [1:100] range; norm unchanged");
-
-    dgrid3d_row_fineness = local_vals[0];
-    dgrid3d_col_fineness = local_vals[1];
-    dgrid3d_norm_value = local_vals[2];
-    dgrid3d = TRUE;
-}
-
-
-/* process 'set dgrid3d' command */
 static void
 set_dgrid3d()
 {
-    int tmp = c_token;
-    int t, ft, mt, token_cnt; /* tokens, first_token, mode_token */
+    int token_cnt = 0; /* Number of comma-separated values read in */
   
-    double gridx  = (double)dgrid3d_row_fineness;
-    double gridy  = (double)dgrid3d_col_fineness;
-    /* dgrid3d_norm_value is not used by 'new' syntax, only 'classic' */
+    int gridx     = dgrid3d_row_fineness;
+    int gridy     = dgrid3d_col_fineness;
+    int normval   = dgrid3d_norm_value;
     double scalex = dgrid3d_x_scale;
     double scaley = dgrid3d_y_scale;
 
     /* dgrid3d has two different syntax alternatives: classic and new.
-       If there is a "mode" token, the syntax is new, otherwise it's classic.*/
+       If there is a "mode" keyword, the syntax is new, otherwise it is classic.*/
+    dgrid3d_mode  = DGRID3D_DEFAULT;
 
-    /* look for mode as first string token - remember its token number */
     c_token++;
-    mt = -1;                           /* no string found among tokens */
-    while( !(END_OF_COMMAND) ) { 
-        if( mt == -1 && !isanumber(c_token) && !equals( c_token, "," ) ) {
-            mt = c_token;
-        }
-        c_token++;
+    while ( !(END_OF_COMMAND) ) { 
+        int tmp_mode = lookup_table(&dgrid3d_mode_tbl[0],c_token);
+	if (tmp_mode != DGRID3D_OTHER) {
+	    dgrid3d_mode = tmp_mode;
+	    c_token++;
+	}
+
+	switch (tmp_mode) {
+	case DGRID3D_QNORM:
+				if (!(END_OF_COMMAND)) normval = int_expression();
+				break;
+	case DGRID3D_SPLINES:
+				break;
+	case DGRID3D_GAUSS:
+	case DGRID3D_CAUCHY:
+	case DGRID3D_EXP:
+	case DGRID3D_BOX:
+	case DGRID3D_HANN:
+				if (!(END_OF_COMMAND)) {
+					scalex = real_expression();
+					scaley = scalex;
+					if (equals(c_token, ",")) {
+						c_token++;
+						scaley = real_expression();
+					}
+				}
+				break;
+
+	default:		/* {rows}{,cols{,norm}}} */
+
+			if  ( equals( c_token, "," )) {
+				c_token++;
+				token_cnt++;
+			} else if( token_cnt == 0) {
+		        	gridx = int_expression();
+		        	gridy = gridx; /* gridy defaults to gridx, unless overridden below */
+			} else if( token_cnt == 1) {
+		        	gridy = int_expression();
+			} else if( token_cnt == 2) {
+		        	normval = int_expression();
+			} else
+				int_error(c_token,"Unrecognize keyword or unexpected value");
+			break;
+	}
+		
     }
-    token_cnt = c_token - (tmp+1);
-    c_token = tmp;     /* reset token counter to its original position */
 
-    /* no mode token found: classic format - reset counter and call old fct */
-    if( mt == -1 ) { 
-        classic_set_dgrid3d();
-        dgrid3d_mode = DGRID3D_QNORM; /* only set if classic succeeds */
-        return; 
-    }
-
-    /* determine the mode - fail if not recognized */
-    if(      equals( mt, "splines" ) ) { dgrid3d_mode = DGRID3D_SPLINES; }
-    else if( equals( mt, "qnorm"   ) ) { dgrid3d_mode = DGRID3D_QNORM; }
-    else if( equals( mt, "gauss"   ) ) { dgrid3d_mode = DGRID3D_GAUSS; }
-    else if( equals( mt, "cauchy"  ) ) { dgrid3d_mode = DGRID3D_CAUCHY; }
-    else if( equals( mt, "exp"     ) ) { dgrid3d_mode = DGRID3D_EXP; }
-    else if( equals( mt, "box"     ) ) { dgrid3d_mode = DGRID3D_BOX; }
-    else if( equals( mt, "hann"    ) ) { dgrid3d_mode = DGRID3D_HANN; }
-    else {
-        int_error( mt,
-        "Expecting one of: splines, qnorm, gauss, cauchy, exp, box, hann" );
-    }
-  
-    /* handle tokens before the mode argument */
-    c_token++;
-    t = mt-c_token; /* number of tokens before the mode argument */
-    ft = c_token;   /* position of the first token after 'dgrid3d' */
-
-    if( t > 3 )
-        int_error( ft+3, "At most two numeric arguments before mode" );
-
-    if( t > 0 ) {
-        if( !isanumber(ft+0) ) 
-            int_error(ft+0, "Expecting number of grid points");
-
-        gridx = real_expression();
-        gridy = gridx; /* gridy defaults to gridx, unless overridden below */
-
-        if( t > 1 ) {
-            if( !equals(ft+1, ",") ) int_error( ft+1, "Expecting comma" );
-            c_token++; /* consume the comma */
-
-            if( t > 2 ) {
-                if( !isanumber(ft+2) )
-                    int_error( ft+2, "Expecting number of grid points" );
-
-                gridy = real_expression();
-            }
-        }
-    }
     /* we could warn here about floating point values being truncated... */  
     if( gridx < 2 || gridx > 1000 || gridy < 2 || gridy > 1000 )
-        int_error( ft, 
+        int_error( NO_CARET, 
                    "Number of grid points must be in [2:1000] - not changed!");
 
+    /* no mode token found: classic format */
+    if( dgrid3d_mode == DGRID3D_DEFAULT )
+        dgrid3d_mode = DGRID3D_QNORM;
 
-    /* skip the mode token */
-    c_token++; 
-
-
-    /* handle tokens after the mode argument */
-    t = token_cnt - (t+1); /* after is all minus before minus mode itself*/
-    ft = c_token;          /* pos of first token after the mode token */
-
-    if( dgrid3d_mode == DGRID3D_SPLINES && t > 0 )
-        int_error( mt, "No arguments expected for splines" );
-    if( dgrid3d_mode == DGRID3D_QNORM && t > 1 )
-        int_error( mt, "Only one argument expected for qnorm" );
-
-    if( t > 0 ) {
-        if( dgrid3d_mode == DGRID3D_QNORM ) {
-            if( !isanumber(ft+0) ) 
-                int_error( ft+0, "Expecting q-value for norm" );
-
-            tmp = (int)real_expression();
-            if( tmp < 1 || tmp > 100 ) 
-                int_error( ft, 
-                           "Norm parameter must be in [1:100] - not changed!");
-            dgrid3d_norm_value = tmp;
-
-        } else {
-            if( !isanumber(ft+0) ) 
-                int_error( ft+0, "Expecting numeric scale factor" );
-
-            scalex = real_expression();
-            scaley = scalex;  /* default,unless overridden below */
-        }
-
-        if( t > 1 ) {
-            if( !equals(ft+1, ",") ) int_error( ft+1, "Expecting comma" );
-            c_token++; /* consume comma */
-
-            if( t > 2 ) {
-                if( !isanumber(ft+2) ) 
-                    int_error( ft+2, "Expecting numeric scale factor" );
-
-                scaley = real_expression();
-            }
-        }
-    }
     if( scalex < 0.0 || scaley < 0.0 )
-        int_error( ft, 
+        int_error( NO_CARET, 
                    "Scale factors must be greater than zero - not changed!" );
 
-    dgrid3d_row_fineness = (int)gridx;
-    dgrid3d_col_fineness = (int)gridy;
+    dgrid3d_row_fineness = gridx;
+    dgrid3d_col_fineness = gridy;
+    dgrid3d_norm_value = normval;
     dgrid3d_x_scale = scalex;
     dgrid3d_y_scale = scaley;
     dgrid3d = TRUE;
@@ -2291,6 +2241,14 @@ set_margin(t_position *margin)
     margin->x = real_expression();
     if (margin->x < 0)
 	margin->x = -1;
+
+    if (margin->scalex == screen) {
+	if (margin->x < 0)
+	    margin->x = 0;
+	if (margin->x > 1)
+	    margin->x = 1;
+    }
+
 }
 
 static void
@@ -3870,7 +3828,7 @@ set_style()
 	    break;
 	}
     case SHOW_STYLE_LINE:
-	set_linestyle();
+	set_linestyle(&first_linestyle);
 	break;
     case SHOW_STYLE_FILLING:
 	parse_fillstyle( &default_fillstyle,
@@ -3898,6 +3856,9 @@ set_style()
 	else if (almost_equals(c_token,"u$serstyles"))
 	    prefer_line_styles = TRUE;
 	c_token++;
+	break;
+    case SHOW_STYLE_BOXPLOT:
+	set_boxplot();
 	break;
     default:
 	int_error(c_token,
@@ -4806,16 +4767,17 @@ set_xyzlabel(text_label *label)
 }
 
 
-
-/* 'set style line' command */
-/* set style line {tag} {linetype n} {linewidth x} {pointtype n} {pointsize x} */
+/*
+ * Change or insert a new linestyle in a list of line styles.
+ * Supports the old 'set linestyle' command (backwards-compatible)
+ * and the new "set style line" and "set linetype" commands.
+ */
 static void
-set_linestyle()
+set_linestyle(struct linestyle_def **head)
 {
     struct linestyle_def *this_linestyle = NULL;
     struct linestyle_def *new_linestyle = NULL;
     struct linestyle_def *prev_linestyle = NULL;
-    struct lp_style_type loc_lp = DEFAULT_LP_STYLE_TYPE;
     int tag;
 
     c_token++;
@@ -4824,26 +4786,23 @@ set_linestyle()
     if (END_OF_COMMAND || ((tag = int_expression()) <= 0))
 	int_error(c_token, "tag must be > zero");
 
-    /* Default style is based on linetype with the same tag id */
-    loc_lp.l_type = tag - 1;
-    loc_lp.p_type = tag - 1;
-
     /* Check if linestyle is already defined */
-    if (first_linestyle != NULL) {	/* skip to last linestyle */
-	for (this_linestyle = first_linestyle; this_linestyle != NULL;
-	     prev_linestyle = this_linestyle,
-	     this_linestyle = this_linestyle->next)
-	    /* is this the linestyle we want? */
-	    if (tag <= this_linestyle->tag)
+    for (this_linestyle = *head; this_linestyle != NULL;
+	 prev_linestyle = this_linestyle, this_linestyle = this_linestyle->next)
+	if (tag <= this_linestyle->tag)
 		break;
-    }
 
     if (this_linestyle == NULL || tag != this_linestyle->tag) {
+	/* Default style is based on linetype with the same tag id */
+        struct lp_style_type loc_lp = DEFAULT_LP_STYLE_TYPE;
+	loc_lp.l_type = tag - 1;
+	loc_lp.p_type = tag - 1;
+
 	new_linestyle = gp_alloc(sizeof(struct linestyle_def), "linestyle");
 	if (prev_linestyle != NULL)
 	    prev_linestyle->next = new_linestyle;	/* add it to end of list */
 	else
-	    first_linestyle = new_linestyle;	/* make it start of list */
+	    *head = new_linestyle;	/* make it start of list */
 	new_linestyle->tag = tag;
 	new_linestyle->next = this_linestyle;
 	new_linestyle->lp_properties = loc_lp;
@@ -4851,15 +4810,15 @@ set_linestyle()
     }
 
     if (almost_equals(c_token, "def$ault")) {
-	delete_linestyle(&first_linestyle, prev_linestyle, this_linestyle);
+	delete_linestyle(head, prev_linestyle, this_linestyle);
 	c_token++;
     } else
 	/* pick up a line spec; dont allow ls, do allow point type */
 	lp_parse(&this_linestyle->lp_properties, FALSE, TRUE);
 
     if (!END_OF_COMMAND)
-	int_error(c_token,"Extraneous arguments to set style line");
-
+	int_error(c_token,"Extraneous arguments to set %s",
+		head == &first_perm_linestyle ? "linetype" : "style line");
 }
 
 /*

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: graph3d.c,v 1.225 2009/10/31 05:24:18 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: graph3d.c,v 1.228 2010/01/11 04:31:39 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - graph3d.c */
@@ -1079,7 +1079,8 @@ do_3dplot(
 	    case XYERRORBARS:	/* ignored; treat like points */
 	    case BOXXYERROR:	/* HBB: ignore these as well */
 	    case BOXERROR:
-	    case CANDLESTICKS:	/* HBB: dito */
+	    case CANDLESTICKS:	/* HBB: ditto */
+	    case BOXPLOT:
 	    case FINANCEBARS:
 	    case CIRCLES:
 	    case POINTSTYLE:
@@ -1231,7 +1232,8 @@ do_3dplot(
 		    case XYERRORBARS:	/* ignored; treat like points */
 		    case BOXERROR:	/* HBB: ignore these as well */
 		    case BOXXYERROR:
-		    case CANDLESTICKS:	/* HBB: dito */
+		    case CANDLESTICKS:	/* HBB: ditto */
+		    case BOXPLOT:
 		    case FINANCEBARS:
 		    case CIRCLES:
 		    case POINTSTYLE:
@@ -1267,14 +1269,12 @@ do_3dplot(
 			if (use_palette && thiscontour_lp_properties.pm3d_color.type == TC_Z)
 			    set_color( cb2gray( z2cb(cntrs->z) ) );
 			else {
-			    if (prefer_line_styles && label_contours) {
-				struct lp_style_type ls = thiscontour_lp_properties;
-				lp_use_properties(&ls, ++thiscontour_lp_properties.l_type);
-				term_apply_lp_properties(&ls);
-			    } else {
-				(*t->linetype) (++thiscontour_lp_properties.l_type);
-				thiscontour_lp_properties.use_palette = 0;
-			    }
+			    struct lp_style_type ls = thiscontour_lp_properties;
+			    if (prefer_line_styles && label_contours)
+				lp_use_properties(&ls, ++thiscontour_lp_properties.l_type+1);
+			    else
+				load_linetype(&ls, ++thiscontour_lp_properties.l_type+1);
+			    term_apply_lp_properties(&ls);
 			}
 
 			if (key->visible) {
@@ -1301,6 +1301,7 @@ do_3dplot(
 			    case BOXERROR:		/* HBB: treat these likewise */
 			    case BOXXYERROR:
 			    case CANDLESTICKS:	/* HBB: ditto */
+			    case BOXPLOT:
 			    case FINANCEBARS:
 			    case CIRCLES:
 			    case POINTSTYLE:
@@ -1361,7 +1362,16 @@ do_3dplot(
 			/* treat all the above like points */
 		    case DOTS:
 		    case POINTSTYLE:
-			cntr3d_points(cntrs, &thiscontour_lp_properties);
+			/* the following is needed, because
+			 * 'draw3d_point_unconditional()' in 'util3d.c'
+			 * calls 'term_apply_lp_properties()' again
+			 */
+			{
+			struct lp_style_type ls = thiscontour_lp_properties;
+			if (prefer_line_styles && label_contours)
+			    lp_use_properties(&ls, thiscontour_lp_properties.l_type+1);
+			cntr3d_points(cntrs, &ls);
+			}
 			break;
 
 		    default:
@@ -1907,13 +1917,6 @@ cntr3d_lines(struct gnuplot_contours *cntr, struct lp_style_type *lp)
     BoundingBox *clip_save = clip_area;
     if (splot_map)
 	clip_area = &plot_bounds;
-
-    /* user may prefer explicit line styles */
-    if (prefer_line_styles && label_contours) {
-	struct lp_style_type ls = *lp;
-	lp_use_properties(&ls, lp->l_type);
-	lp = &ls;
-    }
 
     if (draw_contour & CONTOUR_SRF) {
 	map3d_xyz(cntr->coords[0].x, cntr->coords[0].y, cntr->coords[0].z,

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: tables.c,v 1.92 2009/03/26 00:49:17 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: tables.c,v 1.95 2010/01/11 04:31:39 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - tables.c */
@@ -42,6 +42,7 @@ static char *RCSid() { return RCSid("$Id: tables.c,v 1.92 2009/03/26 00:49:17 sf
 #include "term_api.h"
 #include "util.h"
 #include "alloc.h"	/* for init_colornames() */
+#include "graph3d.h"	/* for DGRID3D_* options */
 # include "getcolor.h"
 
 /* gnuplot commands */
@@ -144,6 +145,19 @@ const struct gen_table plot_smooth_tbl[] =
     { NULL, SMOOTH_NONE }
 };
 
+/* dgrid3d modes */
+const struct gen_table dgrid3d_mode_tbl[] =
+{
+    { "qnorm", DGRID3D_QNORM },
+    { "spline$s", DGRID3D_SPLINES },
+    { "gauss", DGRID3D_GAUSS },
+    { "exp", DGRID3D_EXP },
+    { "cauchy", DGRID3D_CAUCHY },
+    { "box", DGRID3D_BOX },
+    { "hann", DGRID3D_HANN },
+    { NULL, DGRID3D_OTHER }
+};
+
 /* 'save' command */
 const struct gen_table save_tbl[] =
 {
@@ -191,8 +205,10 @@ const struct gen_table set_tbl[] =
     { "k$ey", S_KEY },
     { "keyt$itle", S_KEYTITLE },
     { "la$bel", S_LABEL },
-    { "li$nestyle", S_LINESTYLE },
+    { "lines$tyle", S_LINESTYLE },
+    { "linetype$s", S_LINETYPE },
     { "ls", S_LINESTYLE },
+    { "lt", S_LINETYPE },
     { "loa$dpath", S_LOADPATH },
     { "loc$ale", S_LOCALE },
     { "log$scale", S_LOGSCALE },
@@ -631,6 +647,7 @@ const struct gen_table show_style_tbl[] =
     { "incr$ement", SHOW_STYLE_INCREMENT },
     { "hist$ogram", SHOW_STYLE_HISTOGRAM },
     { "rect$angle", SHOW_STYLE_RECTANGLE },
+    { "boxplot", SHOW_STYLE_BOXPLOT },
     { NULL, SHOW_STYLE_INVALID }
 };
 
@@ -661,6 +678,7 @@ const struct gen_table plotstyle_tbl[] =
     { "vec$tors", VECTOR },
     { "fin$ancebars", FINANCEBARS },
     { "can$dlesticks", CANDLESTICKS },
+    { "boxplot", BOXPLOT },
     { "pm$3d", PM3DSURFACE },
     { "labels", LABELPOINTS },
     { "ima$ge", IMAGE },

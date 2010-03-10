@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: wgraph.c,v 1.71 2009/09/06 16:55:28 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: wgraph.c,v 1.76 2009/12/31 04:49:12 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - win/wgraph.c */
@@ -216,7 +216,9 @@ static void	drawgraph(LPGW lpgw, HDC hdc, LPRECT rect);
 static void	CopyClip(LPGW lpgw);
 static void	CopyPrint(LPGW lpgw);
 static void	WriteGraphIni(LPGW lpgw);
+#if (0)	/* shige */
 static void	ReadGraphIni(LPGW lpgw);
+#endif
 static COLORREF	GetColor(HWND hwnd, COLORREF ref);
 static void	UpdateColorSample(HWND hdlg);
 static BOOL	LineStyle(LPGW lpgw);
@@ -365,7 +367,9 @@ GraphInit(LPGW lpgw)
 		RegisterClass(&wndclass);
 	}
 
+#if 0  /* shige */
 	ReadGraphIni(lpgw);
+#endif
 
 	lpgw->hWndGraph = CreateWindow(szGraphClass, lpgw->Title,
 		WS_OVERLAPPEDWINDOW,
@@ -932,8 +936,8 @@ drawgraph(LPGW lpgw, HDC hdc, LPRECT rect)
 		if (cur_pen > WGNUMPENS)
 		    cur_pen = cur_pen % WGNUMPENS;
 		if (cur_pen <= LT_BACKGROUND) {
-		    cur_pen = 1;
-		    cur_penstruct = lpgw->colorpen[1];
+		    cur_pen = 0;
+		    cur_penstruct = lpgw->colorpen[0];
 		    cur_penstruct.lopnColor = lpgw->background;
 		} else {
 		    cur_pen += 2;
@@ -1642,7 +1646,7 @@ WriteGraphIni(LPGW lpgw)
 	return;
 }
 
-static void
+void
 ReadGraphIni(LPGW lpgw)
 {
 	LPSTR file = lpgw->IniFile;

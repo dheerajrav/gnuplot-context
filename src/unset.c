@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: unset.c,v 1.128 2009/04/12 22:27:04 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: unset.c,v 1.131 2010/01/11 04:31:39 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - unset.c */
@@ -41,6 +41,7 @@ static char *RCSid() { return RCSid("$Id: unset.c,v 1.128 2009/04/12 22:27:04 sf
 #include "contour.h"
 #include "datafile.h"
 #include "fit.h"
+#include "gadgets.h"
 #include "gp_hist.h"
 #include "hidden3d.h"
 #include "misc.h"
@@ -62,7 +63,7 @@ static void delete_arrow __PROTO((struct arrow_def *, struct arrow_def *));
 static void unset_autoscale __PROTO((void));
 static void unset_bars __PROTO((void));
 static void unset_border __PROTO((void));
-
+static void unset_boxplot __PROTO((void));
 static void unset_boxwidth __PROTO((void));
 static void unset_fillstyle __PROTO((void));
 static void unset_clabel __PROTO((void));
@@ -84,6 +85,8 @@ static void unset_key __PROTO((void));
 static void unset_keytitle __PROTO((void));
 static void unset_label __PROTO((void));
 static void delete_label __PROTO((struct text_label * prev, struct text_label * this));
+static void unset_linestyle __PROTO((struct linestyle_def **head));
+static void unset_linetype __PROTO((void));
 #ifdef EAM_OBJECTS
 static void unset_object __PROTO((void));
 static void delete_object __PROTO((struct object * prev, struct object * this));
@@ -227,6 +230,9 @@ unset_command()
 	break;
     case S_LABEL:
 	unset_label();
+	break;
+    case S_LINETYPE:
+	unset_linetype();
 	break;
     case S_LOADPATH:
 	unset_loadpath();
@@ -638,6 +644,15 @@ unset_border()
 }
 
 
+/* process 'unset style boxplot' command */
+static void
+unset_boxplot()
+{
+    boxplot_style defstyle = DEFAULT_BOXPLOT_STYLE;
+    boxplot_opts = defstyle;
+}
+
+
 /* process 'unset boxwidth' command */
 static void
 unset_boxwidth()
@@ -931,6 +946,31 @@ delete_label(struct text_label *prev, struct text_label *this)
 	if (this->font) free (this->font);
 	free (this);
     }
+}
+
+static void
+unset_linestyle(struct linestyle_def **head)
+{
+    int tag = int_expression();
+    struct linestyle_def *this, *prev;
+    for (this = *head, prev = NULL; this != NULL; 
+	 prev = this, this = this->next) {
+	if (this->tag == tag) {
+	    delete_linestyle(head, prev, this);
+	    break;
+	}
+    }
+}
+
+static void
+unset_linetype()
+{
+    if (equals(c_token,"cycle")) {
+	linetype_recycle_count = 0;
+	c_token++;
+    }
+    else if (!END_OF_COMMAND)
+	unset_linestyle(&first_perm_linestyle);
 }
 
 #ifdef EAM_OBJECTS
@@ -1306,6 +1346,7 @@ unset_style()
 	unset_style_rectangle();
 #endif
 	unset_histogram();
+	unset_boxplot();
 	c_token++;
 	return;
     }
@@ -1325,15 +1366,7 @@ unset_style()
 	    while (first_linestyle != NULL)
 		delete_linestyle(&first_linestyle, NULL, first_linestyle);
 	} else {
-	    int tag = int_expression();
-	    struct linestyle_def *this, *prev;
-	    for (this = first_linestyle, prev = NULL; this != NULL; 
-		 prev = this, this = this->next) {
-		if (this->tag == tag) {
-		    delete_linestyle(&first_linestyle, prev, this);
-		    break;
-		}
-	    }
+	    unset_linestyle(&first_linestyle);
 	}
 	break;
     case SHOW_STYLE_FILLING:
@@ -1354,6 +1387,10 @@ unset_style()
 	c_token++;
 	break;
 #endif
+    case SHOW_STYLE_BOXPLOT:
+	unset_boxplot();
+	c_token++;
+	break;
     default:
 	int_error(c_token, "expecting 'data', 'function', 'line', 'fill' or 'arrow'");
     }
@@ -1627,6 +1664,7 @@ reset_command()
 	reset_logscale(axis);
     }
 
+    unset_boxplot();
     unset_boxwidth();
 
     clip_points = FALSE;
@@ -1640,6 +1678,10 @@ reset_command()
 
     data_style = POINTSTYLE;
     func_style = LINES;
+
+    /* Reset individual plot style options to the default */
+    filledcurves_opts_data.closeto = FILLEDCURVES_CLOSED;
+    filledcurves_opts_func.closeto = FILLEDCURVES_CLOSED;
 
     bar_size = 1.0;
     bar_layer = LAYER_FRONT;

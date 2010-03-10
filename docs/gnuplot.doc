@@ -1,4 +1,4 @@
-C RCS $Id: gnuplot.doc,v 1.586 2009/10/30 14:38:55 mikulik Exp $
+C RCS $Id: gnuplot.doc,v 1.596 2010/01/11 04:31:38 sfeam Exp $
 C
 C Copyright (C) 1986 - 1993, 1998, 1999, 2000, 2001, 2004   Thomas Williams, Colin Kelley et al.
 C
@@ -87,31 +87,33 @@ C
 2 Introduction
 ?introduction
 ?
- `gnuplot` is a command-driven interactive function and data plotting program.
- syntax:
-       gnuplot {X11OPTIONS} {OPTIONS} file1 file2 ...
+ `Gnuplot` is a portable command-line driven graphing utility for Linux, OS/2,
+ MS Windows, OSX, VMS, and many other platforms. The source code is copyrighted
+ but freely distributed (i.e., you don't have to pay for it). It was originally
+ created to allow scientists and students to visualize mathematical functions
+ and data interactively, but has grown to support many non-interactive uses
+ such as web scripting. It is also used as a plotting engine by third-party
+ applications like Octave. Gnuplot has been supported and under active
+ development since 1986. 
 
- Generic X11 options, if any,  must come first.  See your X11 documentation.
- If you are not using X11, ignore this.  Options interpreted by gnuplot
- may come anywhere on the line.  Files are executed in the order specified, as
- are commands supplied by the -e option.
+ Gnuplot supports many types of plots in either 2D and 3D. It can draw using
+ lines, points, boxes, contours, vector fields, surfaces, and various
+ associated text. It also supports various specialized plot types.
 
- Example:
-       gnuplot   file1.in   -e "reset"   file2.in
+ Gnuplot supports many different types of output: interactive screen terminals
+ (with mouse and hotkey input), direct output to pen plotters or modern
+ printers, and output to many file formats (eps, fig, jpeg, LaTeX, metafont,
+ pbm, pdf, png, postscript, svg, ...). Gnuplot is easily extensible to include
+ new output modes. Recent additions include interactive terminals based on
+ aquaterm (OSX) and wxWidgets (multiple platforms). 
 
- The special filename "-" is used to force reading from stdin.  `gnuplot` exits
- after the last file is processed.  If no load files are named, `gnuplot` takes
- interactive input from stdin.  See help `batch/interactive` for more details.
- The options specific to gnuplot can be listed by typing
-
-       gnuplot --help
-
- `gnuplot` is case sensitive (commands and function names written in lowercase
- are not the same as those written in CAPS).  All command names may be
- abbreviated as long as the abbreviation is not ambiguous.  Any number of
- commands may appear on a line, separated by semicolons (;).  Strings may be
- set off by either single or double quotes, although there are some subtle
- differences.  See `syntax` and `quotes` for more details.  Examples:
+ The command language of `gnuplot` is case sensitive, i.e. commands and
+ function names written in lowercase are not the same as those written in
+ capitals. All command names may be abbreviated as long as the abbreviation is
+ not ambiguous. Any number of commands may appear on a line, separated by
+ semicolons (;). Strings may be set off by either single or double quotes,
+ although there are some subtle differences.  See `syntax` and `quotes` for
+ more details. Examples:
 
        load "filename"
        cd 'dir'
@@ -131,7 +133,7 @@ C
  and in that case will not necessarily point to the correct line.
 
  In this document, curly braces ({}) denote optional arguments and a vertical
- bar (|) separates mutually exclusive choices.  `gnuplot` keywords or `help`
+ bar (|) separates mutually exclusive choices.  `Gnuplot` keywords or `help`
  topics are indicated by backquotes or `boldface` (where available).  Angle
  brackets (<>) are used to mark replaceable tokens.  In many cases, a default
  value of the token will be taken for optional arguments if the token is
@@ -148,48 +150,72 @@ C
 ^ <a href="http://www.gnuplot.info/demo/">
            http://www.gnuplot.info/demo/
 ^ </a>
+ `Gnuplot` can be started from a command line or from an icon according to the
+ desktop environment. Running it from command line can take the syntax
+       gnuplot {OPTIONS} file1 file2 ...
+ where file1, file2, etc. are input file as in the `load` command.
+ On X11-based systems, you can use
+       gnuplot {X11OPTIONS} {OPTIONS} file1 file2 ...
+ see your X11 documentation or rather `x11` in this document.
+
+ Options interpreted by gnuplot may come anywhere on the line.  Files are
+ executed in the order specified, as are commands supplied by the -e option,
+ for example
+       gnuplot   file1.in   -e "reset"   file2.in
+
+ The special filename "-" is used to force reading from stdin.  `Gnuplot` exits
+ after the last file is processed.  If no load files are named, `Gnuplot` takes
+ interactive input from stdin.  See help `batch/interactive` for more details.
+ The options specific to gnuplot can be listed by typing
+       gnuplot --help
+ See `command line options` for more details.
+
+ Hit 'h' for help about `hotkeys` and `mousing` features in interactive screen
+ terminals (`pm`, `windows`, `wxt`, `x11`).
+
+ Section `seeking-assistance` will help you to find further information, help
+ and FAQ.
 2 Seeking-assistance
 ?help-desk
 ?seeking-assistance
 ^ <a name="Seeking-assistance"></a>
- There is a mailing list for `gnuplot` users.  Note, however, that the
- newsgroup
-       comp.graphics.apps.gnuplot
- is identical to the mailing list (they both carry the same set of messages).
+ The canonical gnuplot web page can be found at
+^ <a href="http://www.gnuplot.info">
+           http://www.gnuplot.info
+^ </a>
+
+ Before seeking help, please check file FAQ.pdf or the above website for
+^ <a href="http://www.gnuplot.info/faq/">
+           FAQ (Frequently Asked Questions) list.
+^ </a>
+
+ If you need help as a gnuplot user, please use the newsgroup
+           comp.graphics.apps.gnuplot
  We prefer that you read the messages through the newsgroup rather than
- subscribing to the mailing list.  Instructions for subscribing to gnuplot
- mailing lists may be found via the gnuplot development website on SourceForge
+ subscribing to the mailing list which is also available and carries the same
+ set of messages. Instructions for subscribing to gnuplot mailing lists may be
+ found via the gnuplot development website on SourceForge
 ^ <a href="http://sourceforge.net/projects/gnuplot">
            http://sourceforge.net/projects/gnuplot
 ^ </a>
 
  The address for mailing to list members is:
-       gnuplot-info@lists.sourceforge.net
+           gnuplot-info@lists.sourceforge.net
 
  Bug reports and code contributions should be uploaded to the trackers at
-       http://sourceforge.net/projects/gnuplot
+           http://sourceforge.net/projects/gnuplot/support
+ Please check previous bug reports if the bug you want to report has not been
+ already fixed in a newer version of gnuplot.
 
- The list of those interested in beta-test versions is:
-       gnuplot-beta@lists.sourceforge.net
-
- There is also the canonical (if occasionally out-of-date) gnuplot web page at
-
-^ <a href="http://www.gnuplot.info">
-           http://www.gnuplot.info
-^ </a>
-
- Before seeking help, please check the
-
-^ <a href="http://www.gnuplot.info/faq/">
-           FAQ (Frequently Asked Questions) list.
-^ </a>
+ The list of those interested in development version of gnuplot is:
+           gnuplot-beta@lists.sourceforge.net
 
  When posting a question, please include full details of the version of
  `gnuplot`, the machine, and operating system you are using.  A _small_ script
  demonstrating the problem may be useful.  Function plots are preferable to
  datafile plots.  If email-ing to gnuplot-info, please state whether or not
  you are subscribed to the list, so that users who use news will know to email
- a reply to you.  There is a form for such postings on the WWW site.
+ a reply to you.  There is a form for such postings on the website.
 
 2 New features introduced in version 4.5
 ?new-features
@@ -242,7 +268,7 @@ C
 =polygon
  The `set object` command can now be used to define fixed circles, ellipses, and
  polygons as well as rectangles. There is a corresponding new plot style
- `plot with circles`.  See `circle` `ellipse` `polygon`.
+ `plot with circles`.  See `circle`, `ellipse` and `polygon`.
 
 3 New or revised terminal drivers
  Two new drivers based on the cairo and pango libraries are included,
@@ -305,7 +331,8 @@ C
 
 2 Batch/Interactive Operation
 ?batch/interactive
- `gnuplot` may be executed in either batch or interactive modes, and the two
+?command line options
+ `Gnuplot` may be executed in either batch or interactive modes, and the two
  may even be mixed together on many systems.
 
  Any command-line arguments are assumed to be either program options (first
@@ -313,7 +340,7 @@ C
  -e "command" may be used to force execution of a gnuplot command. Each file
  or command string will be executed in the order specified.  The special
  filename "-" is indicates that commands are to be read from stdin.
- `gnuplot` exits after the last file is processed.  If no load files and no 
+ `Gnuplot` exits after the last file is processed.  If no load files and no 
  command strings are specified, `gnuplot` accepts interactive input from
  stdin.
 
@@ -456,7 +483,7 @@ C
 
  If one (or more) axis is timeseries, the appropriate coordinate should
  be given as a quoted time string according to the `timefmt` format string.
- See `set xdata` and `set timefmt`.  `gnuplot` will also accept an integer
+ See `set xdata` and `set timefmt`.  `Gnuplot` will also accept an integer
  expression, which will be interpreted as seconds from 1 January 2000.
 2 Datastrings
 ?datastrings
@@ -1669,6 +1696,18 @@ C ... and restart the table:
 =png
 =wxt
  Sorry, this section is under construction.
+ These terminals find and access fonts using the external fontconfig tool set.
+ Please see the
+^ <a href="http://fontconfig.org/fontconfig-user.html">
+ fontconfig user manual.
+^ </a>
+ It is usually sufficient in gnuplot to request a font by a generic name and
+ size, letting fontconfig substitute a similar font if necessary. The following
+ will probably all work:
+      set term pdfpng font "sans,12"
+      set term pdfpng font "Times,12"
+      set term pdfpng font "Times-New-Roman,12"
+
 3 gd (png, gif, jpeg terminals)
 ?gd
 ?fonts gd
@@ -1782,8 +1821,8 @@ C ... and restart the table:
  a single record.  A "datablock" is a set of points from consecutive records,
  delimited by blank records.  A line, when referred to in the context of a
  data file, is a subset of a datablock.
-2 linetype, colors, and styles
-?linetype
+2 linetypes, colors, and styles
+?linetypes
 ?colors
  Each gnuplot terminal type provides a set of distinct "linetypes". These may
  differ in color, in thickness, in dot/dash pattern, or in some combination of
@@ -1792,9 +1831,15 @@ C ... and restart the table:
  The pre-defined colors and dot/dash patterns are not guaranteed to be
  consistent for all terminal types, but all terminals use the special linetype
  -1 to mean a solid line in the primary foreground color (normally black).
+
+ You can redefine the default linetype properties either interactively or via an
+ initialization file.  This allows you to customize the colors and other
+ properties of the lines used by all gnuplot plotting commands.
+ See `set linetype`.  
+
  By default, successive functions or datafiles plotted by a single command will
- be assigned successive linetypes.  You can override this default by specifying
- a particular linetype for any function, datafile, or plot element.
+ be assigned successive linetypes.  You can override this default sequence by
+ specifying a particular linetype for any function, datafile, or plot element.
 
  Examples:
 
@@ -1961,6 +2006,8 @@ C ... and restart the table:
  See also the command `set mouse`.
 3 bind
 ?commands bind
+?hotkey
+?hotkeys
 ?bind
  Syntax:
        bind {allwindows} [<key-sequence>] ["<gnuplot commands>"]
@@ -2050,7 +2097,7 @@ C ... and restart the table:
  setting the XResource 'gnuplot*ctrlq'.  See `x11 command-line-options`.
 3 Mouse variables
 ?mouse variables
- When mousing is active, clicking in the active window will set several user
+ When `mousing` is active, clicking in the active window will set several user
  variables that can be accessed from the gnuplot command line. The coordinates
  of the mouse at the time of the click are stored in MOUSE_X MOUSE_Y MOUSE_X2
  and MOUSE_Y2. The mouse button clicked, and any meta-keys active at that time,
@@ -2541,6 +2588,39 @@ Ffigure_boxes
            'file4' with boxes fill pattern 1, \
            'file5' with boxes fill empty
 
+2 boxplot
+?plotting styles boxplot
+?style boxplot
+?boxplot
+Ffigure_boxplot
+ Boxplots are a common way to represent a statistical distribution of values.
+ Quartile boundaries are determined such that 1/4 of the points have a value
+ equal or less than the first quartile boundary, 1/2 of the points have a value
+ equal or less than the second quartile (median) value, etc.  A box is drawn
+ around the region between the first and third quartiles, with a horizontal line
+ at the median value.  Whiskers extend from the box to user-specified limits.
+ Points that lie outside these limits are drawn individually.
+
+ Examples
+
+     # Place a boxplot at x coordinate 1.0 representing the y values in column 5
+     plot 'data' using (1.0):5
+
+     # Same plot but suppress outliers and force the width of the boxplot to 0.3
+     set style boxplot nooutliers
+     plot 'data' using (1.0):5:(0.3)
+
+ The default width of the box can be set via `set boxwidth <width>` or may be
+ specified as an optional 3rd column in the `using` clause of the plot command.
+ The first and third columns (x coordinate and width) are normally provided as
+ constants rather than as data columns.
+
+ By default the whiskers extend from the ends of the box to the most distant
+ point whose y value lies within 1.5 times the interquartile range. Outliers are
+ drawn as circles (point type 7).  These default properties may be changed using
+ the `set style boxplot` command.  See `set style boxplot`, `boxwidth`,
+ `fillstyle`, `candlesticks`.
+
 2 boxxyerrorbars
 ?commands set style boxxyerrorbars
 ?set style boxxyerrorbars
@@ -2590,6 +2670,10 @@ Ffigure_candlesticks
  boxwidth parameter has not been set then the width of the candlestick
  rectangle is controlled by `set bars <width>`.
 
+ Alternatively, an explicit width for each box-and-whiskers grouping may be
+ specified in an optional 6th column of data.  The width must be given in the
+ same units as the x coordinate.
+
  By default the vertical line segments have no crossbars at the top and
  bottom. If you want crossbars, which are typically used for box-and-whisker
  plots, then add the keyword `whiskerbars` to the plot command.  By default
@@ -2623,7 +2707,7 @@ Ffigure_candlesticks
    # Plot with crossbars on the whiskers, crossbars are 50% of full width
    plot 'stat.dat' using 1:3:2:6:5 with candlesticks whiskerbars 0.5
 
- See `set boxwidth`, `set bars` and `set style fill`.
+ See `set boxwidth`, `set bars`, `set style fill`, and `boxplot`.
 2 circles
 ?commands set style circles
 ?set style circles
@@ -2975,7 +3059,7 @@ Ffigure_histcols
 ?rgbimage
 ?rgbalpha
  The `image`, `rgbimage`, and `rgbalpha` plotting styles all project a
- uniformly sampled grid of data values onto a plane  in either a 2D or 3D.
+ uniformly sampled grid of data values onto a plane  in either 2D or 3D.
  The input data may be an actual bitmapped image, perhaps converted from a
  standard format such as PNG, or a simple array of numerical values.
 
@@ -4186,7 +4270,7 @@ Ffigure_mapcontours
  number of seconds if subsecond time resolution is not supported by the given
  platform.  `pause 0` is synonymous with `print`.
 
- If the current terminal supports mousing, then `pause mouse` will terminate
+ If the current terminal supports `mousing`, then `pause mouse` will terminate
  on either a mouse click or on ctrl-C.  For all other terminals, or if mousing
  is not active, `pause mouse` is equivalent to `pause -1`.
 
@@ -6501,7 +6585,7 @@ Ffigure_mapcontours
 ?show boxwidth
 ?boxwidth
  The `set boxwidth` command is used to set the default width of boxes in the
- `boxes`, `boxerrorbars`, `candlesticks` and `histograms` styles.
+ `boxes`, `boxerrorbars`, `boxplot`, `candlesticks` and `histograms` styles.
 
  Syntax:
        set boxwidth {<width>} {absolute|relative}
@@ -7071,7 +7155,7 @@ Ffigure_mapcontours
        set dgrid3d {<rows>} {,{<cols>}}
                    { splines |
                      qnorm {<norm>} |
-                     gauss | cauchy | exp | box | hann {<dx>} {,{dy}} }
+                     (gauss | cauchy | exp | box | hann) {<dx>} {,dy} }
        unset dgrid3d
        show dgrid3d
 
@@ -8196,6 +8280,67 @@ Ffigure_mapcontours
  To set a label whose color matches the z value (in this case 5.5) of some
  point on a 3D splot colored using pm3d:
        set label 'text' at 0,0,5.5 tc palette z
+3 linetype
+?commands set linetype
+?commands unset linetype
+?commands show linetype
+?set linetype
+?unset linetype
+?show linetype
+?linetype
+ The `set linetype` command allows you to redefine the basic linetypes used
+ for plots.  The command options are identical to those for "set style line".
+ Unlike line styles, redefinitions by `set linetype` are persistent;  they
+ are not affected by `reset`.
+ 
+ For example, linetypes one and two default to red and green. If you redefine
+ them like this:
+
+       set linetype 1 lw 2 lc rgb "blue" pointtype 6
+       set linetype 2 lw 2 lc rgb "forest-green" pointtype 8
+
+ everywhere that uses lt 1 will now get a thick blue line rather than a thin red
+ line (the previous default meaning of lt 1).  This includes uses such as the
+ definition of a temporary linestyle derived from the base linetype 1.
+
+ `Note`: This command is new to gnuplot version 4.5.  It supersedes a rather
+ cryptic command in version 4.2 "set style increment user".
+ The older command is now deprecated.
+
+ This mechanism can be used to define a set of personal preferences for the
+ sequence of lines used in gnuplot.  The recommended way to do this is to add
+ to the run-time initialization file ~/.gnuplot a sequence of commands like
+
+       if ((GPVAL_VERSION < 4.5) \
+       ||  (!strstrt(GPVAL_COMPILE_OPTIONS,"+USER_LINETYPES"))) \
+           exit
+       set linetype 1 lc rgb "dark-violet" lw 2 pt 0
+       set linetype 2 lc rgb "sea-green"   lw 2 pt 7
+       set linetype 3 lc rgb "cyan"        lw 2 pt 6 pi -1
+       set linetype 4 lc rgb "dark-red"    lw 2 pt 5 pi -1
+       set linetype 5 lc rgb "blue"        lw 2 pt 8
+       set linetype 6 lc rgb "dark-orange" lw 2 pt 3
+       set linetype 7 lc rgb "black"       lw 2 pt 11
+       set linetype 8 lc rgb "goldenrod"   lw 2
+       set linetype cycle 8
+
+ Every time you run gnuplot the line types will be initialized to these values.
+ You may initialize as many linetypes as you like. If you do not redefine, say,
+ linetype 3 then it will continue to have the default properties (in this case
+ blue, pt 3, lw 1, etc).  The first few lines of the example script insure that
+ the commands will be skipped by older versions of gnuplot.
+
+ Similar script files can be used to define theme-based color choices, or sets
+ of colors optimized for a particular plot type or output device.
+
+=cycle
+ The command `set linetype cycle 8` tells gnuplot to re-use these definitions
+ for the color and linewidth of higher-numbered linetypes.  That is, linetypes
+ 9-16, 17-24, and so on will use this same sequence of colors and widths.
+ The point properties (pointtype, pointsize, pointinterval) are not affected by
+ this command.  `unset linetype cycle` disables this feature.  If the line
+ properties of a higher numbered linetype are explicitly defined, this takes
+ precedence over the recycled low-number linetype properties.
 
 3 lmargin
 ?commands set lmargin
@@ -8379,6 +8524,7 @@ Ffigure_mapcontours
 ?commands unset mouse
 ?set mouse
 ?unset mouse
+?mousing
 ?mouse
 ?nomouse
  The command `set mouse` enables mouse actions. Currently the pm, x11, ggi,
@@ -9448,6 +9594,10 @@ Ffigure_mapcontours
        set palette defined ( 0 0 1 1, 1 1 1 1 )
        set palette defined ( 0 0 1 0, 1 0 1 1, 6 0.8333 1 1, 7 0.8333 0 1)
 
+ Approximate the default palette used by MATLAB:
+       set pal defined (1 '#00008f', 8 '#0000ff', 24 '#00ffff', \
+                        40 '#ffff00', 56 '#ff0000', 64 '#800000')
+
  To produce a palette with few colors only use:
        set palette model RGB maxcolors 4
        set palette defined ( 0 "blue", 1 "green", 2 "yellow", 3 "red" )
@@ -9886,6 +10036,44 @@ Ffigure_mapcontours
 
  See also `set arrow` for further examples.
 
+4 boxplot
+?commands set style boxplot
+?commands unset style boxplot
+?commands show style boxplot
+?set style boxplot
+?unset style boxplot
+?show style boxplot
+ The `set style boxplot` command allows you to change the layout of plots
+ created using the `boxplot` plot style.
+
+ Syntax:
+       set style boxplot {range <r> | fraction <f>}
+                         {{no}outliers} {pointtype <p>}
+ 
+ The box in the boxplot always spans the range of values from the first
+ quartile to the third quartile of the data points.  The limit of the whiskers
+ that extend from the box can be controlled in two different ways. By default
+ the whiskers extend from each end of the box for a range equal to 1.5 times
+ the interquartile range (i.e. the vertical height of the box proper).
+ Each whisker is truncated back toward the median so that it terminates at a
+ y value belonging to some point in the data set. Since there may be no point
+ whose value is exactly 1.5 times the interquartile distance, the whisker may
+ be shorter than its nominal range.  This default corresponds to 
+       set style boxplot range 1.5
+
+ Alternatively, you can specify the fraction of the total number of points
+ that the whiskers should span.  In this case the range is extended 
+ symmetrically from the median value until it encompasses the requested fraction
+ of the data set.  Here again each whisker is constrained to end at a point in
+ the data set.  To span 95% of the points in the set
+       set style boxplot fraction 0.95
+
+ Any points that lie outside the range of the whiskers are considered outliers.
+ By default these are drawn as individual circles (pointtype 7).  The option
+ `nooutliers` disables this.
+
+ See `boxplot`.
+
 4 set style data
 ?commands set style data
 ?commands show style data
@@ -10011,6 +10199,11 @@ Ffigure_mapcontours
 ?commands show style increment
 ?set style increment
 ?show style increment
+ `Note`:  This command has been deprecated.  Instead please use the newer
+ command `set linetype`, which redefines the linetypes themselves rather
+ than searching for a suitable temporary line style to substitute.
+ See `set linetype`
+
  Syntax:
        set style increment {default|userstyles}
        show style increment
@@ -10071,6 +10264,11 @@ Ffigure_mapcontours
  changed while all others are preserved.  If not, all undefined values are
  set to the default values.
 
+ Line styles created by this mechanism do not replace the default linetype
+ styles; both may be used.  Line styles are temporary. They are lost whenever
+ you execute a `reset` command.  To redefine the linetype itself,
+ please see `set linetype`.
+
  The line and point types default to the index value. The exact symbol that is
  drawn for that index value may vary from one terminal type to another.
  
@@ -10085,10 +10283,6 @@ Ffigure_mapcontours
  every 3rd point in plots using `with linespoints`.  A negative value for the
  interval is treated the same as a positive value, except that some terminals
  will try to interrupt the line where it passes through the point symbol.
-
- Linestyles created by this mechanism do not replace the default linetype
- styles; both may be used.  If you want plots to use the defined styles in
- preference to the default linetypes, please see `set style increment`.
 
  Not all terminals support the `linewidth` and `pointsize` features; if
  not supported, the option will be ignored.
@@ -11883,12 +12077,22 @@ Ffigure_mapcontours
 ?commands undefine
 ?undefine
  Clear one or more previously defined user variables.  This is useful in order
- to reset the state of a script containing an initialization test.
+ to reset the state of a script containing an initialization test. 
+
+ A variable name can contain the wildcard character `*` as last character. If the
+ wildcard character is found, all variables with names that begin with the prefix 
+ preceding the wildcard will be removed. This is useful to remove several variables 
+ sharing a common prefix. Note that the wildcard character is only allowed at the 
+ end of the variable name! Specifying the wildcard character as sole argument to 
+ `undefine` has no effect.
 
  Example:
 
        undefine foo foo1 foo2
        if (!exists("foo")) load "initialize.gp"
+
+       bar = 1; bar1 = 2; bar2 = 3
+       undefine bar*                 # removes all three variables
 
 2 unset
 ?commands unset

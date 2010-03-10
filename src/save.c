@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: save.c,v 1.174 2009/10/28 06:46:27 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: save.c,v 1.176 2010/01/11 04:31:39 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - save.c */
@@ -269,12 +269,10 @@ set y2data%s\n",
 	fprintf(fp, "set dgrid3d %d,%d splines\n",
           	dgrid3d_row_fineness, dgrid3d_col_fineness );
       } else {
-	char *modes[] = { "qnorm", "splines", 
-          		  "gauss", "exp", "cauchy", "box", "hann" };
 	fprintf(fp, "set dgrid3d %d,%d %s %f,%f\n",
           	dgrid3d_row_fineness,
           	dgrid3d_col_fineness,
-          	modes[dgrid3d_mode],
+		reverse_table_lookup(dgrid3d_mode_tbl, dgrid3d_mode),
           	dgrid3d_x_scale,
           	dgrid3d_y_scale );
       }
@@ -898,6 +896,12 @@ set origin %g,%g\n",
     if (color_box.where == SMCOLOR_BOX_NO) fputs("\nunset colorbox\n", fp);
 	else fputs("\n", fp);
 
+    fprintf(fp, "set style boxplot %s %5.2f %soutliers pt %d\n",
+		boxplot_opts.limit_type == 1 ? "fraction" : "range",
+		boxplot_opts.limit_value, 
+		boxplot_opts.outliers ? "" : "no",
+		boxplot_opts.pointtype+1);
+
     fputs("set loadpath ", fp);
     {
 	char *s;
@@ -1225,6 +1229,9 @@ save_data_func_style(FILE *fp, const char *which, enum PLOT_STYLE style)
 	break;
     case CANDLESTICKS:
 	fputs("candlesticks\n", fp);
+	break;
+    case BOXPLOT:
+	fputs("boxplot\n", fp);
 	break;
     case PM3DSURFACE:
 	fputs("pm3d\n", fp);

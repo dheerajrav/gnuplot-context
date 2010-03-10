@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: show.c,v 1.228 2009/10/31 21:58:47 mikulik Exp $"); }
+static char *RCSid() { return RCSid("$Id: show.c,v 1.232 2010/01/11 04:31:39 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - show.c */
@@ -79,6 +79,7 @@ static void show_autoscale __PROTO((void));
 static void show_bars __PROTO((void));
 static void show_border __PROTO((void));
 static void show_boxwidth __PROTO((void));
+static void show_boxplot __PROTO((void));
 static void show_fillstyle __PROTO((void));
 static void show_clip __PROTO((void));
 static void show_contour __PROTO((void));
@@ -151,6 +152,7 @@ static void show_plot __PROTO((void));
 static void show_variables __PROTO((void));
 
 static void show_linestyle __PROTO((int tag));
+static void show_linetype __PROTO((int tag));
 static void show_arrowstyle __PROTO((int tag));
 static void show_arrow __PROTO((int tag));
 
@@ -282,16 +284,14 @@ show_command()
 	CHECK_TAG_GT_ZERO;
 	show_arrow(tag);
 	break;
-#ifdef BACKWARDS_COMPATIBLE
     case S_LINESTYLE:
 	CHECK_TAG_GT_ZERO;
 	show_linestyle(tag);
 	break;
-#else
-    case S_LINESTYLE:
-	error_message = "keyword 'linestyle' deprecated, use 'show style line'";
+    case S_LINETYPE:
+	CHECK_TAG_GT_ZERO;
+	show_linetype(tag);
 	break;
-#endif
     case S_KEYTITLE:
 	show_keytitle();
 	break;
@@ -837,6 +837,7 @@ show_version(FILE *fp)
      */
     char prefix[6];		/* "#    " */
     char *p = prefix;
+    char fmt[2048];
 
     prefix[0] = '#';
     prefix[1] = prefix[2] = prefix[3] = prefix[4] = ' ';
@@ -981,6 +982,7 @@ show_version(FILE *fp)
 		"+THIN_SPLINES  "
 # endif
 		"+IMAGE  "
+		"+USER_LINETYPES "
 	    "";
 
 	    sprintf(compile_options, "\
@@ -1013,7 +1015,8 @@ show_version(FILE *fp)
 #endif /* BINDIR */
     }
 
-    fprintf(fp, "%s\n\
+    strcpy(fmt, "\
+%s\n\
 %s\t%s\n\
 %s\tVersion %s patchlevel %s\n\
 %s\tlast modified %s\n\
@@ -1022,13 +1025,18 @@ show_version(FILE *fp)
 %s\t%s\n\
 %s\tThomas Williams, Colin Kelley and many others\n\
 %s\n\
+%s\tgnuplot home:     http://www.gnuplot.info\n\
+");
+#ifndef RELEASE_VERSION
+    strcat(fmt, "%s\tmailing list:     %s\n");
+#endif
+    strcat(fmt, "\
+%s\tfaq, bugs, etc:   type \"help seeking-assistance\"\n\
 %s\timmediate help:   type \"help\"\n\
 %s\tplot window:      hit 'h'\n\
-%s\tgnuplot home:     http://www.gnuplot.info\n\
-%s\tgnuplot FAQ:      FAQ.pdf and %s\n\
-%s\treport bugs:      http://sf.net/projects/gnuplot/support\n\
-%s\tmailing list:     %s\n\
-%s\n",
+");
+
+    fprintf(fp, fmt,
 	    p,			/* empty line */
 	    p, PROGRAM,
 	    p, gnuplot_version, gnuplot_patchlevel,
@@ -1038,13 +1046,14 @@ show_version(FILE *fp)
 	    p, gnuplot_copyright,
 	    p,			/* authors */
 	    p,			/* empty line */
-	    p,			/* type "help" */
-	    p,			/* hit 'h' */
-	    p,			/* empty line */
-	    p, faq_location,	/* FAQ */
-	    p,			/* empty line */
+	    p,			/* website */
+#ifndef RELEASE_VERSION
 	    p, help_email,	/* mailing list */
-	    p);			/* empty line */
+#endif
+	    p,			/* type "help" */
+	    p,			/* type "help seeking-assistance" */
+	    p			/* hit 'h' */
+	    );
 
 
     /* show version long */
@@ -1168,6 +1177,24 @@ show_boxwidth()
 	fprintf(stderr, "\tboxwidth is %g %s\n", boxwidth,
 		(boxwidth_is_absolute) ? "absolute" : "relative");
     }
+}
+
+/* process 'show boxplot' command */
+static void
+show_boxplot()
+{
+    fprintf(stderr, "\tboxplot range extends from the ");
+    if (boxplot_opts.limit_type == 1)
+	fprintf(stderr, "\tmedian to include %5.2f of the points\n",
+		boxplot_opts.limit_value);
+    else
+	fprintf(stderr, "\tbox by %5.2f of the interquartile distance\n",
+		boxplot_opts.limit_value);
+    if (boxplot_opts.outliers)
+	fprintf(stderr, "\t  outliers will be drawn using point type %d\n",
+		boxplot_opts.pointtype+1);
+    else
+	fprintf(stderr,"\t  outliers will not be drawn\n");
 }
 
 
@@ -1318,14 +1345,11 @@ show_dgrid3d()
 		dgrid3d_row_fineness,
 		dgrid3d_col_fineness );
       } else {
-	char *modes[] = { "qnorm", "splines", 
-			  "gauss", "exp", "cauchy", "box", "hann" };
-			  
 	fprintf(stderr, 
 		"\tdata grid3d is enabled for mesh of size %dx%d, kernel=%s, scale factors x=%f, y=%f\n", 
 		dgrid3d_row_fineness,
 		dgrid3d_col_fineness,
-		modes[dgrid3d_mode],
+		reverse_table_lookup(dgrid3d_mode_tbl, dgrid3d_mode),
 		dgrid3d_x_scale,
 		dgrid3d_y_scale );
       }
@@ -1443,6 +1467,10 @@ show_style()
 	CHECK_TAG_GT_ZERO;
 	show_arrowstyle(tag);
 	break;
+    case SHOW_STYLE_BOXPLOT:
+	show_boxplot();
+	c_token++;
+	break;
     default:
 	/* show all styles */
 	show_styles("Data",data_style);
@@ -1452,6 +1480,7 @@ show_style()
 	show_increment();
 	show_histogram();
 	show_arrowstyle(0);
+	show_boxplot();
 #ifdef EAM_OBJECTS
 	/* Fall through (FIXME: this is ugly) */
     case SHOW_STYLE_RECTANGLE:
@@ -2922,6 +2951,30 @@ show_linestyle(int tag)
     }
     if (tag > 0 && !showed)
 	int_error(c_token, "linestyle not found");
+}
+
+/* Show linetype number <tag> (0 means show all) */
+static void
+show_linetype(int tag)
+{
+    struct linestyle_def *this_linestyle;
+    TBOOLEAN showed = FALSE;
+
+    if (tag == 0)
+	fprintf(stderr, "\tLinetypes repeat every %d unless explicitly defined\n",
+		linetype_recycle_count);
+
+    for (this_linestyle = first_perm_linestyle; this_linestyle != NULL;
+	 this_linestyle = this_linestyle->next) {
+	if (tag == 0 || tag == this_linestyle->tag) {
+	    showed = TRUE;
+	    fprintf(stderr, "\tlinetype %d, ", this_linestyle->tag);
+	    save_linetype(stderr, &(this_linestyle->lp_properties), TRUE);
+	    fputc('\n', stderr);
+	}
+    }
+    if (tag > 0 && !showed)
+	int_error(c_token, "linetype not found");
 }
 
 

@@ -1,3 +1,315 @@
+2010-01-16  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/variable.c (loadpath_handler):  Have "show loadpath" should
+	also list the environmental variable GNUPLOT_PS_DIR.
+	Bug #2933345
+
+2010-01-15  <ottxor@users.sourceforge.net>
+
+	* configure.in src/Makefile.am demo/Makefile.am.in:
+	"make check" needs help if we did ./configure --program-suffix=FOO
+	In this case make a temporary symlink so that 'make check' can find
+	gnuplot_x11.
+	Bug #2926141
+
+2010-01-12  Alexander Täschner  <taschna@users.sourceforge.net>
+
+	* src/win/winmain.c (MyVFPrintF): Microsoft Visual C does not use
+	va_copy() and va_end().
+
+2010-01-12  <ottxor@users.sourceforge.net>
+
+	* configure.in share/Makefile.am:  Do not install LaTeX support files
+	if there is no latex on the system.  Add configuration option
+	--without-latex
+	Bug #2928310
+
+2010-01-12  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* term/pdf.trm: Always start a new path with a moveto.
+	Bug #2930705
+
+	* src/plot2d.c (eval_plots): In generating points for a function plot,
+	only x and y were guaranteed to be initialized. Now to be safe we
+	initialize all fields.
+	Bug #2930705
+
+	* src/plot2d.c (store2d_point): steps, fsteps, and histeps were 
+	incorrectly auto-scaling to yhigh (which is really variable color).
+	Bug #2929314
+
+2010-01-10  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* docs/gnuplot.doc docs/plotstyles.gnu demo/boxplot.dem
+	src/datafile.c src/gadgets.c src/gadgets.h src/gp_types.h
+	src/graph3d.c src/graphics.c src/plot2d.c src/save.c
+	src/set.c src/show.c src/tables.c src/tables.h src/unset.c:
+
+	New plot style "with boxplot" and corresponding "set style boxplot".
+
+2010-01-10  Shigeharu Takeno  <shige@iee.niit.ac.jp>
+
+	* docs/gnuplot-ja.doc docs/term-ja.diff:
+	Sync Japanese documentation to gnuplot.doc rev 1.595
+
+2010-01-10  <ottxor@users.sourceforge.net>
+
+	* share/Makefile.am:  Do not install x11 appdefaults file if no
+	X11 support is selected.  Bug #2928271
+
+2010-01-06  Alexander Täschner  <taschna@users.sourceforge.net>
+
+	* config/config.nt src/datafile.c src/eval.c src/plot.c src/stdfn.c
+	src/stdfn.h: Define a generic function not_a_number() in which we can
+	hide platform-specific implementations.  Add a support for initializing
+	NaN and GPVAL_NaN on Windows.
+	Bug #2925544
+
+2010-01-03  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/datafile.c (df_readascii): Further revision to maintain the old
+	behaviour of the string variables demo.  The demo uses a very unusual
+	method to read time strings from the input file, but let's not break
+	it unless necessary.
+
+2010-01-02  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/datafile.c (df_readascii): Time format "%s" should be able to
+	handle any numeric input. Convert input of the form   'using ($1)' or
+	'using (f($1))' to a string so that it can be passed to gstrptime().
+	Bug #2899511
+
+2010-01-01  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* term/PostScript/prologue.ps term/PostScript/prologues.h:
+	Update version in PostScript headers.
+	Define a user-configurable flag SuppressPDFMark.
+
+	* term/post.trm: Re-arrange stuff in the prolog so that users can either
+	set SuppressPDFMark to true in an individual file or make a permanent
+	change by setting it in the shared prolog file.
+
+2009-12-31  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/command.c src/gadgets.c src/gadgets.h src/graph3d.c src/graphics.c
+	src/misc.c src/plot2d.c src/plot3d.c src/set.c src/show.c src/tables.c
+	src/tables.h src/term_api.h src/term.c src/unset.c src/util3d.c
+	demo/tango_colors.gp docs/gnuplot.doc:
+
+	Allow the user to redefine the properties of basic linetypes.
+	The redefinitions are persistent; i.e. they are not affected by "reset".
+	The command options are identical to those for "set style line".
+	New command:
+		set linetype N {various line properties}
+		set linetype cycle M
+	
+	The new line colors and widths can be set to cycle after going through
+	M linetypes.  E.g. for M=8, the color of linetypes 9, 17, 25 ... are the
+	same as that of linetype 1.
+
+2009-12-30  Peter Kalinin  <pkalinin@users.sourceforge.net>
+
+	* term/metapost.trm (MP_options):
+	The metapost terminal sets the line thickness for plots via drawoptions,
+	then uses 'draw GPtext ...' to place the text. The draw inherits options
+	from drawoptions, which results in altered thicknesses of lines.
+	Replace 'draw GPtext' with 'addto currentpicture also GPtext'.
+
+2009-12-30  Shigeharu Takeno  <shige@iee.niit.ac.jp>
+
+	* src/win/wgnuplib.h src/win/wgraph.c term/win.trm:
+	Monochrome option of win terminal seems to have no effect.
+	    set term win mono
+	    plot x
+	draws a red line. I think the timing of calling ReadGraphini() is not
+	correct. This should be done only once on first entry before setting
+	the terminal options.
+
+2009-12-30  Thomas Sefzick <thse@users.sourceforge.net>
+
+	* src/graph3d.c: Fix incorrect color assignment of contour lines when
+	'set style increment user' is set.
+
+2009-12-28  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/plot.c (get_data) src/graphics.c (plot_c_bars)
+	src/tabulate.c (print_table) docs/gnuplot.doc:
+
+	Allow an optional 6th column in CANDLESTICKS style that specifies the
+	width of each individual candle.
+
+2009-12-24  Thomas Sefzick <thse@users.sourceforge.net>
+
+	* src/tabulate.c src/time.c:
+	Support the "%s" format specifier to strftime as per the unix man page.
+	If the output format string is exactly "%s" then 'output_number()' in
+	'src/tabulate.c' returns the number of seconds since the beginning of
+	the epoch as a number.  All other cases ("%s" in combination with any
+	other character) are treated in 'time.c'.
+
+2009-12-24  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/tabulate: Fix buffer overflow.
+
+	* configure.in:  The cross-compilation patch causes a recursive 
+	definition of CC in docs/Makefile.  I have attempted to fix this by
+	revising the definition of CC_FOR_BUILD, but I don't know if this
+	will break cross-compilation again.
+
+2009-12-24  Robert Schwebel <r.schwebel@pengutronix.de>
+
+	* configure.in docs/Makefile.in:
+	When cross compiling gnuplot, build the documentation generation tools
+	in docs/ with CC_FOR_BUILD (host compiler), not with the cross compiler.
+
+2009-12-22  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/win/wgraph.c (drawgraph: W_line_type):  Change initial line
+	template for LT_BACKGROUND to 0 (lt -1) rather than 1 (lt 0).
+	Possible fix for bug #1952287
+
+2009-12-19  Juergen Wieferink  <wieferink@freenet.de>
+
+	* src/command.c, src/command.h, src/misc.c, src/misc.h
+	(lf_push, lf_pop): Save if-state.
+
+	* src/command.c, src/command.h, src/misc.c, src/misc.h
+	(lf_push, lf_pop, load_file, do_string):
+	Refactor duplicate code from load_file() and do_string() into lf_push()
+
+	* misc.h, misc.c: Add field cmdline to LFS to allow correct
+	deallocation.  Check for infinite recursion.
+
+	* src/misc.c (prepare_call, expand_call_args, load_file):
+	Refactor code related to the call command out of load_file().
+
+	* src/command.c (history_command): Use do_string() now that it can
+	detect recursions.
+
+	* command.c, command.h, plot.c:
+	Remove eval_depth and reset_eval_depth().  The new recursion detection
+	in lf_push() should supercede this.
+
+2009-12-18  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/tables.h src/tables.c src/show.c src/save.c src/graph3d.h:
+	Move all the DGRID3D_* options into a shared table.
+
+	* src/set.c: Replace the set_dgrid3d() routine with a version that uses
+	a shared option table and handles input values contained in variables.
+
+	* docs/gnuplot.doc: bring dgrid3d syntax into line with the code
+
+2009-12-12  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* docs/plotstyles.gnu demo/bldg.png demo/barchart_art.dem Makefile.am.in
+	New demo showing 
+	a) input of png image using binary filetype=png
+	b) rescaling rectangular images to act as plot elements
+
+2009-12-11  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/graphics.c (boundary):  Tweak auto-placement of plot borders so
+	that it is closer to what was used prior to version 4.2.4.  This makes
+	the right margin slightly wider than in 4.2.6, and the left margin
+	slightly narrower.
+
+2009-12-08  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* term/emf.trm (ENHemf_put_text): Left/right/center justification of
+	enhanced text was not taking into account the text angle. Now it does.
+	Bugfix.
+
+	* src/breaders.c (gd_filetype_function): Make load of jpeg or gif image
+	conditional on support by the installed libgd.
+
+	* src/unset.c (reset_command): Reset options to plot style filledcurve.
+	Bug #2911203
+
+2009-12-05  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/command.c (undefine_command):
+	'undefine  A* B' should not affect BFOO.
+	Bugfix.
+
+	* src/internal.c (f_mult):  Check for integer overflow when performing
+	internal integer multiplication.
+	Bug #2908270
+
+2009-12-04  Tatsuro Matsuoka  <tmacchant3@yahoo.co.jp>
+
+	* config/makefile.mgw config/makefile.cyg:  Create installation
+	directories $(DESTDIR)/$(GNUPLOT_PS_DIR) $(DESTDIR)/$(GNUPLOT_LUA_DIR)
+
+2009-12-04  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/datafile.c (df_open): The variables that track matrix and binary
+	data input (df_matrix, df_num_bin_records) must be re-inititialized
+	for every file.
+
+2009-12-03  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/set.c (set_margin): Limit range of set ?margin at screen <foo>
+	to 0 < foo < 1.
+
+	* src/datafile.c (f_stringcolumn) src/plot2d.c (eval_plots):
+	Enforce restrictions on which plot types can accept matrix data.
+
+2009-12-01  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* config/makefile.cyg config/makefile.dj2 config/makefile.mgw
+	config/makefile.os2 src/Makefile.am term/lua.trm term/Makefile.am.in:
+	Install the script gnuplot-tikz.lua under $pkgdatadir rather than under
+	$pkglibexecdir.
+	Fixes build problems under cygwin and mingw.
+	Thanks to Tatsuro Matsuoka.
+
+	* docs/gnuplot.doc:  Provide an example of using 'set palette defined'
+	to approximate default MATLAB coloring.
+	Thanks to Mike <mws115@usa.com>
+
+2009-11-26  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/datafile.c:  Remove unused global df_binary.
+
+2009-11-16  Juergen Wieferink  <wieferink@freenet.de>
+
+	* src/command.c (do_string_and_free) src/misc.c (load_file): Fix memory
+	issues of patch 2009-10-30 (SF Patch #2898455 and Bug #2895620).
+
+2009-11-16  Petr Mikulik  <mikulik@physics.muni.cz>
+
+	* docs/gnuplot.doc: Fix support web page URL.
+
+	* src/show.c (show_version): Less info help lines.
+
+2009-11-14  Philipp K. Janert <janert@ieee.org>
+
+	* src/command.c (undefine_command): Added support for wildcards in
+	variable names.
+
+	* docs/gnuplot.doc: Associated documentation.
+
+2009-11-12  Thomas Sefzick <thse@users.sourceforge.net>
+
+	* term/canvas.trm:  Fix initialization failure on non-unix platforms.
+
+2009-11-11 Petr Mikulik  <mikulik@physics.muni.cz>
+
+	* docs/gnuplot.doc: Updated introduction.
+
+2009-11-06  Allin Cottrell  <cottrell@wfu.edu>
+
+	* src/wxterminal/gp_cairo.c (gp_cairo_convert):  Work around a font
+	problem in the win32 backend for pango/cairo character rendering.
+	Conditional on WIN32 and libpango > 1.21, request rendering by freetype
+	rather than win32. Fix suggested by cairo developer Behdad Esfahbod.
+
+2009-11-04  Petr Mikulik  <mikulik@physics.muni.cz>
+
+	* src/term.c (enhanced_recursion): Replace in-line warnings sent to
+	stderr by instead calling int_warn().
+
 2009-11-02  Ethan A Merritt  <merritt@u.washington.edu>
 
 	* src/breader.c:  Give df_libgd_get_pixel() a valid return value even
@@ -14,7 +326,7 @@
 2009-10-31  Petr Mikulik  <mikulik@physics.muni.cz>
 
 	* src/show.c (show_version): Fit width of welcome messages into 80
-	characters. 
+	characters.
 
 2009-10-31  Ethan A Merritt  <merritt@u.washington.edu>
 

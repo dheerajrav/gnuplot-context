@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: plot3d.c,v 1.176 2009/10/17 22:56:07 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: plot3d.c,v 1.178 2010/01/01 21:57:40 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - plot3d.c */
@@ -1413,6 +1413,8 @@ eval_3dplots()
 	    /* user may prefer explicit line styles */
 	    if (prefer_line_styles)
 		lp_use_properties(&this_plot->lp_properties, line_num+1);
+	    else
+		load_linetype(&this_plot->lp_properties, line_num+1);
 
 	    /* pm 25.11.2001 allow any order of options */
 	    while (!END_OF_COMMAND || !checked_once) {
@@ -1559,7 +1561,8 @@ eval_3dplots()
 
 		    if (!checked_once) {
 			default_arrow_style(&this_plot->arrow_properties);
-			this_plot->arrow_properties.lp_properties.l_type = line_num;
+			load_linetype(&(this_plot->arrow_properties.lp_properties),
+					line_num+1);
 			checked_once = TRUE;
 		    }
 		    arrow_parse(&this_plot->arrow_properties, TRUE);
@@ -1583,6 +1586,8 @@ eval_3dplots()
 		    /* user may prefer explicit line styles */
 		    if (prefer_line_styles)
 			lp_use_properties(&lp, line_num+1);
+		    else if (first_perm_linestyle)
+			load_linetype(&lp, line_num+1);
 
  		    lp_parse(&lp, TRUE,
 			     this_plot->plot_style & PLOT_STYLE_HAS_POINT);
@@ -1644,6 +1649,8 @@ eval_3dplots()
 		    /* user may prefer explicit line styles */
 		    if (prefer_line_styles)
 			lp_use_properties(&this_plot->lp_properties, line_num+1);
+		    else
+			load_linetype(&this_plot->lp_properties, line_num+1);
 
 		    lp_parse(&this_plot->lp_properties, TRUE,
 			 this_plot->plot_style & PLOT_STYLE_HAS_POINT);
