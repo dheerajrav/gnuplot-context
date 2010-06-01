@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: plot.c,v 1.107 2010/01/06 17:29:03 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: plot.c,v 1.113 2010/03/17 16:24:15 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - plot.c */
@@ -93,10 +93,6 @@ extern int vms_ktid;
 extern smg$create_key_table();
 #endif /* VMS */
 
-#ifdef AMIGA_SC_6_1
-# include <proto/dos.h>
-#endif
-
 #ifdef _Windows
 # include <windows.h>
 # ifndef SIGINT
@@ -131,7 +127,7 @@ extern int rl_complete_with_tilde_expansion;
 /*
  * The next variable is a pointer to the value returned from 'tilde_expand()'.
  * This function expands '~' to the user's home directory, or $HOME, with
- * UN*X, AmigaOS, MSDOS.
+ * UN*X, MSDOS.
  * Depending on your OS you have to make sure that the "$HOME" environment
  * variable exitsts.  You are responsible for valid values.
  */
@@ -187,10 +183,7 @@ inter(int anint)
 {
     (void) anint;		/* aovid -Wunused warning */
     (void) signal(SIGINT, (sigfunc) inter);
-
-#ifndef DOSX286
     (void) signal(SIGFPE, SIG_DFL);	/* turn off FPE trapping */
-#endif
 
 #ifdef OS2
     if (!strcmp(term->name,"pm")) {
@@ -319,14 +312,12 @@ main(int argc, char **argv)
 #endif
 
 /* get helpfile from home directory */
-#ifndef DOSX286
 # ifndef _Windows
 #  if defined (__TURBOC__) && (defined (MSDOS) || defined(DOS386))
     strcpy(HelpFile, argv[0]);
     strcpy(strrchr(HelpFile, DIRSEP1), "\\gnuplot.gih");
 #  endif			/*   - DJL */
 # endif				/* !_Windows */
-#endif /* !DOSX286 */
 #ifdef __DJGPP__
     {
 	char *s;
@@ -375,7 +366,12 @@ main(int argc, char **argv)
 		    "  -p  --persist\n"
 		    "  -e  \"command1; command2; ...\"\n"
 		    "gnuplot %s patchlevel %s\n"
+#ifdef DIST_CONTACT
+		    "Report bugs to "DIST_CONTACT"\n"
+		    "            or %s\n",
+#else
 		    "Report bugs to %s\n",
+#endif
 		    gnuplot_version, gnuplot_patchlevel, bug_email);
 	    return 0;
 
@@ -391,10 +387,6 @@ main(int argc, char **argv)
 	argv += n;
 	argc -= n;
     }
-#endif
-
-#ifdef APOLLO
-    apollo_pfm_catch();
 #endif
 
     setbuf(stderr, (char *) NULL);
@@ -448,18 +440,11 @@ main(int argc, char **argv)
      * can be registered to be executed before the terminal is reset. */
     GP_ATEXIT(term_reset);
 
-#ifdef AMIGA_SC_6_1
-    if (IsInteractive(Input()) == DOSTRUE)
-	interactive = TRUE;
-    else
-	interactive = FALSE;
-#else
 # if ((defined(__MSC__) && defined(_Windows)) || defined(__WIN32__)) && ! defined(WGP_CONSOLE)
     interactive = TRUE;
 # else
     interactive = isatty(fileno(stdin));
 # endif
-#endif /* !AMIGA_SC_6_1 */
 
     if (argc > 1)
 	interactive = noinputfiles = FALSE;
@@ -581,9 +566,6 @@ main(int argc, char **argv)
 	}
 #endif
 
-#ifdef AMIGA_SC_6_1
-	(void) rawcon(0);
-#endif
 	load_file_error();	/* if we were in load_file(), cleanup */
 	SET_CURSOR_ARROW;
 
@@ -616,7 +598,7 @@ main(int argc, char **argv)
 	/* load filenames given as arguments */
 	while (--argc > 0) {
 	    ++argv;
-	    c_token = NO_CARET;	/* in case of file not found */
+	    c_token = 0;
 #ifdef _Windows
 	    if (stricmp(*argv, "-noend") == 0 || stricmp(*argv, "/noend") == 0
 	       	|| stricmp(*argv, "-persist") == 0)
@@ -627,13 +609,8 @@ main(int argc, char **argv)
 		FPRINTF((stderr,"'persist' command line option recognized\n"));
 
 	    } else if (strcmp(*argv, "-") == 0) {
-		/* DBT 10-7-98  go interactive if "-" on command line */
-
 		interactive = TRUE;
-		/* will this work on all platforms? */
-
 		while (!com_line());
-
 		interactive = FALSE;
 
 	    } else if (strcmp(*argv, "-e") == 0) {
@@ -644,8 +621,10 @@ main(int argc, char **argv)
 		}
 		do_string(*argv);
 
-	    } else
+	    } else {
+		c_token = NO_CARET;	/* in case of file not found */
 		load_file(loadpath_fopen(*argv, "r"), gp_strdup(*argv), FALSE);
+	    }
 	}
 #ifdef _Windows
 	if (noend) {
@@ -683,7 +662,15 @@ interrupt_setup()
     setmatherr(purec_matherr);
 #endif
 
+#if defined(WGP_CONSOLE)
+    /* FIXME. CTRC+C crashes console mode gnuplot for windows.
+       Failure of longjmp() is not easy to fix so that the signal
+       of SIGINT is just ignored at the moment.
+    */
+    (void) signal(SIGINT, SIG_IGN);
+#else
     (void) signal(SIGINT, (sigfunc) inter);
+#endif
 
 #ifdef SIGPIPE
     /* ignore pipe errors, this might happen with set output "|head" */

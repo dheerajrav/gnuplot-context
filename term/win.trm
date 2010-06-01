@@ -1,5 +1,5 @@
 /* Hello, Emacs, this is -*-C-*-
- * $Id: win.trm,v 1.70 2009/12/31 01:21:43 sfeam Exp $
+ * $Id: win.trm,v 1.76 2010/02/24 20:38:08 sfeam Exp $
  */
 
 /* GNUPLOT - win.trm */
@@ -125,7 +125,8 @@ TERM_PUBLIC void WIN_image __PROTO((unsigned int, unsigned int, coordval *, gpiP
 /* Interface routines - create list of actions for Windows */
 
 enum WIN_id { WIN_DEFAULT, WIN_MONOCHROME, WIN_COLOR, WIN_GTITLE,
-	      WIN_ENHANCED, WIN_NOENHANCED, WIN_FONT, WIN_OTHER };
+	      WIN_ENHANCED, WIN_NOENHANCED, WIN_FONT, WIN_SIZE, 
+	      WIN_POSITION, WIN_CLOSE, WIN_OTHER };
 
 static struct gen_table WIN_opts[] =
 {
@@ -137,6 +138,9 @@ static struct gen_table WIN_opts[] =
     { "enh$anced", WIN_ENHANCED },
     { "font", WIN_FONT },
     { "ti$tle", WIN_GTITLE },
+    { "siz$e", WIN_SIZE },
+    { "pos$ition", WIN_POSITION },
+    { "cl$ose", WIN_CLOSE },
     { NULL, WIN_OTHER }
 };
 
@@ -170,7 +174,7 @@ WIN_options()
 {
     char *s;
     TBOOLEAN set_font = FALSE, set_fontsize = FALSE;
-    TBOOLEAN set_title=FALSE;
+    TBOOLEAN set_title=FALSE, set_close = FALSE;
     /* shige */
     static int readinit=0;
 
@@ -196,6 +200,42 @@ WIN_options()
 	    term->flags |= TERM_MONOCHROME;
 	    c_token++;
 	    break;
+	case WIN_SIZE:
+	{
+	    int win_width = 0;
+	    int win_height = 0;
+	    c_token++;
+	    if (END_OF_COMMAND)
+		int_error(c_token,"size requires 'width,heigth'");
+	    win_width = real_expression();
+	    if (!equals(c_token++,","))
+		int_error(c_token,"size requires 'width,heigth'");
+	    win_height = real_expression();
+	    if (win_width < 1 || win_height < 1)
+		int_error(c_token, "size is out of range");
+	    
+	    graphwin.Size.x = win_width;
+	    graphwin.Size.y = win_height + graphwin.statuslineheight;
+	    break;
+	}
+	case WIN_POSITION:
+	{
+	    int win_x = 0;
+	    int win_y = 0;
+	    c_token++;
+	    if (END_OF_COMMAND)
+		int_error(c_token,"position requires 'x,y'");
+	    win_x = real_expression();
+	    if (!equals(c_token++,","))
+		int_error(c_token,"position requires 'x,y'");
+	    win_y = real_expression();
+	    if (win_x < 1 || win_y < 1)
+		int_error(c_token, "position is out of range");
+	    
+	    graphwin.Origin.x = win_x;
+	    graphwin.Origin.y = win_y;
+	    break;
+	}
 	case WIN_COLOR:
 	    graphwin.color = TRUE;
 	    term->flags &= ~TERM_MONOCHROME;
@@ -216,6 +256,10 @@ WIN_options()
 	    set_title = TRUE;
 	    free(WIN_gtitle);
 	    WIN_gtitle = try_to_get_string();
+	    break;
+	case WIN_CLOSE:
+	    c_token++;
+	    set_close = TRUE;
 	    break;
 	case WIN_FONT:
 	    c_token++;
@@ -264,6 +308,11 @@ WIN_options()
 		graphwin.color ? "color" : "monochrome",
 		term->flags & TERM_ENHANCED_TEXT ? "enhanced" : "noenhanced",
 		graphwin.fontname, graphwin.fontsize);
+
+    if (set_close) {
+	win_close_terminal_window(&graphwin);
+	return;
+    }
 
     if (IsWindow(graphwin.hWndGraph) && IsIconic(graphwin.hWndGraph))
 	ShowWindow(graphwin.hWndGraph, SW_SHOWNORMAL);
@@ -822,6 +871,7 @@ WIN_enhanced_put_text(unsigned int x, unsigned int y, const char *str)
 {
     char *original_string = (char *)str;
     unsigned int pass, num_passes;
+    char* copy_WIN_font;
 
     /* If no enhanced text processing is needed, we can use the plain  */
     /* vanilla put_text() routine instead of this fancy recursive one. */
@@ -851,11 +901,11 @@ WIN_enhanced_put_text(unsigned int x, unsigned int y, const char *str)
 	ENHwin_sizeonly = TRUE; 
     }
 
+    /* make a backup copy of the fontname to use 
+       for enhanced recursion */
+    copy_WIN_font = strdup(WIN_font);
+    
     for( pass=1; pass <= num_passes; pass++ ) {
-
-	/* This will restore the default font 
-	   and update WIN_font and WIN_fontsize */
-	WIN_set_font(NULL); 
 
 	/* Set the recursion going. We say to keep going until a
 	* closing brace, but we don't really expect to find one.
@@ -865,7 +915,7 @@ WIN_enhanced_put_text(unsigned int x, unsigned int y, const char *str)
 	* we get stuck in an infinite loop) and try again.
 	*/
 	while (*(str = enhanced_recursion((char *)str, TRUE,
-			NULL, WIN_fontsize,
+			copy_WIN_font, WIN_fontsize,
 			0.0, TRUE, TRUE, 0))) {
 	    (term->enhanced_flush)();
 
@@ -890,6 +940,7 @@ WIN_enhanced_put_text(unsigned int x, unsigned int y, const char *str)
 	    GraphOp(&graphwin, W_justify, LEFT, 0, NULL);
 	}
     }
+    free(copy_WIN_font);
 
     /* restore default font */
     WIN_set_font(NULL); 
@@ -949,12 +1000,19 @@ START_HELP(windows)
 "                            {enhanced | noenhanced}",
 "                            {{font} \"fontname{,fontsize}\" {<fontsize>}}",
 "                            {title \"Plot Window Title\"}",
+"                            {size <width>,<height>}",
+"                            {position <x>,<y>}",
+"                            {close}",
 "",
 " where `color` and `monochrome` select colored or mono output,", 
 " `enhanced` enables enhanced text mode features (subscripts,",
 " superscripts and mixed fonts). See `enhanced` for more information.",
 " `\"<fontname>\"` is the name of a valid Windows font, and `<fontsize>`",
 " is the size of the font in points.",
+" `size` defines the width and height of the window in pixel and `position`",
+" the origin of the window i.e. the position of the top left corner on the",
+" screen (again in pixel). Both these options override the default settings",
+" from the WGNUPLOT.INI file (see below).",
 "",
 " Other options may be set with the graph-menu or the initialization file.",
 "",
@@ -966,6 +1024,9 @@ START_HELP(windows)
 " former Windows-only options `/noend` or `-noend` are still accepted as well),",
 " will not close gnuplot. Contrary to gnuplot on other operating systems,",
 " gnuplot's interactive command line is accessible after the -persist option.",
+"",
+" The plot window remains open even when the gnuplot driver is changed to a",
+" different device. The plot window can be close with `set term windows close`",
 "2 graph-menu",
 "?commands set terminal windows graph-menu",
 "?set terminal windows graph-menu",
@@ -982,7 +1043,9 @@ START_HELP(windows)
 " `Color` when checked enables color linestyles.  When unchecked it forces",
 " monochrome linestyles.",
 "",
-" `Copy to Clipboard` copies a bitmap and a Metafile picture.",
+" `Copy to Clipboard` copies a bitmap and an enhanced Metafile picture.",
+"",
+" `Save as EMF...` allows the user to save the current graph window as enhanced metafile",
 "",
 " `Background...` sets the window background color.",
 "",

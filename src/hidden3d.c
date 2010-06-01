@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: hidden3d.c,v 1.69 2008/09/24 03:19:06 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: hidden3d.c,v 1.72 2010/05/16 21:29:34 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - hidden3d.c */
@@ -1226,12 +1226,25 @@ build_networks(struct surface_points *plots, int pcount)
 			break;
 		    case BOXES:
 		    case FILLEDCURVES:
-		    case IMPULSES:
 			/* set second vertex to the low end of zrange */
 			{
 			    coordval remember_z = points[i].z;
 
 			    points[i].z = axis_array[FIRST_Z_AXIS].min;
+			    basevertex = store_vertex(points + i, lp_style,
+						      color_from_column);
+			    points[i].z = remember_z;
+			}
+			if (basevertex > 0)
+			    store_edge(basevertex, edir_impulse, 0, lp, above);
+			break;
+
+		    case IMPULSES:
+			/* set second vertex to z=0 */
+			{
+			    coordval remember_z = points[i].z;
+
+			    points[i].z = 0.0;
 			    basevertex = store_vertex(points + i, lp_style,
 						      color_from_column);
 			    points[i].z = remember_z;
@@ -1414,7 +1427,8 @@ build_networks(struct surface_points *plots, int pcount)
 		    {
 			coordval remember_z = points[i].z;
 
-			points[i].z = axis_array[FIRST_Z_AXIS].min;
+			points[i].z = (this_plot->plot_style == IMPULSES)
+					? 0.0 : axis_array[FIRST_Z_AXIS].min;
 			basevertex = store_vertex(points + i, lp_style,
 						  color_from_column);
 			points[i].z = remember_z;
@@ -1584,7 +1598,7 @@ draw_vertex(p_vertex v)
 
     TERMCOORD(v, x, y);
     if (v->lp_style && v->lp_style->p_type >= -1 && !clip_point(x,y)) {
-	int colortype = v->lp_style->pm3d_color.type;
+	struct t_colorspec *tc = &(v->lp_style->pm3d_color);
 
 	if (v->label)  {
 	    write_label(x,y, v->label);
@@ -1593,14 +1607,19 @@ draw_vertex(p_vertex v)
 	}
 
 	/* EAM DEBUG - Check for extra point properties */
-	if (colortype == TC_LT)
-	    /* Should have been set already! */
-	    ;
-	else if (colortype == TC_RGB && v->lp_style->pm3d_color.lt == LT_COLORFROMCOLUMN)
-	    set_rgbcolor(v->real_z);
-	else if (colortype == TC_RGB)
-	    set_rgbcolor(v->lp_style->pm3d_color.lt);
-	else if (colortype == TC_Z)
+	if (tc->type == TC_LINESTYLE && tc->lt == LT_COLORFROMCOLUMN) {
+	    struct lp_style_type style = *(v->lp_style);
+	    load_linetype(&style, (int)v->real_z);
+	    tc = &style.pm3d_color;
+	    apply_pm3dcolor(tc, term);
+	}
+	else if (tc->type == TC_RGB && tc->lt == LT_COLORFROMCOLUMN)
+	    set_rgbcolor((int)v->real_z);
+	else if (tc->type == TC_RGB)
+	    set_rgbcolor(tc->lt);
+	else if (tc->type == TC_CB)
+	    set_color( cb2gray(v->real_z) );
+	else if (tc->type == TC_Z)
 	    set_color( cb2gray(z2cb(v->real_z)) );
 
 #ifdef HIDDEN3D_VAR_PTSIZE
@@ -1616,16 +1635,45 @@ draw_vertex(p_vertex v)
 }
 
 
-/* The function that actually does the drawing of the visible portions
- * of lines */
-/* HBB 20001108: changed to take the pointers to the end vertices as
- * additional arguments. */
+/* The function that actually draws the visible portions of lines */
 static void
 draw_edge(p_edge e, p_vertex v1, p_vertex v2)
 {
-    assert (e >= elist && e < elist + edges.end);
+    /* It used to be that p_edge contained style as a integer linetype.
+     * This destroyed any style attributes set in the splot command.
+     * We really just want to extract a colorspec.
+     */
+    struct t_colorspec color = e->lp->pm3d_color;
+    struct lp_style_type lptemp = *(e->lp);
+    TBOOLEAN recolor = FALSE;
 
-    draw3d_line_unconditional(v1, v2, e->lp, e->style);
+    /* This handles 'lc rgb variable' */
+    if (color.type == TC_RGB && color.lt == LT_COLORFROMCOLUMN) {
+	recolor = TRUE;
+	lptemp.pm3d_color.lt = (int)v1->real_z;
+    } else
+
+    /* This handles 'lc variable' */
+    if (lptemp.l_type == LT_COLORFROMCOLUMN) {
+	recolor = TRUE;
+	load_linetype(&lptemp, (int)v1->real_z);
+    } else
+
+    /* This is the default style: color top and bottom in successive colors */
+    if ((hiddenBacksideLinetypeOffset != 0)
+    &&  (e->lp->pm3d_color.type != TC_Z)) {
+	recolor = TRUE;
+	load_linetype(&lptemp, e->style + 1);
+    }
+
+    if (recolor) {
+	color = lptemp.pm3d_color;
+	lptemp = *(e->lp);
+	lptemp.l_type = e->style;
+	lptemp.pm3d_color = color;
+    }
+
+    draw3d_line_unconditional(v1, v2, &lptemp, color);
     if (e->lp->pointflag) {
 	draw_vertex(v1);
 	draw_vertex(v2);
@@ -2058,7 +2106,7 @@ draw_line_hidden(
      * can't use in_front() because the datastructures are partly
      * invalid. So just draw the line and be done with it */
     if (!polygons.end) {
-	draw3d_line_unconditional(v1, v2, lp, lp->l_type);
+	draw3d_line_unconditional(v1, v2, lp, lp->pm3d_color);
 	return;
     }
 

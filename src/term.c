@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: term.c,v 1.194 2009/12/31 22:28:45 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: term.c,v 1.204 2010/05/21 04:53:38 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - term.c */
@@ -123,6 +123,7 @@ FILE *gpoutfile;
    details.
 */
 FILE *gppsfile = 0;
+char *PS_psdir = NULL;
 
 /* true if terminal has been initialized */
 TBOOLEAN term_initialised;
@@ -308,7 +309,7 @@ void fflush_binary();
 # define FOPEN_BINARY(file) fopen(file, "wb")
 #endif /* !VMS */
 
-#if defined(MSDOS) || defined(WIN32) || defined(WIN16)
+#if defined(MSDOS) || defined(WIN32)
 # if defined(__DJGPP__) || defined (__TURBOC__)
 #  include <io.h>
 # endif
@@ -1318,16 +1319,23 @@ do_arc(
     double arc_start, double arc_end, /* Limits of arc in degress */
     int style)
 {
-    gpiPoint vertex[120];
+    gpiPoint vertex[250];  /* changed this - JP */
     int i, segments;
     double aspect;
+
+    /* Protect against out-of-range values */
+    while (arc_start < 0)
+	arc_start += 360.;
+    while (arc_end > 360.)
+	arc_end -= 360.;
 
     /* Always draw counterclockwise */
     while (arc_end < arc_start)
 	arc_end += 360.;
 
-    /* Choose how many segments to draw for this arc */
-#   define INC 5.
+    /* Choose how finely to divide this arc into segments */
+    /* FIXME: INC=2 causes problems for gnuplot_x11 */
+#   define INC 3.
     segments = (arc_end - arc_start) / INC;
 
     /* Calculate the vertices */
@@ -1724,18 +1732,6 @@ init_terminal()
 		term_name = "win";
 #endif /* _Windows */
 
-#ifdef GPR
-	/* find out whether stdout is a DM pad. See term/gpr.trm */
-	if (gpr_isa_pad())
-	    term_name = "gpr";
-#else
-# ifdef APOLLO
-	/* find out whether stdout is a DM pad. See term/apollo.trm */
-	if (apollo_isa_pad())
-	    term_name = "apollo";
-# endif                         /* APOLLO */
-#endif /* GPR    */
-
 #if defined(__APPLE__) && defined(__MACH__) && defined(HAVE_LIBAQUATERM)
 	/* Mac OS X with AquaTerm installed */
 	term_name = "aqua";
@@ -1752,10 +1748,6 @@ init_terminal()
 	if (X11_Display)
 	    term_name = "x11";
 #endif /* x11 */
-
-#ifdef AMIGA
-	term_name = "amiga";
-#endif
 
 #ifdef UNIXPC
 	if (iswind() == 0) {
@@ -2076,7 +2068,7 @@ test_term()
     y = ymax_t - key_entry_height;
     (*t->pointsize) (pointsize);
     for (i = -2; y > key_entry_height; i++) {
-	struct lp_style_type ls;
+	struct lp_style_type ls = DEFAULT_LP_STYLE_TYPE;
 	ls.l_width = 1;
 	load_linetype(&ls,i+1);
 	term_apply_lp_properties(&ls);
@@ -2198,53 +2190,6 @@ test_term()
     term_end_plot();
 }
 
-#if 0
-# if defined(MSDOS)||defined(g)||defined(OS2)||defined(_Windows)||defined(DOS386)
-
-/* output for some terminal types must be binary to stop non Unix computers
-   changing \n to \r\n.
-   If the output is not STDOUT, the following code reopens gpoutfile
-   with binary mode. */
-void
-reopen_binary()
-{
-    if (outstr) {
-	(void) fclose(gpoutfile);
-#  ifdef _Windows
-	if (!stricmp(outstr, "PRN")) {
-	    /* use temp file for windows */
-	    (void) strcpy(filename, win_prntmp);
-	}
-#  endif
-	if ((gpoutfile = fopen(filename, "wb")) == (FILE *) NULL) {
-	    if ((gpoutfile = fopen(filename, "w")) == (FILE *) NULL) {
-		os_error(NO_CARET, "cannot reopen file with binary type; output unknown");
-	    } else {
-		os_error(NO_CARET, "cannot reopen file with binary type; output reset to ascii");
-	    }
-	}
-#  if defined(__TURBOC__) && defined(MSDOS)
-#   ifndef _Windows
-	if (!stricmp(outstr, "PRN")) {
-	    /* Put the printer into binary mode. */
-	    union REGS regs;
-	    regs.h.ah = 0x44;   /* ioctl */
-	    regs.h.al = 0;      /* get device info */
-	    regs.x.bx = fileno(gpoutfile);
-	    intdos(&regs, &regs);
-	    regs.h.dl |= 0x20;  /* binary (no ^Z intervention) */
-	    regs.h.dh = 0;
-	    regs.h.ah = 0x44;   /* ioctl */
-	    regs.h.al = 1;      /* set device info */
-	    intdos(&regs, &regs);
-	}
-#   endif /* !_Windows */
-#  endif /* TURBOC && MSDOS */
-    }
-}
-
-# endif /* MSDOS || g || ... */
-#endif /* 0 */
 
 #ifdef VMS
 /* these are needed to modify terminal characteristics */
@@ -2844,7 +2789,9 @@ int len;
 	FPRINTF((stderr,"Estimating length %d height %g for enhanced text string \"%s\"\n",
 		len, (double)(term->ymax)/10., text));
 	term = tsave;
-    } else
+    } else if (encoding == S_ENC_UTF8)
+	len = strlen_utf8(text);
+    else
 #endif
 	len = strlen(text);
 

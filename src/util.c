@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: util.c,v 1.85 2009/07/05 00:09:32 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: util.c,v 1.89 2010/03/13 21:17:14 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - util.c */
@@ -39,6 +39,7 @@ static char *RCSid() { return RCSid("$Id: util.c,v 1.85 2009/07/05 00:09:32 sfea
 #include "alloc.h"
 #include "command.h"
 #include "datafile.h"		/* for df_showdata and df_reset_after_error */
+#include "internal.h"		/* for eval_reset_after_error */
 #include "misc.h"
 #include "plot.h"
 #include "term_api.h"		/* for term_end_plot() used by graph_error() */
@@ -49,16 +50,6 @@ static char *RCSid() { return RCSid("$Id: util.c,v 1.85 2009/07/05 00:09:32 sfea
 # include <dirent.h>
 #elif defined(_Windows)
 # include <windows.h>
-#endif
-
-#if defined(HAVE_PWD_H)
-# include <sys/types.h>
-# include <pwd.h>
-#elif defined(_Windows)
-# include <windows.h>
-# if !defined(INFO_BUFFER_SIZE)
-#  define INFO_BUFFER_SIZE 32767
-# endif
 #endif
 
 /* Exported (set-table) variables */
@@ -950,6 +941,7 @@ int_error(int t_num, const char str[], va_dcl)
     /* We are bailing out of nested context without ever reaching */
     /* the normal cleanup code. Reset any flags before bailing.   */
     df_reset_after_error();
+    eval_reset_after_error();
 
     /* Load error state variables */
     update_gpval_variables(2);
@@ -1199,39 +1191,12 @@ char *
 getusername ()
 {
     char *username = NULL;
-    char *fullname = NULL;
 
     username=getenv("USER");
     if (!username)
 	username=getenv("USERNAME");
 
-#ifdef HAVE_PWD_H
-    if (username) {
-	struct passwd *pwentry = NULL;
-	pwentry=getpwnam(username);
-	if (pwentry && strlen(pwentry->pw_gecos)) {
-	    fullname = gp_alloc(strlen(pwentry->pw_gecos)+1,"getusername");
-	    strcpy(fullname, pwentry->pw_gecos);
-	} else {
-	    fullname = gp_alloc(strlen(username)+1,"getusername");
-	    strcpy(fullname, username);
-	}
-    }
-#elif defined(_Windows)
-    if (username) {
-	DWORD bufCharCount = INFO_BUFFER_SIZE;
-	fullname = gp_alloc(INFO_BUFFER_SIZE + 1,"getusername");
-	if (!GetUserName(fullname,&bufCharCount)) {
-	    free(fullname);
-	    fullname = NULL;
-	}
-    }
-#else
-    fullname = gp_alloc(strlen(username)+1,"getusername");
-    strcpy(fullname, username);
-#endif /* HAVE_PWD_H */
-
-    return fullname;
+    return gp_strdup(username);
 }
 
 TBOOLEAN contains8bit(const char *s)

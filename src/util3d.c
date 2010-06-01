@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: util3d.c,v 1.37 2009/12/31 22:28:45 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: util3d.c,v 1.39 2010/03/23 05:40:23 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - util3d.c */
@@ -971,7 +971,7 @@ void
 draw3d_line_unconditional(
     p_vertex v1, p_vertex v2,
     struct lp_style_type *lp,
-    int linetype)
+    t_colorspec color)
 {
     unsigned int x1, y1, x2, y2;
     struct lp_style_type ls = *lp;
@@ -986,15 +986,8 @@ draw3d_line_unconditional(
     TERMCOORD(v1, x1, y1);
     TERMCOORD(v2, x2, y2);
 
-    /* User-specified line styles */
-    if (prefer_line_styles && linetype >= 0)
-	lp_use_properties(&ls, linetype+1);
-    else if (first_perm_linestyle)
-	load_linetype(&ls, linetype+1);
-
-    /* The usual case of auto-generated line types */
-    else
-	ls.l_type = linetype;
+    /* Replace original color with the one passed in */
+	ls.pm3d_color = color;
 
     /* Color by Z value */
     if (ls.pm3d_color.type == TC_Z)
@@ -1007,15 +1000,13 @@ draw3d_line_unconditional(
 void
 draw3d_line (p_vertex v1, p_vertex v2, struct lp_style_type *lp)
 {
-#ifndef LITE
     /* hidden3d routine can't work if no surface was drawn at all */
     if (hidden3d && draw_surface) {
 	draw_line_hidden(v1, v2, lp);
 	return;
     }
-#endif
 
-    draw3d_line_unconditional(v1, v2, lp, lp->l_type);
+    draw3d_line_unconditional(v1, v2, lp, lp->pm3d_color);
 
 }
 
@@ -1024,14 +1015,12 @@ draw3d_line (p_vertex v1, p_vertex v2, struct lp_style_type *lp)
 void
 draw3d_point(p_vertex v, struct lp_style_type *lp)
 {
-#ifndef LITE
     /* hidden3d routine can't work if no surface was drawn at all */
     if (hidden3d && draw_surface) {
 	/* Draw vertex as a zero-length edge */
 	draw_line_hidden(v, NULL, lp);
 	return;
     }
-#endif
 
     draw3d_point_unconditional(v, lp);
 }
@@ -1048,10 +1037,8 @@ polyline3d_start(p_vertex v1)
     unsigned int x1, y1;
 
     polyline3d_previous_vertex = *v1;
-#ifndef LITE
     if (hidden3d && draw_surface)
 	return;
-#endif /* LITE */
 
     /* EAM - This may now be unneeded. But I'm not sure. */
     /*       Perhaps the hidden3d code needs the move.   */
@@ -1066,7 +1053,6 @@ polyline3d_next(p_vertex v2, struct lp_style_type *lp)
     unsigned int x2, y2;
 
     /* Copied from draw3d_line(): */
-#ifndef LITE
     /* FIXME HBB 20031218: hidden3d mode will still create isolated
      * edges! */
     if (hidden3d && draw_surface) {
@@ -1074,14 +1060,13 @@ polyline3d_next(p_vertex v2, struct lp_style_type *lp)
 	polyline3d_previous_vertex = *v2;
 	return;
     }
-#endif
 
     /* Copied from draw3d_line_unconditional: */
     /* If use_palette is active, polylines can't be used -->
      * revert back to old method */
     if (lp->use_palette) {
 	draw3d_line_unconditional(&polyline3d_previous_vertex, v2,
-				  lp, lp->l_type);
+				  lp, lp->pm3d_color);
 	polyline3d_previous_vertex = *v2;
 	return;
 

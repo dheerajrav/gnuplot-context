@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: show.c,v 1.232 2010/01/11 04:31:39 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: show.c,v 1.237 2010/05/02 23:47:03 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - show.c */
@@ -117,6 +117,7 @@ static void show_decimalsign __PROTO((void));
 static void show_fit __PROTO((void));
 static void show_polar __PROTO((void));
 static void show_print __PROTO((void));
+static void show_psdir __PROTO((void));
 static void show_angles __PROTO((void));
 static void show_samples __PROTO((void));
 static void show_isosamples __PROTO((void));
@@ -352,6 +353,9 @@ show_command()
 	break;
     case S_PRINT:
 	show_print();
+	break;
+    case S_PSDIR:
+	show_psdir();
 	break;
     case S_OBJECT:
 #ifdef EAM_OBJECTS
@@ -814,6 +818,7 @@ show_all()
     show_timefmt();
     show_loadpath();
     show_fontpath();
+    show_psdir();
     show_locale();
     show_zero();
     show_datafile();
@@ -1183,18 +1188,20 @@ show_boxwidth()
 static void
 show_boxplot()
 {
+    fprintf(stderr, "\tboxplot representation is %s\n",
+	    boxplot_opts.plotstyle == FINANCEBARS ? "finance bar" : "box and whisker");
     fprintf(stderr, "\tboxplot range extends from the ");
     if (boxplot_opts.limit_type == 1)
-	fprintf(stderr, "\tmedian to include %5.2f of the points\n",
+	fprintf(stderr, "  median to include %5.2f of the points\n",
 		boxplot_opts.limit_value);
     else
-	fprintf(stderr, "\tbox by %5.2f of the interquartile distance\n",
+	fprintf(stderr, "  box by %5.2f of the interquartile distance\n",
 		boxplot_opts.limit_value);
     if (boxplot_opts.outliers)
-	fprintf(stderr, "\t  outliers will be drawn using point type %d\n",
+	fprintf(stderr, "\toutliers will be drawn using point type %d\n",
 		boxplot_opts.pointtype+1);
     else
-	fprintf(stderr,"\t  outliers will not be drawn\n");
+	fprintf(stderr,"\toutliers will not be drawn\n");
 }
 
 
@@ -1807,6 +1814,18 @@ show_key()
 	    key->auto_titles == FILENAME_KEYTITLES ? "with filename" :
 	    key->auto_titles == COLUMNHEAD_KEYTITLES
 	    ? "with column header" : "");
+
+    fputs("\tmaximum number of columns is ", stderr);
+    if (key->maxcols > 0)
+	fprintf(stderr, "%d for horizontal alignment\n", key->maxcols);
+    else
+	fputs("calculated automatically\n", stderr);
+    fputs("\tmaximum number of rows is ", stderr);
+    if (key->maxrows > 0)
+	fprintf(stderr, "%d for vertical alignment\n", key->maxrows);
+    else
+	fputs("calculated automatically\n", stderr);
+
     show_keytitle();
 }
 
@@ -1927,6 +1946,23 @@ show_print()
     SHOW_ALL_NL;
 
     fprintf(stderr, "\tprint output is sent to '%s'\n", print_show_output());
+}
+
+/* process 'show print' command */
+static void
+show_psdir()
+{
+    SHOW_ALL_NL;
+
+    fprintf(stderr, "\tdirectory from 'set psdir': ");
+    fprintf(stderr, "%s\n", PS_psdir ? PS_psdir : "none");
+    fprintf(stderr, "\tenvironment variable GNUPLOT_PS_DIR: ");
+    fprintf(stderr, "%s\n", getenv("GNUPLOT_PS_DIR") ? getenv("GNUPLOT_PS_DIR") : "none");
+#ifdef GNUPLOT_PS_DIR
+    fprintf(stderr, "\tdefault system directory \"%s\"\n", GNUPLOT_PS_DIR);
+#else
+    fprintf(stderr, "\tfall through to built-in defaults\n");
+#endif
 }
 
 
@@ -2379,11 +2415,9 @@ show_fit()
 {
     SHOW_ALL_NL;
 
-#ifdef GP_FIT_ERRVARS
     fprintf(stderr, "\
 \tfit will%s place parameter errors in variables\n",
 	    fit_errorvariables ? "" : " not");
-#endif /* GP_FIT_ERRVARS */
 
     if (fitlogfile != NULL) {
         fprintf(stderr, "\
@@ -2478,13 +2512,9 @@ show_hidden3d()
 {
     SHOW_ALL_NL;
 
-#ifdef LITE
-    printf(" Hidden Line Removal Not Supported in LITE version\n");
-#else
     fprintf(stderr, "\thidden surface is %s\n",
 	    hidden3d ? "removed" : "drawn");
     show_hidden3doptions();
-#endif /* LITE */
 }
 
 static void

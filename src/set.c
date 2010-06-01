@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: set.c,v 1.307 2010/01/11 04:31:39 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: set.c,v 1.314 2010/05/02 23:47:03 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - set.c */
@@ -124,6 +124,7 @@ static void set_print __PROTO((void));
 static void set_object __PROTO((void));
 static void set_obj __PROTO((int, int));
 #endif
+static void set_psdir __PROTO((void));
 static void set_samples __PROTO((void));
 static void set_size __PROTO((void));
 static void set_style __PROTO((void));
@@ -420,6 +421,9 @@ set_command()
 	    break;
 	case S_PRINT:
 	    set_print();
+	    break;
+	case S_PSDIR:
+	    set_psdir();
 	    break;
 #ifdef EAM_OBJECTS
 	case S_OBJECT:
@@ -983,6 +987,14 @@ set_boxplot()
 		int_error(c_token-1,"fraction must be less than 1");
 	    boxplot_opts.limit_type = 1;
 	}
+	else if (almost_equals(c_token,"candle$sticks")) {
+	    c_token++;
+	    boxplot_opts.plotstyle = CANDLESTICKS;
+	}
+	else if (almost_equals(c_token,"finance$bars")) {
+	    c_token++;
+	    boxplot_opts.plotstyle = FINANCEBARS;
+	}
 	else
 	    int_error(c_token,"unrecognized option");
     }
@@ -1355,14 +1367,12 @@ set_fit()
 		fitlogfile=NULL;
 	    } else if (!(fitlogfile = try_to_get_string()))
 		int_error(c_token, "expecting string");
-#if GP_FIT_ERRVARS
 	} else if (almost_equals(c_token, "err$orvariables")) {
 	    fit_errorvariables = TRUE;
 	    c_token++;
 	} else if (almost_equals(c_token, "noerr$orvariables")) {
 	    fit_errorvariables = FALSE;
 	    c_token++;
-#endif /* GP_FIT_ERRVARS */
 	} else {
 	    int_error(c_token,
 		      "unknown --- expected 'logfile' or [no]errorvariables");
@@ -1523,13 +1533,8 @@ static void
 set_hidden3d()
 {
     c_token++;
-#ifdef LITE
-    printf(" Hidden Line Removal Not Supported in LITE version\n");
-#else
-    /* HBB 970618: new parsing engine for hidden3d options */
     set_hidden3doptions();
     hidden3d = TRUE;
-#endif
 }
 
 
@@ -1876,6 +1881,26 @@ set_key()
 	    key->textcolor = lcolor;
 	    }
 	    c_token--;
+	    break;
+	case S_KEY_MAXCOLS:
+	    c_token++;
+	    if (END_OF_COMMAND || almost_equals(c_token, "a$utomatic"))
+		key->maxcols = 0;
+	    else
+		key->maxcols = int_expression();
+	    if (key->maxcols < 0)
+		key->maxcols = 0;
+	    c_token--; /* it is incremented after loop */
+	    break;
+	case S_KEY_MAXROWS:
+	    c_token++;
+	    if (END_OF_COMMAND || almost_equals(c_token, "a$utomatic"))
+		key->maxrows = 0;
+	    else
+		key->maxrows = int_expression();
+	    if (key->maxrows < 0)
+		key->maxrows = 0;
+	    c_token--; /* it is incremented after loop */
 	    break;
 
 	case S_KEY_MANUAL:
@@ -2577,6 +2602,19 @@ set_print()
 	int_error(c_token, "expecting filename");
 }
 
+/* process 'set psdir' command */
+static void
+set_psdir()
+{
+    c_token++;
+    if (END_OF_COMMAND) {	/* no file specified */
+	free(PS_psdir);
+	PS_psdir = NULL;
+    } else if ((PS_psdir = try_to_get_string())) {
+	gp_expand_tilde(&PS_psdir);
+    } else
+	int_error(c_token, "expecting filename");
+}
 
 /* process 'set parametric' command */
 static void
@@ -3557,10 +3595,19 @@ set_obj(int tag, int obj_type)
 		} else if (equals(c_token, "arc")) {
 		    /* Start and end angle for arc */
 		    if (equals(++c_token,"[")) {
+			double arc;
 			c_token++;
-			this_circle->arc_begin = real_expression();
+			arc = real_expression();
+			if (fabs(arc) > 1000.)
+			    int_error(c_token-1,"Angle out of range");
+			else
+			    this_circle->arc_begin = arc;
 			if (equals(c_token++, ":")) {
-			    this_circle->arc_end = real_expression();
+			    arc = real_expression();
+			    if (fabs(arc) > 1000.)
+				int_error(c_token-1,"Angle out of range");
+			    else
+				this_circle->arc_end = arc;
 			    if (equals(c_token++,"]"))
 				continue;
 			}
@@ -3998,6 +4045,13 @@ set_termoptions()
 	    ok_to_call_terminal = TRUE;
 	else
 	    c_token += 2;
+    } else if (equals(c_token,"fontscale")) {
+	if (term->flags & TERM_FONTSCALE)
+	    ok_to_call_terminal = TRUE;
+	else {
+	    c_token++;
+	    real_expression();   /* Silently ignore the request */
+	}
     } else if (equals(c_token,"lw") || almost_equals(c_token,"linew$idth")) {
 	if (term->flags & TERM_LINEWIDTH)
 	    ok_to_call_terminal = TRUE;

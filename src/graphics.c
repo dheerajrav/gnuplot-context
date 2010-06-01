@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: graphics.c,v 1.320 2010/01/11 04:31:39 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: graphics.c,v 1.327 2010/05/02 23:47:03 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - graphics.c */
@@ -183,41 +183,9 @@ static void do_rectangle __PROTO((int dimensions, t_object *this_object, int sty
 
 #define clip_fill	((plot->filledcurves_options.closeto == FILLEDCURVES_CLOSED) || clip_lines2)
 
-/*
- * The Amiga SAS/C 6.2 compiler moans about macro envocations causing
- * multiple calls to functions. I converted these macros to inline
- * functions coping with the problem without losing speed.
- * If your compiler supports __inline, you should add it to the
- * #ifdef directive
- * (MGR, 1993)
- */
-
-#ifdef AMIGA_SC_6_1
-GP_INLINE static TBOOLEAN
-i_inrange(int z, int min, int max)
-{
-    return ((min < max)
-	    ? ((z >= min) && (z <= max))
-	    : ((z >= max) && (z <= min)));
-}
-
-GP_INLINE static double
-f_max(double a, double b)
-{
-    return (GPMAX(a, b));
-}
-
-GP_INLINE static double
-f_min(double a, double b)
-{
-    return (GPMIN(a, b));
-}
-
-#else
 #define f_max(a,b) GPMAX((a),(b))
 #define f_min(a,b) GPMIN((a),(b))
 #define i_inrange(z,a,b) inrange((z),(a),(b))
-#endif
 
 /* True if a and b have the same sign or zero (positive or negative) */
 #define samesign(a,b) ((a) * (b) >= 0)
@@ -658,6 +626,8 @@ boundary(struct curve_points *plots, int count)
 	if (key->stack_dir == GPKEY_HORIZONTAL) {
 	    /* maximise no cols, limited by label-length */
 	    key_cols = (int) (plot_bounds.xright - plot_bounds.xleft) / key_col_wth;
+	    if (key->maxcols > 0 && key_cols > key->maxcols)
+		key_cols = key->maxcols;
 	    /* EAM Dec 2004 - Rather than turn off the key, try to squeeze */
 	    if (key_cols == 0) {
 		key_cols = 1;
@@ -677,6 +647,8 @@ boundary(struct curve_points *plots, int count)
 	    int i = (int) (plot_bounds.ytop - plot_bounds.ybot - key->height_fix * t->v_char
 			   - (ktitl_lines + 1) * t->v_char)
 		/ key_entry_height;
+	    if (key->maxrows > 0 && i > key->maxrows)
+		i = key->maxrows;
 
 	    if (i == 0) {
 		i = 1;
@@ -3531,26 +3503,31 @@ plot_boxes(struct curve_points *plot, int xaxis_y)
 	case INRANGE:{
 		if (plot->points[i].z < 0.0) {
 		    /* need to auto-calc width */
-		    if (prev != UNDEFINED)
+		    if (prev != UNDEFINED) {
 			if (boxwidth < 0)
 			    dxl = (plot->points[i-1].x - plot->points[i].x) / 2.0;
 			else if (! boxwidth_is_absolute)
 			    dxl = (plot->points[i-1].x - plot->points[i].x) * boxwidth / 2.0;
 			else /* Hits here on 3 column BOXERRORBARS */
 			    dxl = -boxwidth / 2.0;
-		    else
-			dxl = 0.0;
+		    } else {
+			if (boxwidth_is_absolute)
+			    dxl = -boxwidth / 2.0;
+			else
+			    dxl = 0.0;
+		    }
 
 		    if (i < plot->p_count - 1) {
-			if (plot->points[i + 1].type != UNDEFINED)
+			if (plot->points[i + 1].type != UNDEFINED) {
 			    if (boxwidth < 0)
 				dxr = (plot->points[i+1].x - plot->points[i].x) / 2.0;
 			    else if (! boxwidth_is_absolute)
 				dxr = (plot->points[i+1].x - plot->points[i].x) * boxwidth / 2.0;
 			    else /* Hits here on 3 column BOXERRORBARS */
 				dxr = boxwidth / 2.0;
-			else
+			} else {
 			    dxr = -dxl;
+			}
 		    } else {
 			dxr = -dxl;
 		    }
@@ -3779,7 +3756,7 @@ plot_circles(struct curve_points *plot)
 {
     int i;
     int x, y;
-    double radius;
+    double radius, arc_begin, arc_end;
     struct fill_style_type *fillstyle = &plot->fill_properties;
     int style = style_from_fill(fillstyle);
     TBOOLEAN withborder = FALSE;
@@ -3794,13 +3771,16 @@ plot_circles(struct curve_points *plot)
 	    y = map_y(plot->points[i].y);
 	    radius = x - map_x(plot->points[i].xlow);
 
+	    arc_begin = plot->points[i].ylow;
+	    arc_end = plot->points[i].xhigh;
+	    
 	    /* rgb variable  -  color read from data column */
 	    if (!check_for_variable_color(plot, &plot->points[i]) && withborder)
 		term_apply_lp_properties(&plot->lp_properties);
-	    do_arc(x,y, radius, 0., 360., style);
+	    do_arc(x,y, radius, arc_begin, arc_end, style);
 	    if (withborder) {
 		need_fill_border(&plot->fill_properties);
-		do_arc(x,y, radius, 0., 360., 0);
+		do_arc(x,y, radius, arc_begin, arc_end, 0);
 	    }
 	}
     }
@@ -3915,7 +3895,11 @@ plot_vectors(struct curve_points *plot)
 }
 
 
-/* plot_f_bars() - finance bars */
+/* plot_f_bars:
+ * Plot the curves in FINANCEBARS style
+ * EAM Feg 2010	- This routine is also used for BOXPLOT, which
+ *		  loads a median value into xhigh
+ */
 static void
 plot_f_bars(struct curve_points *plot)
 {
@@ -3976,12 +3960,19 @@ plot_f_bars(struct curve_points *plot)
 	/* draw the close tic */
 	(*t->move) ((unsigned int) (xM + bar_size * tic), map_y(yclose));
 	(*t->vector) (xM, map_y(yclose));
+
+	/* Draw a bar at the median (stored in xhigh) */
+	if (plot->plot_style == BOXPLOT) {
+	    unsigned int ymedian = map_y(plot->points[i].xhigh);
+	    (*t->move) (xM - bar_size * tic, ymedian);
+	    (*t->vector) (xM + bar_size * tic, ymedian);
+	}
     }
 }
 
 
 /* plot_c_bars:
- * Plot the curves in CANDLESTICSK style
+ * Plot the curves in CANDLESTICKS style
  * EAM Apr 2008 - switch to using empty/fill rather than empty/striped 
  *		  to distinguish whether (open > close)
  * EAM Dec 2009	- allow an optional 6th column to specify width
@@ -4164,9 +4155,18 @@ plot_c_bars(struct curve_points *plot)
 	    }
 
 	/* Some users prefer bars at the end of the whiskers */
-	if (plot->arrow_properties.head == BOTH_HEADS || plot->plot_style == BOXPLOT) {
-	    double frac = (plot->plot_style == BOXPLOT) ? 1.0 : plot->arrow_properties.head_length;
-	    unsigned int d = (frac <= 0) ? 0 : (xhighM-xlowM)*(1.-frac)/2.;
+	if (plot->plot_style == BOXPLOT 
+	||  plot->arrow_properties.head == BOTH_HEADS) {
+	    unsigned int d;
+	    if (plot->plot_style == BOXPLOT) {
+		if (bar_size < 0)
+		    d = 0;
+		else
+		    d = (xhighM-xlowM)/2. - (bar_size * term->h_tic);
+	    } else {
+		double frac = plot->arrow_properties.head_length;
+		d = (frac <= 0) ? 0 : (xhighM-xlowM)*(1.-frac)/2.;
+	    }
 
 	    if (high_inrange) {
 		(*t->move)   (xlowM+d, yhighM);
@@ -4220,25 +4220,35 @@ compare_ypoints(SORTFUNC_ARGS arg1, SORTFUNC_ARGS arg2)
 static void
 plot_boxplot(struct curve_points *plot)
 {
+    int i;
     int N = plot->p_count;
     struct coordinate *save_points = plot->points;
     struct coordinate candle;
     double median, quartile1, quartile3;
     double whisker_top, whisker_bot;
 
+    /* Force any undefined points to the end of the list */
+    for (i=0; i<N; i++)
+	if (plot->points[i].type == UNDEFINED)
+	    plot->points[i].y = VERYLARGE;
+
     /* Sort the points to find median and quartiles */
     qsort(plot->points, N, sizeof(struct coordinate), compare_ypoints);
 
+    /* Remove any undefined points */
+    while (plot->points[N-1].type == UNDEFINED)
+	N--;
+
     if ((N & 0x1) == 0)
-	median = 0.5 * (plot->points[N/2].y + plot->points[N/2 + 1].y);
+	median = 0.5 * (plot->points[N/2 - 1].y + plot->points[N/2].y);
     else
-	median = plot->points[(N+1)/2].y;
+	median = plot->points[(N-1)/2].y;
     if ((N & 0x3) == 0)
-	quartile1 = 0.5 * (plot->points[N/4].y + plot->points[N/4 + 1].y);
+	quartile1 = 0.5 * (plot->points[N/4 - 1].y + plot->points[N/4].y);
     else
-	quartile1 = plot->points[(N+3)/4].y;
+	quartile1 = plot->points[(N+3)/4 - 1].y;
     if ((N & 0x3) == 0)
-	quartile3 = 0.5 * (plot->points[N - N/4].y + plot->points[N - (N/4 + 1)].y);
+	quartile3 = 0.5 * (plot->points[N - N/4].y + plot->points[N - N/4 - 1].y);
     else
 	quartile3 = plot->points[N - (N+3)/4].y;
 
@@ -4299,7 +4309,10 @@ plot_boxplot(struct curve_points *plot)
     plot->points = &candle;
     plot->p_count = 1;
 
-    plot_c_bars( plot );
+    if (boxplot_opts.plotstyle == FINANCEBARS)
+	plot_f_bars( plot );
+    else
+	plot_c_bars( plot );
 
     plot->points = save_points;
     plot->p_count = N;

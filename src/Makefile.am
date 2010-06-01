@@ -10,6 +10,9 @@ EMAIL = gnuplot-bugs@lists.sourceforge.net
 # Default help file location
 HELPFILE=@GIHDIR@/gnuplot.gih
 
+# Location of X11 app defaults
+XAPPLRESDIR=@X11_APPDEFAULTS_DIR@
+
 # Default X11 driver location
 X11_DRIVER_DIR=$(pkglibexecdir)
 
@@ -31,7 +34,7 @@ binonly: $(bin_PROGRAMS)
 transform = @program_transform_name@
 GNUPLOT_X11 = `echo gnuplot_x11 | sed '$(transform)'`$(EXEEXT)
 
-AM_CPPFLAGS = -I../term -I$(top_srcdir)/term -DBINDIR=\"$(bindir)\" -DX11_DRIVER_DIR=\"$(X11_DRIVER_DIR)\" -DGNUPLOT_PS_DIR=\"$(GNUPLOT_PS_DIR)\" -DGNUPLOT_JS_DIR=\"$(GNUPLOT_JS_DIR)\" -DGNUPLOT_LUA_DIR=\"$(GNUPLOT_LUA_DIR)\"  -DCONTACT=\"$(EMAIL)\" -DHELPFILE=\"$(HELPFILE)\" -DGNUPLOT_X11=\"$(GNUPLOT_X11)\"
+AM_CPPFLAGS = -I../term -I$(top_srcdir)/term -DBINDIR=\"$(bindir)\" -DX11_DRIVER_DIR=\"$(X11_DRIVER_DIR)\" -DGNUPLOT_PS_DIR=\"$(GNUPLOT_PS_DIR)\" -DGNUPLOT_JS_DIR=\"$(GNUPLOT_JS_DIR)\" -DGNUPLOT_LUA_DIR=\"$(GNUPLOT_LUA_DIR)\"  -DCONTACT=\"$(EMAIL)\" -DHELPFILE=\"$(HELPFILE)\" -DGNUPLOT_X11=\"$(GNUPLOT_X11)\" -DXAPPLRESDIR=\"$(XAPPLRESDIR)\"
 
 gnuplot_SOURCES = alloc.c alloc.h ansichek.h axis.c axis.h binary.c \
 breaders.c breaders.h bitmap.c bitmap.h color.c color.h command.c \
@@ -70,10 +73,10 @@ endif
 
 SUBDIRS = $(d_beos) wxterminal qtterminal
 
-EXTRA_gnuplot_SOURCES = amiga.c corplot.c os9.c strftime.c vms.c
+EXTRA_gnuplot_SOURCES = corplot.c os9.c strftime.c vms.c
 
 EXTRA_DIST = GNUmakefile Makefile.maint NeXT OpenStep README \
-corgraph.asm genopt.com gnuplot.def gnuplot.opt gnuplot.prj header.mac \
+corgraph.asm genopt.com gnuplot.opt gnuplot.prj header.mac \
 hrcgraph.asm intergra.x11 lasergnu lineproc.mac linkopt.vms linkopt.ztc \
 makefile.all makefile.awc os2 pcgraph.asm rgipgnu win x11.opt \
 $(EXTRA_gnuplot_SOURCES)
@@ -124,7 +127,7 @@ clean-qt-extra:
 clean-demo:
 	rm -vf $(GNUPLOT_X11)
 
-clean-am: clean-qt-extra clean-demo
+clean-local: clean-qt-extra clean-demo
 
 # Qt terminal sources
 nodist_gnuplot_SOURCES = moc_QtGnuplotWindow.cpp moc_QtGnuplotApplication.cpp \

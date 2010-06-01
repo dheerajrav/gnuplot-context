@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: plot3d.c,v 1.178 2010/01/01 21:57:40 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: plot3d.c,v 1.181 2010/05/11 04:27:05 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - plot3d.c */
@@ -770,6 +770,7 @@ get_3ddata(struct surface_points *this_plot)
 
 	while ((retval = df_readline(v,MAXDATACOLS)) != DF_EOF) {
 	    j = retval;
+
 	    if (j == DF_SECOND_BLANK)
 		break;		/* two blank lines */
 	    if (j == DF_FIRST_BLANK) {
@@ -938,6 +939,15 @@ get_3ddata(struct surface_points *this_plot)
 			"Wrong number of columns in input data - line %d",
 			df_line_number);
 
+	    /* FIXME: Work-around for hidden3d, which otherwise would use */
+	    /* the color of the vector midpoint rather than the endpoint. */
+	    if (this_plot->plot_style == IMPULSES) {
+		if (this_plot->lp_properties.pm3d_color.type == TC_Z) {
+		    color = z;
+		    color_from_column(TRUE);
+		}
+	    }
+
 	    /* After the first three columns it gets messy because */
 	    /* different plot styles assume different contents in the columns */
 	    if (j >= 4) {
@@ -986,8 +996,10 @@ get_3ddata(struct surface_points *this_plot)
 		    if (j >= 7) {
 			color = v[6];
 			color_from_column(TRUE);
-		    } else
+		    } else {
 			color = z;
+			color_from_column(FALSE);
+		    }
 		}
 	    }
 #undef color_from_column
@@ -2201,26 +2213,6 @@ parametric_3dfixup(struct surface_points *start_plot, int *plot_num)
 		zicrvs = zicrvs->next;
 	    }
 
-	    /* Ok, fix up the title to include xp and yp plots. */
-	    if (((xp->title && xp->title[0] != '\0') ||
-		 (yp->title && yp->title[0] != '\0')) && zp->title) {
-		tlen = (xp->title ? strlen(xp->title) : 0) +
-		    (yp->title ? strlen(yp->title) : 0) +
-		    (zp->title ? strlen(zp->title) : 0) + 5;
-		new_title = gp_alloc(tlen, "string");
-		new_title[0] = 0;
-		if (xp->title && xp->title[0] != '\0') {
-		    strcat(new_title, xp->title);
-		    strcat(new_title, ", ");	/* + 2 */
-		}
-		if (yp->title && yp->title[0] != '\0') {
-		    strcat(new_title, yp->title);
-		    strcat(new_title, ", ");	/* + 2 */
-		}
-		strcat(new_title, zp->title);
-		free(zp->title);
-		zp->title = new_title;
-	    }
 	    /* add xp and yp to head of free list */
 	    assert(xp->next_sp == yp);
 	    yp->next_sp = free_list;

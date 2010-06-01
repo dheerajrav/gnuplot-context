@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: graph3d.c,v 1.228 2010/01/11 04:31:39 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: graph3d.c,v 1.233 2010/05/24 21:09:18 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - graph3d.c */
@@ -153,7 +153,6 @@ static void key_sample_point __PROTO((int xl, int yl, int pointtype));
 static void key_sample_line_pm3d __PROTO((struct surface_points *plot, int xl, int yl));
 static void key_sample_point_pm3d __PROTO((struct surface_points *plot, int xl, int yl, int pointtype));
 static TBOOLEAN can_pm3d = FALSE;
-static TBOOLEAN rgb_from_column = FALSE;
 static void key_text __PROTO((int xl, int yl, char *text));
 static void check_for_variable_color __PROTO((struct surface_points *plot, struct coordinate *point));
 
@@ -162,38 +161,9 @@ static void place_arrows3d __PROTO((int));
 static void place_labels3d __PROTO((struct text_label * listhead, int layer));
 static int map3d_getposition __PROTO((struct position* pos, const char* what, double* xpos, double* ypos, double* zpos));
 
-/*
- * The Amiga SAS/C 6.2 compiler moans about macro envocations causing
- * multiple calls to functions. I converted these macros to inline
- * functions coping with the problem without loosing speed.
- * (MGR, 1993)
- */
-#ifdef AMIGA_SC_6_1
-GP_INLINE static TBOOLEAN
-i_inrange(int z, int min, int max)
-{
-    return ((min < max)
-	    ? ((z >= min) && (z <= max))
-	    : ((z >= max) && (z <= min)));
-}
-
-GP_INLINE static double
-f_max(double a, double b)
-{
-    return (max(a, b));
-}
-
-GP_INLINE static double
-f_min(double a, double b)
-{
-    return (min(a, b));
-}
-
-#else
 # define f_max(a,b) GPMAX((a),(b))
 # define f_min(a,b) GPMIN((a),(b))
 # define i_inrange(z,a,b) inrange((z),(a),(b))
-#endif
 
 #define apx_eq(x,y) (fabs(x-y) < 0.001)
 #define ABS(x) ((x) >= 0 ? (x) : -(x))
@@ -841,12 +811,10 @@ do_3dplot(
     if (term->layer)
 	(term->layer)(TERM_LAYER_FRONTTEXT);
 
-#ifndef LITE
     if (hidden3d && draw_surface && !quick) {
 	init_hidden_line_removal();
 	reset_hidden_line_removal();
     }
-#endif /* not LITE */
 
     /* WORK OUT KEY SETTINGS AND DO KEY TITLE / BOX */
 
@@ -972,10 +940,8 @@ do_3dplot(
 
     /* DRAW SURFACES AND CONTOURS */
 
-#ifndef LITE
     if (hidden3d && (hidden3d_layer == LAYER_BACK) && draw_surface && !quick)
 	plot3d_hidden(plots, pcount);
-#endif /* not LITE */
 
     /* Set up bookkeeping for the individual key titles */
 #define NEXT_KEY_LINE()					\
@@ -1025,8 +991,12 @@ do_3dplot(
 	    if (term->layer)
 		(term->layer)(TERM_LAYER_BEFORE_PLOT);
 
+#if (0)
+	    /* Versions through 4.4.0 used this to limit depth-sorting of pm3d */
+	    /* surfaces to those which are adjacent in the splot command. Why? */
 	    if (pm3d_order_depth && this_plot->plot_style != PM3DSURFACE)
 		pm3d_depth_queue_flush(); /* draw pending plots */
+#endif
 
 	    lkey = (key->visible && this_plot->title && this_plot->title[0]
 				 && !this_plot->title_is_suppressed);
@@ -1392,10 +1362,8 @@ do_3dplot(
 	pm3d_depth_queue_flush(); /* draw pending plots */
     }
 
-#ifndef LITE
     if (hidden3d && (hidden3d_layer == LAYER_FRONT) && draw_surface && !quick)
 	plot3d_hidden(plots, pcount);
-#endif /* not LITE */
 
     /* DRAW GRID AND BORDER */
 #ifndef USE_GRID_LAYERS
@@ -1449,11 +1417,10 @@ do_3dplot(
 
     term_end_plot();
 
-#ifndef LITE
     if (hidden3d && draw_surface) {
 	term_hidden_line_removal();
     }
-#endif /* not LITE */
+
 }
 
 
@@ -1468,7 +1435,7 @@ plot3d_impulses(struct surface_points *plot)
     struct iso_curve *icrvs = plot->iso_crvs;
     int colortype = plot->lp_properties.pm3d_color.type;
 
-    rgb_from_column = can_pm3d && plot->pm3d_color_from_column
+    TBOOLEAN rgb_from_column = can_pm3d && plot->pm3d_color_from_column
 			&& plot->lp_properties.pm3d_color.value < 0.0;
 
     if (colortype == TC_RGB && !rgb_from_column)
@@ -1562,12 +1529,11 @@ plot3d_lines(struct surface_points *plot)
     struct iso_curve *icrvs = plot->iso_crvs;
     struct coordinate GPHUGE *points;
     double lx[2], ly[2], lz[2];	/* two edge points */
+    TBOOLEAN rgb_from_column;
 
-#ifndef LITE
 /* These are handled elsewhere.  */
     if (plot->has_grid_topology && hidden3d)
 	return;
-#endif /* not LITE */
 
     rgb_from_column = can_pm3d && plot->pm3d_color_from_column
 			&& plot->lp_properties.pm3d_color.type == TC_RGB
@@ -1698,11 +1664,9 @@ plot3d_lines_pm3d(struct surface_points *plot)
 	return;
     }
 
-#ifndef LITE
-/* These are handled elsewhere.  */
+    /* These are handled elsewhere.  */
     if (plot->has_grid_topology && hidden3d)
 	return;
-#endif /* not LITE */
 
     /* split the bunch of scans in two sets in
      * which the scans are already depth ordered */
@@ -1851,7 +1815,7 @@ plot3d_points(struct surface_points *plot, int p_type)
     while (icrvs) {
 	struct coordinate GPHUGE *point;
 	int colortype = plot->lp_properties.pm3d_color.type;
-	rgb_from_column = plot->pm3d_color_from_column
+	TBOOLEAN rgb_from_column = plot->pm3d_color_from_column
 			&& plot->lp_properties.pm3d_color.value < 0.0;
 
 	/* Apply constant color outside of the loop */
@@ -1891,7 +1855,7 @@ cntr3d_impulses(struct gnuplot_contours *cntr, struct lp_style_type *lp)
 	for (i = 0; i < cntr->num_pts; i++) {
 	    map3d_xyz(cntr->coords[i].x, cntr->coords[i].y, cntr->coords[i].z,
 		      &vertex_on_surface);
-	    map3d_xyz(cntr->coords[i].x, cntr->coords[i].y, base_z,
+	    map3d_xyz(cntr->coords[i].x, cntr->coords[i].y, 0.0,
 		      &vertex_on_base);
 	    /* HBB 20010822: Provide correct color-coding for
 	     * "linetype palette" PM3D mode */
@@ -3230,7 +3194,7 @@ check_for_variable_color(struct surface_points *plot, struct coordinate *point)
 
     switch( colortype ) {
     case TC_RGB:
-	if (rgb_from_column)
+	if (plot->pm3d_color_from_column)
 	    set_rgbcolor( (int)point->CRD_COLOR );
 	break;
     case TC_Z:

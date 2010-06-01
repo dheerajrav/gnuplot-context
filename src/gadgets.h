@@ -233,9 +233,10 @@ typedef struct boxplot_style {
     double limit_value;
     TBOOLEAN outliers;
     int pointtype;
+    int plotstyle;	/* CANDLESTICKS or FINANCEBARS */
 } boxplot_style;
 extern boxplot_style boxplot_opts;
-#define DEFAULT_BOXPLOT_STYLE { 0, 1.5, TRUE, 6 }
+#define DEFAULT_BOXPLOT_STYLE { 0, 1.5, TRUE, 6, CANDLESTICKS }
 
 /***********************************************************/
 /* Variables defined by gadgets.c needed by other modules. */
@@ -278,6 +279,8 @@ typedef struct {
     char *font;			/* Will be used for both key title and plot titles */
     struct t_colorspec textcolor;	/* Will be used for both key title and plot titles */
     BoundingBox bounds;
+    int maxcols;		/* maximum no of columns for horizontal keys */
+    int maxrows;		/* maximum no of rows for vertical keys */
 } legend_key;
 
 extern legend_key keyT;

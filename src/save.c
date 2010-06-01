@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: save.c,v 1.176 2010/01/11 04:31:39 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: save.c,v 1.181 2010/05/02 23:47:03 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - save.c */
@@ -408,10 +408,11 @@ set y2data%s\n",
     } else
 	fputs("nobox", fp);
 
-    /* Put less common options on a separate line*/
+    /* Put less common options on separate lines */
     fprintf(fp, "\nset key %sinvert samplen %g spacing %g width %g height %g ",
 		key->invert ? "" : "no",
 		key->swidth, key->vert_factor, key->width_fix, key->height_fix);
+    fprintf(fp, "\nset key maxcolumns %d maxrows %d",key->maxcols,key->maxrows);
     fputc('\n', fp);
 
     if (!(key->visible))
@@ -896,7 +897,8 @@ set origin %g,%g\n",
     if (color_box.where == SMCOLOR_BOX_NO) fputs("\nunset colorbox\n", fp);
 	else fputs("\n", fp);
 
-    fprintf(fp, "set style boxplot %s %5.2f %soutliers pt %d\n",
+    fprintf(fp, "set style boxplot %s %s %5.2f %soutliers pt %d\n",
+		boxplot_opts.plotstyle == FINANCEBARS ? "financebars" : "candles",
 		boxplot_opts.limit_type == 1 ? "fraction" : "range",
 		boxplot_opts.limit_value, 
 		boxplot_opts.outliers ? "" : "no",
@@ -918,19 +920,18 @@ set origin %g,%g\n",
 	fputc('\n', fp);
     }
 
+    if (PS_psdir)
+	fprintf(fp, "set psdir \"%s\"\n", PS_psdir);
+    else
+	fprintf(fp, "set psdir\n");
+
     /* HBB NEW 20020927: fit logfile name option */
-#if GP_FIT_ERRVARS
     fprintf(fp, "set fit %serrorvariables",
 	    fit_errorvariables ? "" : "no");
     if (fitlogfile) {
 	fprintf(fp, " logfile \'%s\'", fitlogfile);
     }
     fputc('\n', fp);
-#else
-    if (fitlogfile) {
-	fprintf(fp, "set fit logfile \'%s\'\n", fitlogfile);
-    }
-#endif /* GP_FIT_ERRVARS */
 
 }
 
@@ -1240,11 +1241,16 @@ save_data_func_style(FILE *fp, const char *which, enum PLOT_STYLE style)
 	fputs("labels\n", fp);
 	break;
     case IMAGE:
-	fputs("image\n", stderr);
+	fputs("image\n", fp);
 	break;
     case RGBIMAGE:
-	fputs("rgbimage\n", stderr);
+	fputs("rgbimage\n", fp);
 	break;
+#ifdef EAM_OBJECTS
+	case CIRCLES:
+	fputs("circles\n", fp);
+	break;
+#endif
     default:
 	fputs("---error!---\n", fp);
     }
