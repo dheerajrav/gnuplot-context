@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: unset.c,v 1.134 2010/05/02 20:56:09 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: unset.c,v 1.137 2010/09/16 05:56:49 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - unset.c */
@@ -91,6 +91,8 @@ static void unset_linetype __PROTO((void));
 static void unset_object __PROTO((void));
 static void delete_object __PROTO((struct object * prev, struct object * this));
 static void unset_style_rectangle __PROTO(());
+static void unset_style_circle __PROTO(());
+static void unset_style_ellipse __PROTO(());
 #endif
 static void unset_loadpath __PROTO((void));
 static void unset_locale __PROTO((void));
@@ -1349,6 +1351,8 @@ unset_style()
 	unset_fillstyle();
 #ifdef EAM_OBJECTS
 	unset_style_rectangle();
+	unset_style_circle();
+	unset_style_ellipse();
 #endif
 	unset_histogram();
 	unset_boxplot();
@@ -1389,6 +1393,14 @@ unset_style()
 #ifdef EAM_OBJECTS
     case SHOW_STYLE_RECTANGLE:
 	unset_style_rectangle();
+	c_token++;
+	break;
+    case SHOW_STYLE_CIRCLE:
+	unset_style_circle();
+	c_token++;
+	break;
+    case SHOW_STYLE_ELLIPSE:
+	unset_style_ellipse();
 	c_token++;
 	break;
 #endif
@@ -1500,6 +1512,7 @@ unset_view()
     surface_rot_z = 30.0;
     surface_rot_x = 60.0;
     surface_scale = 1.0;
+    surface_lscale = 0.0;
     surface_zscale = 1.0;
 }
 
@@ -1630,6 +1643,8 @@ reset_command()
     while (first_object != NULL)
 	delete_object((struct object *) NULL, first_object);
     unset_style_rectangle();
+    unset_style_circle();
+    unset_style_ellipse();
 #endif
 
     /* 'polar', 'parametric' and 'dummy' are interdependent, so be
@@ -1752,6 +1767,20 @@ unset_style_rectangle()
 {
     struct object foo = DEFAULT_RECTANGLE_STYLE;
     default_rectangle = foo;
+    return;
+}
+static void
+unset_style_circle()
+{
+    struct object foo = DEFAULT_CIRCLE_STYLE;
+    default_circle = foo;
+    return;
+}
+static void
+unset_style_ellipse()
+{
+    struct object foo = DEFAULT_ELLIPSE_STYLE;
+    default_ellipse = foo;
     return;
 }
 #endif

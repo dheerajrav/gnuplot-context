@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: mouse.c,v 1.122 2009/10/31 03:22:37 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: mouse.c,v 1.127 2010/09/16 05:56:49 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - mouse.c */
@@ -71,6 +71,7 @@ static char *RCSid() { return RCSid("$Id: mouse.c,v 1.122 2009/10/31 03:22:37 sf
 #endif
 
 #ifdef OS2
+#include <os2.h>
 #include "os2/pm_msgs.h"
 #endif
 
@@ -257,11 +258,13 @@ static void put_label __PROTO((char *label, double x, double y));
 static void
 alert()
 {
-# ifdef GNUPMDRV
+# ifdef OS2
     DosBeep(444, 111);
 # else
 #  ifdef HAVE_LIBREADLINE
-    rl_ding();
+#    if !defined(MISSING_RL_DING)
+        rl_ding();
+#    endif
     fflush(rl_outstream);
 #  else
     fprintf(stderr, "\a");
@@ -640,6 +643,7 @@ apply_zoom(struct t_zoom *z)
 	int i;
 	for (i=0; i<AXIS_ARRAY_SIZE; i++) {
 	    axis_array_copy[i].label = axis_array[i].label;
+	    axis_array_copy[i].ticdef.def.user = axis_array[i].ticdef.def.user;
 	}
 	memcpy(axis_array, axis_array_copy, sizeof(axis_array));
 	s[0] = '\0';	/* FIXME:  Is this better than calling replotrequest()? */
@@ -1361,9 +1365,9 @@ ChangeView(int x, int z)
     if (x) {
 	surface_rot_x += x;
 	if (surface_rot_x < 0)
-	    surface_rot_x = 0;
-	if (surface_rot_x > 180)
-	    surface_rot_x = 180;
+	    surface_rot_x += 360;
+	if (surface_rot_x > 360)
+	    surface_rot_x -= 360;
     }
     if (z) {
 	surface_rot_z += z;
@@ -1711,7 +1715,8 @@ event_buttonpress(struct gp_event_t *ge)
     start_x = mouse_x;
     start_y = mouse_y;
     zero_rot_z = surface_rot_z + 360.0 * mouse_x / term->xmax;
-    zero_rot_x = surface_rot_x - 180.0 * mouse_y / term->ymax;
+    /* zero_rot_x = surface_rot_x - 180.0 * mouse_y / term->ymax; */
+    zero_rot_x = surface_rot_x - 360.0 * mouse_y / term->ymax;
 }
 
 
@@ -1830,11 +1835,12 @@ event_motion(struct gp_event_t *ge)
 
 	if (button & (1 << 1)) {
 	    /* dragging with button 1 -> rotate */
-	    surface_rot_x = floor(0.5 + zero_rot_x + 180.0 * mouse_y / term->ymax);
+	  /*surface_rot_x = floor(0.5 + zero_rot_x + 180.0 * mouse_y / term->ymax);*/
+	    surface_rot_x = floor(0.5 + fmod(zero_rot_x + 360.0 * mouse_y / term->ymax, 360));
 	    if (surface_rot_x < 0)
-		surface_rot_x = 0;
-	    if (surface_rot_x > 180)
-		surface_rot_x = 180;
+		surface_rot_x += 360;
+	    if (surface_rot_x > 360)
+		surface_rot_x -= 360;
 	    surface_rot_z = floor(0.5 + fmod(zero_rot_z - 360.0 * mouse_x / term->xmax, 360));
 	    if (surface_rot_z < 0)
 		surface_rot_z += 360;
@@ -1859,7 +1865,8 @@ event_motion(struct gp_event_t *ge)
 	    } else {
 
 		if (relx > rely) {
-		    surface_scale += (mouse_x - start_x) * 2.0 / term->xmax;
+		    surface_lscale += (mouse_x - start_x) * 2.0 / term->xmax;
+		    surface_scale = exp(surface_lscale);
 		    if (surface_scale < 0)
 			surface_scale = 0;
 		} else {

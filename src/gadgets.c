@@ -131,9 +131,10 @@ double pointsize = 1.0;
 int draw_border = 31;	/* The current settings */
 int user_border = 31;	/* What the user last set explicitly */
 int border_layer = 1;
-# define DEFAULT_BORDER_LP { 0, -2, 0, 1.0, 1.0, 0 }
+# define DEFAULT_BORDER_LP { 0, LT_BLACK, 0, 0, 1.0, 1.0, FALSE, BLACK_COLORSPEC }
 struct lp_style_type border_lp = DEFAULT_BORDER_LP;
 const struct lp_style_type default_border_lp = DEFAULT_BORDER_LP;
+const struct lp_style_type background_lp = {0, LT_BACKGROUND, 0, 0, 1.0, 0.0, FALSE, BACKGROUND_COLORSPEC};
 
 /* set clip */
 TBOOLEAN clip_lines1 = TRUE;
@@ -171,6 +172,8 @@ fill_style_type default_fillstyle = { FS_EMPTY, 100, 0, DEFAULT_COLORSPEC } ;
 #ifdef EAM_OBJECTS
 /* Default rectangle style - background fill, black border */
 struct object default_rectangle = DEFAULT_RECTANGLE_STYLE;
+struct object default_circle = DEFAULT_CIRCLE_STYLE;
+struct object default_ellipse = DEFAULT_ELLIPSE_STYLE;
 #endif
 
 /* filledcurves style options */

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: internal.c,v 1.55 2010/03/06 06:12:58 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: internal.c,v 1.57 2010/09/18 22:00:37 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - internal.c */
@@ -1405,6 +1405,7 @@ f_strptime(union argument *arg)
 {
     struct value fmt, val;
     struct tm time_tm;
+    double usec = 0.0;
     double result;
 
     (void) arg; /* Avoid compiler warnings */
@@ -1419,12 +1420,15 @@ f_strptime(union argument *arg)
 	int_error(NO_CARET, "Internal error: string not allocated");
 
 
-    /* string -> time_tm */
-    gstrptime(val.v.string_val, fmt.v.string_val, &time_tm);
+    /* string -> time_tm  plus extra fractional second */
+    gstrptime(val.v.string_val, fmt.v.string_val, &time_tm, &usec);
 
     /* time_tm -> result */
     result = gtimegm(&time_tm);
     FPRINTF((stderr," strptime result = %g seconds \n", result));
+
+    /* Add back any extra fractional second */
+    result += usec;
 
     gpfree_string(&val);
     gpfree_string(&fmt);
@@ -1541,3 +1545,43 @@ f_assign(union argument *arg)
     }
 }
 
+/*
+ * Retrieve the current value of a user-defined variable whose name is known.
+ * B = value("A") has the same result as B = A.
+ */
+
+void
+f_value(union argument *arg)
+{
+    struct udvt_entry *p = first_udv;
+    struct value a;
+    struct value result;
+
+    (void) arg;
+    (void) pop(&a);
+
+    if (a.type != STRING) {
+	/* int_warn(NO_CARET,"non-string value passed to value()"); */
+	push(&a);
+	return;
+    }
+
+    while (p) {
+	if (!strcmp(p->udv_name, a.v.string_val)) {
+	    result = p->udv_value;
+	    if (p->udv_undef)
+		p = NULL;
+	    else if (result.type == STRING)
+		result.v.string_val = gp_strdup(result.v.string_val);
+	    break;
+	}
+	p = p->next_udv;
+    }
+    gpfree_string(&a);
+    if (!p) {
+	/* int_warn(NO_CARET,"undefined variable name passed to value()"); */
+	result.type = CMPLX;
+	result.v.cmplx_val.real = not_a_number();
+    }
+    push(&result);
+}

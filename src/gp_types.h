@@ -1,5 +1,5 @@
 /*
- * $Id: gp_types.h,v 1.46 2010/04/21 07:34:35 sfeam Exp $
+ * $Id: gp_types.h,v 1.48 2010/07/30 18:32:55 sfeam Exp $
  */
 
 /* GNUPLOT - gp_types.h */
@@ -105,6 +105,7 @@ typedef enum PLOT_STYLE {
     , RGBA_IMAGE   = 27*PLOT_STYLE_BITS + 0
     , CIRCLES      = 28*PLOT_STYLE_BITS + PLOT_STYLE_HAS_LINE + PLOT_STYLE_HAS_FILL
     , BOXPLOT      = 29*PLOT_STYLE_BITS + PLOT_STYLE_HAS_FILL + PLOT_STYLE_HAS_POINT
+    , ELLIPSES     = 30*PLOT_STYLE_BITS + PLOT_STYLE_HAS_LINE + PLOT_STYLE_HAS_FILL
 } PLOT_STYLE;
 
 typedef enum PLOT_SMOOTH {
@@ -174,7 +175,7 @@ typedef struct coordinate {
     coordval color;		/* PM3D's color value to be used */
 				/* Note: accessed only if NEED_PALETTE(this_plot) */
 #endif
-#if defined(WIN16) || (defined(MSDOS) && defined(__TURBOC__))
+#if (defined(MSDOS) && defined(__TURBOC__))
     /* FIXME HBB 20020301: addition of 'color' probably broke this */
     char pad[2];		/* pad to 32 byte boundary */
 #endif

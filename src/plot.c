@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: plot.c,v 1.113 2010/03/17 16:24:15 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: plot.c,v 1.119 2010/08/13 23:36:58 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - plot.c */
@@ -77,7 +77,7 @@ static char *RCSid() { return RCSid("$Id: plot.c,v 1.113 2010/03/17 16:24:15 sfe
 # include <sys/utsname.h>
 #endif
 
-#if defined(MSDOS) || defined(DOS386) || defined(__EMX__)
+#if defined(MSDOS) || defined(__EMX__)
 # include <io.h>
 #endif
 
@@ -106,11 +106,9 @@ extern smg$create_key_table();
  * Only required by two files directly,
  * so I don't put this into a header file. -lh
  */
-#ifdef HAVE_LIBREADLINE
-# ifdef GNUPLOT_HISTORY
+#if defined(HAVE_LIBREADLINE) && !defined(MISSING_RL_TILDE_EXPANSION)
 #  include <readline/tilde.h>
-# endif
-extern int rl_complete_with_tilde_expansion;
+   extern int rl_complete_with_tilde_expansion;
 #endif
 
 /* BSD editline
@@ -152,7 +150,7 @@ extern int X11_args __PROTO((int, char **)); /* FIXME: defined in term/x11.trm *
 #endif
 
 /* patch to get home dir, see command.c */
-#if (defined (__TURBOC__) && (defined (MSDOS) || defined(DOS386))) || defined(DJGPP)
+#if defined (__TURBOC__) && (defined (MSDOS)) || defined(DJGPP)
 # include <dir.h>               /* MAXPATH */
 char HelpFile[MAXPATH];
 #endif /*   - DJL */
@@ -303,17 +301,13 @@ main(int argc, char **argv)
 #endif
 
 /* malloc large blocks, otherwise problems with fragmented mem */
-#ifdef OSK
-    _mallocmin(102400);
-#endif
-
 #ifdef MALLOCDEBUG
     malloc_debug(7);
 #endif
 
 /* get helpfile from home directory */
 # ifndef _Windows
-#  if defined (__TURBOC__) && (defined (MSDOS) || defined(DOS386))
+#  if defined (__TURBOC__) && defined (MSDOS)
     strcpy(HelpFile, argv[0]);
     strcpy(strrchr(HelpFile, DIRSEP1), "\\gnuplot.gih");
 #  endif			/*   - DJL */
@@ -336,6 +330,7 @@ main(int argc, char **argv)
 #if defined(HAVE_LIBEDITLINE)
     rl_getc_function = getc_wrapper;
 #endif
+
 #if defined(HAVE_LIBREADLINE) || defined(HAVE_LIBEDITLINE)
     using_history();
     /* T.Walter 1999-06-24: 'rl_readline_name' must be this fix name.
@@ -343,7 +338,7 @@ main(int argc, char **argv)
     rl_readline_name = "Gnuplot";
     rl_terminal_name = getenv("TERM");
 #endif
-#if defined(HAVE_LIBREADLINE)
+#if defined(HAVE_LIBREADLINE) && !defined(MISSING_RL_TILDE_EXPANSION)
     rl_complete_with_tilde_expansion = 1;
 #endif
 
@@ -558,7 +553,7 @@ main(int argc, char **argv)
 	/* come back here from int_error() */
 	if (interactive == FALSE)
 	    exit_status = EXIT_FAILURE;
-#ifdef HAVE_LIBREADLINE
+#ifdef HAVE_READLINE_RESET
 	else
 	{
 	    /* reset properly readline after a SIGINT+longjmp */
@@ -734,7 +729,7 @@ get_user_env()
 	const char *env_shell;
 
 	if ((env_shell = getenv("SHELL")) == NULL)
-#if defined(MSDOS) || defined(_Windows) || defined(DOS386) || defined(OS2)
+#if defined(MSDOS) || defined(_Windows) || defined(OS2)
 	    if ((env_shell = getenv("COMSPEC")) == NULL)
 #endif
 		env_shell = SHELL;

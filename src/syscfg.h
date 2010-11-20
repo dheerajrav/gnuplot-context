@@ -1,5 +1,5 @@
 /*
- * $Id: syscfg.h,v 1.41 2010/05/07 03:50:49 sfeam Exp $
+ * $Id: syscfg.h,v 1.43 2010/08/13 23:36:58 sfeam Exp $
  */
 
 /* GNUPLOT - syscfg.h */
@@ -61,16 +61,6 @@
  *
  */
 
-#ifdef DOS386
-# define OS       "DOS 386"
-# define HELPFILE "gnuplot.gih"
-# define HOME     "GNUPLOT"
-# define PLOTRC   "gnuplot.ini"
-# define SHELL    "\\command.com"
-# define DIRSEP1  '\\'
-# define PATHSEP  ';'
-#endif /* DOS386 */
-
 #if defined(__NeXT__) || defined(NEXT)
 # ifndef NEXT
 #  define NEXT
@@ -87,11 +77,6 @@
 # define PATHSEP  ';'
 # define GNUPLOT_HISTORY_FILE "~\\gnuplot_history"
 #endif /* OS/2 */
-
-#ifdef OSK
-# define OS    "OS-9"
-# define SHELL "/dd/cmds/shell"
-#endif /* OS-9 */
 
 #if defined(vms) || defined(VMS)
 # define OS "VMS"
@@ -208,7 +193,7 @@
 #endif
 
 /* DOS/Windows stuff. Moved here from command.c */
-#if defined(MSDOS) || defined(DOS386)
+#if defined(MSDOS)
 
 # ifdef DJGPP
 #  include <dos.h>

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: graph3d.c,v 1.233 2010/05/24 21:09:18 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: graph3d.c,v 1.240 2010/09/27 19:15:58 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - graph3d.c */
@@ -95,6 +95,7 @@ float surface_rot_z = 30.0;
 float surface_rot_x = 60.0;
 float surface_scale = 1.0;
 float surface_zscale = 1.0;
+float surface_lscale = 0.0;
 
 /* Set by 'set view map': */
 int splot_map = FALSE;
@@ -438,6 +439,10 @@ boundary3d(struct surface_points *plots, int count)
     if (rmargin.scalex == screen || lmargin.scalex == screen)
 	xscaler = (plot_bounds.xright - plot_bounds.xleft) / surface_scale;
 
+    /* EAM Jul 2010 - prevent infinite loop or divide-by-zero if scaling is bad */
+    if (yscaler == 0) yscaler = 1;
+    if (xscaler == 0) xscaler = 1;
+
     /* HBB 20011011: 'set size {square|ratio}' for splots */
     if (splot_map && aspect_ratio != 0.0) {
 	double current_aspect_ratio;
@@ -546,7 +551,7 @@ place_arrows3d(int layer)
 	    continue;
 	if (get_arrow3d(this_arrow, &sx, &sy, &ex, &ey)) {
 	    term_apply_lp_properties(&(this_arrow->arrow_properties.lp_properties));
-	    apply_head_properties(&(this_arrow->arrow_properties));
+	    apply_3dhead_properties(&(this_arrow->arrow_properties));
 	    draw_clip_arrow(sx, sy, ex, ey, this_arrow->arrow_properties.head);
 	} else {
 	    FPRINTF((stderr,"place_arrows3d: skipping out-of-bounds arrow\n"));
@@ -1052,7 +1057,10 @@ do_3dplot(
 	    case CANDLESTICKS:	/* HBB: ditto */
 	    case BOXPLOT:
 	    case FINANCEBARS:
+#ifdef EAM_OBJECTS
 	    case CIRCLES:
+	    case ELLIPSES:
+#endif
 	    case POINTSTYLE:
 		if (draw_surface && !this_plot->opt_out_of_surface) {
 		    if (lkey) {
@@ -1205,23 +1213,17 @@ do_3dplot(
 		    case CANDLESTICKS:	/* HBB: ditto */
 		    case BOXPLOT:
 		    case FINANCEBARS:
+#ifdef EAM_OBJECTS
 		    case CIRCLES:
+		    case ELLIPSES:
+#endif
 		    case POINTSTYLE:
-			if (this_plot->lp_properties.use_palette)
-			    key_sample_point_pm3d(this_plot, xl, yl, this_plot->lp_properties.p_type);
-			else
 			key_sample_point(xl, yl, this_plot->lp_properties.p_type);
 			break;
 		    case LINESPOINTS:
-			if (this_plot->lp_properties.use_palette)
-			    key_sample_line_pm3d(this_plot, xl, yl);
-			else
 			key_sample_line(xl, yl);
 			break;
 		    case DOTS:
-			if (this_plot->lp_properties.use_palette)
-			    key_sample_point_pm3d(this_plot, xl, yl, this_plot->lp_properties.p_type);
-			else
 			key_sample_point(xl, yl, -1);
 			break;
 
@@ -1240,11 +1242,16 @@ do_3dplot(
 			    set_color( cb2gray( z2cb(cntrs->z) ) );
 			else {
 			    struct lp_style_type ls = thiscontour_lp_properties;
+			    if (thiscontour_lp_properties.l_type == LT_COLORFROMCOLUMN) {
+		    		thiscontour_lp_properties.l_type = 0;
+				thiscontour_lp_properties.use_palette = TRUE;
+			    }
 			    if (prefer_line_styles && label_contours)
 				lp_use_properties(&ls, ++thiscontour_lp_properties.l_type+1);
 			    else
 				load_linetype(&ls, ++thiscontour_lp_properties.l_type+1);
-			    term_apply_lp_properties(&ls);
+			    thiscontour_lp_properties.pm3d_color = ls.pm3d_color;
+			    term_apply_lp_properties(&thiscontour_lp_properties);
 			}
 
 			if (key->visible) {
@@ -1273,17 +1280,14 @@ do_3dplot(
 			    case CANDLESTICKS:	/* HBB: ditto */
 			    case BOXPLOT:
 			    case FINANCEBARS:
+#ifdef EAM_OBJECTS
 			    case CIRCLES:
+			    case ELLIPSES:
+#endif
 			    case POINTSTYLE:
-				if (this_plot->lp_properties.use_palette)
-				    key_sample_point_pm3d(this_plot, xl, yl, this_plot->lp_properties.p_type);
-				else
 				    key_sample_point(xl, yl, this_plot->lp_properties.p_type);
 				break;
 			    case DOTS:
-				if (this_plot->lp_properties.use_palette)
-				    key_sample_point_pm3d(this_plot, xl, yl, this_plot->lp_properties.p_type);
-				else
 				    key_sample_point(xl, yl, -1);
 				break;
 
@@ -1328,20 +1332,14 @@ do_3dplot(
 		    case BOXXYERROR:
 		    case CANDLESTICKS:
 		    case FINANCEBARS:
+#ifdef EAM_OBJECTS
 		    case CIRCLES:
+		    case ELLIPSES:		    
+#endif
 			/* treat all the above like points */
 		    case DOTS:
 		    case POINTSTYLE:
-			/* the following is needed, because
-			 * 'draw3d_point_unconditional()' in 'util3d.c'
-			 * calls 'term_apply_lp_properties()' again
-			 */
-			{
-			struct lp_style_type ls = thiscontour_lp_properties;
-			if (prefer_line_styles && label_contours)
-			    lp_use_properties(&ls, thiscontour_lp_properties.l_type+1);
-			cntr3d_points(cntrs, &ls);
-			}
+			cntr3d_points(cntrs, &thiscontour_lp_properties);
 			break;
 
 		    default:
@@ -1535,7 +1533,7 @@ plot3d_lines(struct surface_points *plot)
     if (plot->has_grid_topology && hidden3d)
 	return;
 
-    rgb_from_column = can_pm3d && plot->pm3d_color_from_column
+    rgb_from_column = plot->pm3d_color_from_column
 			&& plot->lp_properties.pm3d_color.type == TC_RGB
 			&& plot->lp_properties.pm3d_color.value < 0.0;
 
@@ -1546,7 +1544,7 @@ plot3d_lines(struct surface_points *plot)
 
 	    if (rgb_from_column)
 		set_rgbcolor((int)points[i].CRD_COLOR);
-	    else if (can_pm3d && plot->lp_properties.pm3d_color.type == TC_LINESTYLE) {
+	    else if (plot->lp_properties.pm3d_color.type == TC_LINESTYLE) {
 		plot->lp_properties.pm3d_color.lt = (int)(points[i].CRD_COLOR);
 		apply_pm3dcolor(&(plot->lp_properties.pm3d_color), term);
 	    }
@@ -1816,6 +1814,7 @@ plot3d_points(struct surface_points *plot, int p_type)
 	struct coordinate GPHUGE *point;
 	int colortype = plot->lp_properties.pm3d_color.type;
 	TBOOLEAN rgb_from_column = plot->pm3d_color_from_column
+			&& colortype == TC_RGB
 			&& plot->lp_properties.pm3d_color.value < 0.0;
 
 	/* Apply constant color outside of the loop */
@@ -3057,9 +3056,12 @@ key_sample_line_pm3d(struct surface_points *plot, int xl, int yl)
     int i = 1, x1 = xl + key_sample_left, x2;
     double cbmin, cbmax;
     double gray, gray_from, gray_to, gray_step;
+    int colortype = plot->lp_properties.pm3d_color.type;
 
     /* If plot uses a constant color, set it here and then let simpler routine take over */
-    if (plot->lp_properties.use_palette && plot->lp_properties.pm3d_color.type == TC_RGB) {
+    if ((colortype == TC_RGB && plot->lp_properties.pm3d_color.value >= 0.0)
+    || (colortype == TC_LT)
+    || (colortype == TC_LINESTYLE && plot->lp_properties.l_type != LT_COLORFROMCOLUMN)) {
 	apply_pm3dcolor(&(plot->lp_properties.pm3d_color), term);
 	key_sample_line(xl,yl);
 	return;
@@ -3109,15 +3111,19 @@ key_sample_point_pm3d(
     int i = 0, x1 = xl + key_sample_left, x2;
     double cbmin, cbmax;
     double gray, gray_from, gray_to, gray_step;
+    int colortype = plot->lp_properties.pm3d_color.type;
     /* rule for number of steps: 3*char_width*pointsize or char_width for dots,
      * but at least 3 points */
     double step = term->h_char * (pointtype == -1 ? 1 : 3*(1+(pointsize-1)/2));
     int steps = (int)(((double)(key_sample_right - key_sample_left)) / step + 0.5);
+
     if (steps < 2) steps = 2;
     step = ((double)(key_sample_right - key_sample_left)) / steps;
 
     /* If plot uses a constant color, set it here and then let simpler routine take over */
-    if (plot->lp_properties.use_palette && plot->lp_properties.pm3d_color.type == TC_RGB) {
+    if ((colortype == TC_RGB && plot->lp_properties.pm3d_color.value >= 0.0)
+    || (colortype == TC_LT)
+    || (colortype == TC_LINESTYLE && plot->lp_properties.l_type != LT_COLORFROMCOLUMN)) {
 	apply_pm3dcolor(&(plot->lp_properties.pm3d_color), term);
 	key_sample_point(xl,yl,pointtype);
 	return;
@@ -3170,7 +3176,7 @@ plot3d_vectors(struct surface_points *plot)
 
     /* Only necessary once because all arrows equal */
     term_apply_lp_properties(&(plot->arrow_properties.lp_properties));
-    apply_head_properties(&(plot->arrow_properties));
+    apply_3dhead_properties(&(plot->arrow_properties));
 
     for (i = 0; i < plot->iso_crvs->p_count; i++) {
 	

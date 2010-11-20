@@ -1,5 +1,5 @@
 /* Hello, Emacs, this is -*-C-*-
- * $Id: win.trm,v 1.76 2010/02/24 20:38:08 sfeam Exp $
+ * $Id: win.trm,v 1.79 2010/07/26 20:24:29 sfeam Exp $
  */
 
 /* GNUPLOT - win.trm */
@@ -316,6 +316,9 @@ WIN_options()
 
     if (IsWindow(graphwin.hWndGraph) && IsIconic(graphwin.hWndGraph))
 	ShowWindow(graphwin.hWndGraph, SW_SHOWNORMAL);
+
+    /* font initialization */
+    WIN_set_font(NULL);
 
     graphwin.Title = (WIN_gtitle ? WIN_gtitle : WINGRAPHTITLE);
     if (set_title) GraphChangeTitle(&graphwin);
@@ -693,7 +696,13 @@ WIN_set_font(const char *font)
     char fontname[MAXFONTNAME];
     int  fontsize;
 
-    if (font != NULL) {
+	if (font == NULL) {
+	    GraphOp(&graphwin, W_font, 0, 0, "");
+	    strcpy(WIN_font, graphwin.deffontname);
+	    WIN_fontsize = graphwin.deffontsize;
+	    return TRUE;
+	}
+
 	if (font[0] == '\0') {
 	    strcpy(fontname, graphwin.deffontname);
 	    fontsize = graphwin.deffontsize;
@@ -716,18 +725,11 @@ WIN_set_font(const char *font)
 		sscanf(size+1,"%i", &fontsize);
 	    }
 	}
-    }
 
-    if (font != NULL) {
 	GraphOp(&graphwin, W_font, fontsize, 0, fontname);
-        strcpy(WIN_font, fontname);
-        WIN_fontsize = fontsize;
-    }
-    else {
-	GraphOp(&graphwin, W_font, 0, 0, "");
-        strcpy(WIN_font, graphwin.deffontname);
-        WIN_fontsize = graphwin.deffontsize;
-    }
+	strcpy(WIN_font, fontname);
+	WIN_fontsize = fontsize;
+
     return TRUE;
 }
 
@@ -872,7 +874,9 @@ WIN_enhanced_put_text(unsigned int x, unsigned int y, const char *str)
     char *original_string = (char *)str;
     unsigned int pass, num_passes;
     char* copy_WIN_font;
+    int copy_WIN_fontsize; /* by Akira Kakuto */
 
+    if(str==NULL || !strlen(str)) return;
     /* If no enhanced text processing is needed, we can use the plain  */
     /* vanilla put_text() routine instead of this fancy recursive one. */
     if (ignore_enhanced_text || !strpbrk(str, "{}^_@&~")) {
@@ -901,9 +905,10 @@ WIN_enhanced_put_text(unsigned int x, unsigned int y, const char *str)
 	ENHwin_sizeonly = TRUE; 
     }
 
-    /* make a backup copy of the fontname to use 
+    /* make a backup copy of the fontname and size to use 
        for enhanced recursion */
     copy_WIN_font = strdup(WIN_font);
+    copy_WIN_fontsize = WIN_fontsize;
     
     for( pass=1; pass <= num_passes; pass++ ) {
 
@@ -915,7 +920,7 @@ WIN_enhanced_put_text(unsigned int x, unsigned int y, const char *str)
 	* we get stuck in an infinite loop) and try again.
 	*/
 	while (*(str = enhanced_recursion((char *)str, TRUE,
-			copy_WIN_font, WIN_fontsize,
+			copy_WIN_font, copy_WIN_fontsize,
 			0.0, TRUE, TRUE, 0))) {
 	    (term->enhanced_flush)();
 
@@ -943,7 +948,7 @@ WIN_enhanced_put_text(unsigned int x, unsigned int y, const char *str)
     free(copy_WIN_font);
 
     /* restore default font */
-    WIN_set_font(NULL); 
+    WIN_set_font("");
 
     /* restore text alignment */
     if (num_passes > 1)

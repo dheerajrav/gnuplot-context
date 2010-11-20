@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: plot2d.c,v 1.209 2010/05/11 04:27:05 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: plot2d.c,v 1.227 2010/09/21 03:58:58 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - plot2d.c */
@@ -138,13 +138,17 @@ cp_extend(struct curve_points *cp, int num)
 	} else {
 	    cp->points = gp_realloc(cp->points, num * sizeof(cp->points[0]),
 				    "expanding curve points");
+	    if (cp->varcolor)
+		cp->varcolor = gp_realloc(cp->varcolor, num * sizeof(double),
+					"expanding curve variable colors");
 	}
 	cp->p_max = num;
     } else {
-	if (cp->points != NULL)
-	    free(cp->points);
+	free(cp->points);
 	cp->points = NULL;
 	cp->p_max = 0;
+	free(cp->varcolor);
+	cp->varcolor = NULL;
     }
 }
 
@@ -164,10 +168,10 @@ cp_free(struct curve_points *cp)
 	    free(cp->title);
 	if (cp->points)
 	    free(cp->points);
-	if (cp->labels) {
+	if (cp->labels)
 	    free_labels(cp->labels);
-	    cp->labels = (struct text_label *)NULL;
-	}
+	if (cp->varcolor)
+	    free(cp->varcolor);
 	free(cp);
 	cp = next;
     }
@@ -323,15 +327,25 @@ get_data(struct curve_points *current_plot)
     int storetoken = current_plot->token;
     struct coordinate GPHUGE *cp;
 
-    TBOOLEAN variable_color = FALSE;
-    double   variable_color_value = 0.;
-    if ((current_plot->lp_properties.pm3d_color.type == TC_RGB)
-    &&  (current_plot->lp_properties.pm3d_color.value < 0))
-	variable_color = TRUE;
-    if (current_plot->lp_properties.pm3d_color.type == TC_Z)
-	variable_color = TRUE;
-    if (current_plot->lp_properties.l_type == LT_COLORFROMCOLUMN)
-	variable_color = TRUE;
+    if (current_plot->varcolor == NULL) {
+	TBOOLEAN variable_color = FALSE;
+	if ((current_plot->lp_properties.pm3d_color.type == TC_RGB)
+	&&  (current_plot->lp_properties.pm3d_color.value < 0))
+	    variable_color = TRUE;
+	if (current_plot->lp_properties.pm3d_color.type == TC_Z)
+	    variable_color = TRUE;
+	if (current_plot->lp_properties.l_type == LT_COLORFROMCOLUMN)
+	    variable_color = TRUE;
+	if (current_plot->plot_smooth != SMOOTH_NONE) {
+	    /* FIXME:  It would be possible to support smooth cspline lc palette */
+	    /* but it would require expanding and interpolating plot->varcolor   */
+	    /* in parallel with the y values.                                    */
+	    variable_color = FALSE;
+	}
+	if (variable_color)
+	    current_plot->varcolor = gp_alloc(current_plot->p_max * sizeof(double),
+		"varcolor array");
+    }
 
     /* eval_plots has already opened file */
 
@@ -352,7 +366,7 @@ get_data(struct curve_points *current_plot)
     case XYERRORBARS:
     case BOXXYERROR:
 	min_cols = 4;
-	max_cols = 7;		/* HBB FIXME 20060427: what's 7th? */
+	max_cols = 7;
 
 	if (df_no_use_specs >= 6) {
 	    /* HBB 20060427: signal 3rd and 4th column are absolute x
@@ -367,7 +381,8 @@ get_data(struct curve_points *current_plot)
     case FINANCEBARS:
 	/* HBB 20000504: use 'z' coordinate for y-axis quantity */
 	current_plot->z_axis = current_plot->y_axis;
-	min_cols = max_cols = 5;
+	min_cols = 5;
+	max_cols = 6;
 	/* HBB 20060427: signal 3rd and 4th column are absolute y data
 	 * --- needed so time/date parsing works */
 	df_axis[2] = df_axis[3] = df_axis[4] = df_axis[1];
@@ -381,21 +396,22 @@ get_data(struct curve_points *current_plot)
     case CANDLESTICKS:
 	current_plot->z_axis = current_plot->y_axis;
 	min_cols = 5;
-	max_cols = 6;
+	max_cols = 7;
 	df_axis[2] = df_axis[3] = df_axis[4] = df_axis[1];
 	break;
 
     case BOXERROR:
-	min_cols = 3;           /* HBB 20040520: fixed, was 4 */
-	max_cols = 5;
+	min_cols = 3;
+	max_cols = 6;
 
-	/* There are four(!) possible cases: */
+	/* There are four possible cases: */
 	/* 3 cols --> (x,y,dy), auto dx */
 	/* 4 cols, boxwidth==-2 --> (x,y,ylow,yhigh), auto dx */
 	/* 4 cols, boxwidth!=-2 --> (x,y,dy,dx) */
 	/* 5 cols --> (x,y,ylow,yhigh,dx) */
+	/* In each case an additional column may hold variable color */
 	if ((df_no_use_specs == 4 && boxwidth == -2)
-	    || df_no_use_specs == 5)
+	    || df_no_use_specs >= 5)
 	    /* HBB 20060427: signal 3rd and 4th column are absolute y
 	     * data --- needed so time/date parsing works */
 	    df_axis[2] = df_axis[3] = df_axis[1];
@@ -409,8 +425,8 @@ get_data(struct curve_points *current_plot)
     case XERRORLINES:
     case XERRORBARS:
 	min_cols = 3;
-	max_cols = 4;
-	if (df_no_use_specs == 4)
+	max_cols = 5;
+	if (df_no_use_specs >= 4)
 	    /* HBB 20060427: signal 3rd and 4th column are absolute x
 	     * data --- needed so time/date parsing works */
 	    df_axis[2] = df_axis[3] = df_axis[0];
@@ -419,8 +435,8 @@ get_data(struct curve_points *current_plot)
     case YERRORLINES:
     case YERRORBARS:
 	min_cols = 3;
-	max_cols = 4;
-	if (df_no_use_specs == 4)
+	max_cols = 5;
+	if (df_no_use_specs >= 4)
 	    /* HBB 20060427: signal 3rd and 4th column are absolute y
 	     * data --- needed so time/date parsing works */
 	    df_axis[2] = df_axis[3] = df_axis[1];
@@ -465,19 +481,24 @@ get_data(struct curve_points *current_plot)
 
     case RGBIMAGE:
 	min_cols = 5;
-        max_cols = 6;
-        break;
+	max_cols = 6;
+	break;
 
     case RGBA_IMAGE:
-        min_cols = 6;
-        max_cols = 6;
+	min_cols = 6;
+	max_cols = 6;
 	break;
 
 #ifdef EAM_OBJECTS
     case CIRCLES:	/* 3 + possible variable color, or 5 + possible variable color */
-        min_cols = 3;
-        max_cols = 6;
-        break;	
+	min_cols = 2;
+	max_cols = 6;
+	break;
+
+	case ELLIPSES:
+	    min_cols = 2; /* x, y, major axis, minor axis */
+	    max_cols = 6; /* + optional angle, possible variable color */
+	    break;
 #endif
 
     case POINTSTYLE:
@@ -522,21 +543,55 @@ get_data(struct curve_points *current_plot)
 	    cp_extend(current_plot, i + i + 1000);
 	}
 
-        if (j > 0) {
-            /* Allow for optional columns.  Currently only used for a few styles, */
-            /* but could be extended to a more general mechanism.                 */
-            variable_color_value = 0;
-            if (variable_color) {
-                static char *errmsg = "Not enough columns for variable color";
-                switch (current_plot->plot_style) {
-                case VECTOR:	if (j < 5) int_error(NO_CARET,errmsg);
-                case CIRCLES: 	if ((j != 4) && (j != 6)) int_error(NO_CARET,errmsg);
-                case BOXES:	if (j < 3) int_error(NO_CARET,errmsg);
-                    variable_color_value = v[--j];
-                default:	break;
-                }
-            }
-        }
+	if (j > 0) {
+	    /* June 2010 - New mechanism for variable color                  */
+	    /* If variable color is requested, take the color value from the */
+	    /* final column of input and decrement the column count by one.  */
+	    if (current_plot->varcolor) {
+		static char *errmsg = "Not enough columns for variable color";
+		switch (current_plot->plot_style) {
+
+		case CANDLESTICKS:
+		case FINANCEBARS:
+				if (j < 6) int_error(NO_CARET,errmsg);
+				break;
+		case XYERRORLINES:
+		case XYERRORBARS:
+		case BOXXYERROR:
+				if (j != 7 && j != 5) int_error(NO_CARET,errmsg);
+				break;
+		case VECTOR:	
+				if (j < 5) int_error(NO_CARET,errmsg);
+				break;
+		case LABELPOINTS:
+		case BOXERROR:
+		case XERRORLINES:
+		case XERRORBARS:
+		case YERRORLINES:
+		case YERRORBARS:
+				if (j < 4) int_error(NO_CARET,errmsg);
+				break;
+#ifdef EAM_OBJECTS
+		case CIRCLES: 	
+				if (j == 5 || j < 3) int_error(NO_CARET,errmsg);
+				break;
+		case ELLIPSES:	
+#endif
+		case BOXES:	
+		case POINTSTYLE:
+		case LINESPOINTS:
+		case IMPULSES:
+		case LINES:
+		case DOTS:	
+				if (j < 3) int_error(NO_CARET,errmsg);
+				break;
+		default:
+		    break;
+		}
+
+		current_plot->varcolor[i] = v[--j];
+	    }
+	}
 	switch (j) {
 	default:
 	    {
@@ -572,7 +627,7 @@ get_data(struct curve_points *current_plot)
 	     * ignored for certain plot types requiring 3D coordinates in
 	     * MODE_PLOT.
 	     */
-            if (current_plot->plot_style == IMAGE
+	    if (current_plot->plot_style == IMAGE
 	    ||  current_plot->plot_style == RGBIMAGE
 	    ||  current_plot->plot_style == RGBA_IMAGE)
 		continue;
@@ -661,12 +716,23 @@ get_data(struct curve_points *current_plot)
 			double base = axis_array[current_plot->x_axis].base;
 			store2d_point(current_plot, i++, v[0], v[1],
 				      v[0] * pow(base, -boxwidth/2.), v[0] * pow(base, boxwidth/2.),
-				      v[1], variable_color_value, 0.0);
+				      v[1], v[1], 0.0);
 		    } else
 			store2d_point(current_plot, i++, v[0], v[1],
 				      v[0] - boxwidth / 2, v[0] + boxwidth / 2,
-				      v[1], variable_color_value, 0.0);
+				      v[1], v[1], 0.0);
 
+#ifdef EAM_OBJECTS
+	    } else if (current_plot->plot_style == CIRCLES) {
+		    /* x, y, default radius, full circle */
+		    store2d_point(current_plot, i++, v[0], v[1], v[0], v[0],
+		    		  0., 360., DEFAULT_RADIUS);
+		}  else if (current_plot->plot_style == ELLIPSES) {
+			/* x, y, major axis = minor axis = default, default orientation */
+		    store2d_point(current_plot, i++, v[0], v[1], 0.0, 0.0,
+		    		  0.0, 0.0, DEFAULT_ELLIPSE);
+
+#endif
 	    } else {
 		    if (current_plot->plot_style == CANDLESTICKS
 			|| current_plot->plot_style == FINANCEBARS) {
@@ -676,7 +742,7 @@ get_data(struct curve_points *current_plot)
 		    /* xlow and xhigh are same as x */
 		    /* auto width if boxes, else ignored */
 		    store2d_point(current_plot, i++, v[0], v[1], v[0], v[0], v[1],
-				  variable_color_value, -1.0);
+				  v[1], -1.0);
 	    }
 	    break;
 
@@ -723,7 +789,7 @@ get_data(struct curve_points *current_plot)
 		    /* calculate xmin and xmax here, so that logs are taken if if necessary */
 		    store2d_point(current_plot, i++, v[0], v[1],
 				  v[0] - v[2] / 2, v[0] + v[2] / 2,
-				  v[1], variable_color_value, 0.0);
+				  v[1], v[1], 0.0);
 		    break;
 
 		case LABELPOINTS:
@@ -731,8 +797,9 @@ get_data(struct curve_points *current_plot)
 		    store2d_point(current_plot, i, v[0], v[1], v[0], v[0], v[1],
 				  v[1], -1.0);
 		    /* Allocate and fill in a text_label structure to match it */
-		    store_label(current_plot->labels,
-				&(current_plot->points[i]), i, df_tokens[2], 0.0);
+		    store_label(current_plot->labels, &(current_plot->points[i]), 
+				i, df_tokens[2], 
+				current_plot->varcolor ? current_plot->varcolor[i] : 0.0);
 		    i++;
 		    break;
 
@@ -745,24 +812,31 @@ get_data(struct curve_points *current_plot)
 		    i++;
 		    break;
 
-		case POINTSTYLE: /* x, y, variable point size or variable color */
+		case POINTSTYLE: /* x, y, variable point size */
 		case LINESPOINTS:
 		case IMPULSES:
 		case LINES:
 		case DOTS:
 		    store2d_point(current_plot, i++, v[0], v[1], v[0], v[0],
-				  v[1], v[2], v[2]);
+				  v[1], v[1], v[2]);
 		    break;
 
 		case BOXPLOT:	/* x, y, width */
 		    store2d_point(current_plot, i++, v[0], v[1], v[0]-v[2]/2., v[0]+v[2]/2.,
-		    		  v[1], variable_color_value, v[2]);
+		    		  v[1], v[1], v[2]);
 		    break;
 
 #ifdef EAM_OBJECTS
 		case CIRCLES:	/* x, y, radius */
+		    /* by default a full circle is drawn */
+		    /* negative radius means default radius -> set flag in width */
 		    store2d_point(current_plot, i++, v[0], v[1], v[0]-v[2], v[0]+v[2],
-		    		  0., variable_color_value, 360.); /* by default a full circle is drawn */
+		    		  0.0, 360.0, (v[2] >= 0) ? 0.0 : DEFAULT_RADIUS);
+		    break;
+
+		case ELLIPSES:	/* x, y, major axis = minor axis, 0 as orientation */
+		    store2d_point(current_plot, i++, v[0], v[1], fabs(v[2]), fabs(v[2]),
+		    		  0.0, v[2], (v[2] >= 0) ? 0.0 : DEFAULT_RADIUS);
 		    break;
 #endif
 		}               /*inner switch */
@@ -802,7 +876,7 @@ get_data(struct curve_points *current_plot)
 	    case BOXES:
 		/* x, y, xmin, xmax */
 		store2d_point(current_plot, i++, v[0], v[1], v[2], v[3],
-			      v[1], variable_color_value, 0.0);
+			      v[1], v[1], 0.0);
 		break;
 
 	    case XERRORLINES:
@@ -827,24 +901,25 @@ get_data(struct curve_points *current_plot)
 	    case VECTOR:
 		/* x,y,dx,dy */
 		store2d_point(current_plot, i++, v[0], v[1], v[0], v[0] + v[2],
-			      v[1], v[1] + v[3], variable_color_value);
+			      v[1], v[1] + v[3], 0.);
 		break;
 
-	    case POINTSTYLE: /* x, y, variable point size and variable color */
+	    case POINTSTYLE:
 	    case LINESPOINTS:
-		store2d_point(current_plot, i++, v[0], v[1], v[0], v[0],
-				  v[1], v[3], v[2]);
+	    case LABELPOINTS:
+		/* These are here only to catch the case where no using spec */
+		/* is given and there are more than 3 columns in the data file */
+		store2d_point(current_plot, i++, v[0], v[1], 
+				v[0], v[0], v[1], v[1], v[2]);
 		break;
 
-	    case LABELPOINTS:
-		/* Load the coords just as we would have for a point plot */
-		store2d_point(current_plot, i, v[0], v[1], v[0], v[0], v[1],
-			      v[1], -1.0);
-		/* Allocate and fill in a text_label structure to match it */
-		store_label(current_plot->labels,
-			    &(current_plot->points[i]), i, df_tokens[2], v[3]);
-		i++;
+
+#ifdef EAM_OBJECTS
+	    case ELLIPSES:	/* x, y, major axis, minor axis, 0 as orientation */
+		store2d_point(current_plot, i++, v[0], v[1], fabs(v[2]), fabs(v[3]),
+				0.0, v[2], ((v[2] >= 0) && (v[3] >= 0)) ? 0.0 : DEFAULT_RADIUS);
 		break;
+#endif	
 
 	    }                   /*inner switch */
 
@@ -873,8 +948,14 @@ get_data(struct curve_points *current_plot)
 
 #ifdef EAM_OBJECTS
 		case CIRCLES:	/* x, y, radius, arc begin, arc end */
+		    /* negative radius means default radius -> set flag in width */
 		    store2d_point(current_plot, i++, v[0], v[1], v[0]-v[2], v[0]+v[2],
-		    		  v[3], variable_color_value, v[4]);
+		    		  v[3], v[4], (v[2] >= 0) ? 0.0 : DEFAULT_RADIUS);
+		    break;
+
+		case ELLIPSES:	/* x, y, major axis, minor axis, orientation */
+		    store2d_point(current_plot, i++, v[0], v[1], fabs(v[2]), fabs(v[3]),
+		    		  v[4], v[2], ((v[2] >= 0) && (v[3] >= 0)) ? 0.0 : DEFAULT_RADIUS);
 		    break;
 #endif	
 
@@ -911,29 +992,28 @@ get_data(struct curve_points *current_plot)
 		break;
 
 images:
-            case RGBA_IMAGE:  /* x_cent y_cent red green blue alpha */
-            case RGBIMAGE:    /* x_cent y_cent red green blue */
-                store2d_point(current_plot, i, v[0], v[1], v[0], v[0], v[1], v[1], v[2]);
-                /* We will autoscale the RGB components to  a total range [0:255]
-                 * so we don't need to do any fancy scaling here.
-                 */
-                cp = &(current_plot->points[i]);
-                cp->CRD_R = v[2];
-                cp->CRD_G = v[3];
-                cp->CRD_B = v[4];
-                cp->CRD_A = v[5];	/* Alpha channel */
-                i++;
-                break;
+	    case RGBA_IMAGE:  /* x_cent y_cent red green blue alpha */
+	    case RGBIMAGE:    /* x_cent y_cent red green blue */
+		store2d_point(current_plot, i, v[0], v[1], v[0], v[0], v[1], v[1], v[2]);
+		/* We will autoscale the RGB components to  a total range [0:255]
+		 * so we don't need to do any fancy scaling here.
+		 */
+		cp = &(current_plot->points[i]);
+		cp->CRD_R = v[2];
+		cp->CRD_G = v[3];
+		cp->CRD_B = v[4];
+		cp->CRD_A = v[5];	/* Alpha channel */
+		i++;
+		break;
 	    }
 
 	}                       /*switch */
 
     }                           /*while */
 
-#if (0) /* This removes extra point caused by blank lines after data. */
+    /* This removes extra point caused by blank lines after data. */
     if (current_plot->points[i-1].type == UNDEFINED)
 	i--;
-#endif
 
     current_plot->p_count = i;
     cp_extend(current_plot, i); /* shrink to fit */
@@ -985,7 +1065,9 @@ store2d_point(
 
     if (polar) {
 	double newx, newy;
-	if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MAX) && y > axis_array[R_AXIS].max) {
+
+	if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MAX) 
+	&&  y > axis_array[R_AXIS].max) {
 	    cp->type = OUTRANGE;
 	}
 	if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MIN)) {
@@ -997,40 +1079,50 @@ store2d_point(
 	y = newy;
 	x = newx;
 
-	if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MAX) && yhigh > axis_array[R_AXIS].max) {
-	    cp->type = OUTRANGE;
-	}
-	if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MIN)) {
-	    /* we store internally as if plotting r(t)-rmin */
-	    yhigh -= axis_array[R_AXIS].min;
-	}
-	newx = yhigh * cos(xhigh * ang2rad);
-	newy = yhigh * sin(xhigh * ang2rad);
-	yhigh = newy;
-	xhigh = newx;
+	/* Some plot styles use xhigh and yhigh for other quantities, */
+	/* which polar mode transforms would break		      */
+	if (current_plot->plot_style == CIRCLES) {
+	    double radius = (xhigh - xlow)/2.0;
+	    xlow = x - radius;
+	    xhigh = x + radius;
 
-	if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MAX) && ylow > axis_array[R_AXIS].max) {
-	    cp->type = OUTRANGE;
+	} else {
+	    if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MAX) 
+	    &&  yhigh > axis_array[R_AXIS].max) {
+		cp->type = OUTRANGE;
+	    }
+	    if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MIN)) {
+		/* we store internally as if plotting r(t)-rmin */
+		yhigh -= axis_array[R_AXIS].min;
+	    }
+	    newx = yhigh * cos(xhigh * ang2rad);
+	    newy = yhigh * sin(xhigh * ang2rad);
+	    yhigh = newy;
+	    xhigh = newx;
+
+	    if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MAX) 
+	    &&  ylow > axis_array[R_AXIS].max) {
+		cp->type = OUTRANGE;
+	    }
+	    if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MIN)) {
+		/* we store internally as if plotting r(t)-rmin */
+		ylow -= axis_array[R_AXIS].min;
+	    }
+	    newx = ylow * cos(xlow * ang2rad);
+	    newy = ylow * sin(xlow * ang2rad);
+	    ylow = newy;
+	    xlow = newx;
 	}
-	if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MIN)) {
-	    /* we store internally as if plotting r(t)-rmin */
-	    ylow -= axis_array[R_AXIS].min;
-	}
-	newx = ylow * cos(xlow * ang2rad);
-	newy = ylow * sin(xlow * ang2rad);
-	ylow = newy;
-	xlow = newx;
     }
+
     /* return immediately if x or y are undefined
      * we dont care if outrange for high/low.
-     * BUT if high/low undefined (ie log( < 0 ), no number is stored,
-     * but graphics.c doesn't know.
-     * explicitly store -VERYLARGE;
+     * BUT if high/low undefined (ie log( < 0 ), no number is stored.
      */
     STORE_WITH_LOG_AND_UPDATE_RANGE(cp->x, x, cp->type, current_plot->x_axis,
-    			current_plot->noautoscale, NOOP, return);
+			current_plot->noautoscale, NOOP, return);
     STORE_WITH_LOG_AND_UPDATE_RANGE(cp->y, y, cp->type, current_plot->y_axis,
-    			current_plot->noautoscale, NOOP, return);
+			current_plot->noautoscale, NOOP, return);
 
     switch (current_plot->plot_style) {
     case POINTSTYLE:		/* Only x and y are relevant to axis scaling */
@@ -1050,30 +1142,57 @@ store2d_point(
     case BOXES:			/* auto-scale to xlow xhigh */
     case BOXPLOT:
 	cp->ylow = y;
-	cp->yhigh = yhigh;	/* really variable_color_data */
+	cp->yhigh = yhigh;	
 	STORE_WITH_LOG_AND_UPDATE_RANGE(cp->xlow, xlow, dummy_type, current_plot->x_axis, 
 					current_plot->noautoscale, NOOP, cp->xlow = -VERYLARGE);
 	STORE_WITH_LOG_AND_UPDATE_RANGE(cp->xhigh, xhigh, dummy_type, current_plot->x_axis,
 					current_plot->noautoscale, NOOP, cp->xhigh = -VERYLARGE);
 	break;
 #ifdef EAM_OBJECTS	
-	case CIRCLES:
-	cp->yhigh = yhigh;	/* really variable_color_data */
+    case CIRCLES:
+	cp->yhigh = yhigh;	
 	STORE_WITH_LOG_AND_UPDATE_RANGE(cp->xlow, xlow, dummy_type, current_plot->x_axis, 
 					current_plot->noautoscale, NOOP, cp->xlow = -VERYLARGE);
 	STORE_WITH_LOG_AND_UPDATE_RANGE(cp->xhigh, xhigh, dummy_type, current_plot->x_axis,
 					current_plot->noautoscale, NOOP, cp->xhigh = -VERYLARGE);	
-	/* The xlow and xhigh were calculated and passed to this function 
-	 * because they were needed to update the xrange.
-	 * xlow is needed because the radius of the circle is calculated from it.
-	 * However, xhigh is not needed anymore, so we hijack it
-	 * and use it to store the end angle. The start angle is passed in ylow. */
 	cp->ylow = ylow;	/* arc begin */
-	cp->xhigh = width;	/* arc end */
-	if (fabs(ylow) > 1000. || fabs(width) > 1000.)
+	cp->xhigh = yhigh;	/* arc end */
+	if (fabs(ylow) > 1000. || fabs(yhigh) > 1000.) /* safety check for insane arc angles */
 	    cp->type = UNDEFINED;
 	break;
+    case ELLIPSES:
+	/* We want to pass the parameters to the ellipse drawing routine as they are, 
+	 * so we have to calculate the extent of the ellipses for autoscaling here. 
+	 * Properly calculating the correct extent of a rotated ellipse, respecting 
+	 * axis scales and all would be very hard. 
+	 * So we just use the larger of the two axes, multiplied by some empirical factors 
+	 * to ensure^Whope that all parts of the ellipses will be in the auto-scaled area. */
+	/* xlow = major axis, xhigh = minor axis, ylow = orientation */
+#define YRANGE_FACTOR ((current_plot->ellipseaxes_units == ELLIPSEAXES_YY) ? 1.0 : 1.4)
+#define XRANGE_FACTOR ((current_plot->ellipseaxes_units == ELLIPSEAXES_XX) ? 1.1 : 1.0)
+	STORE_WITH_LOG_AND_UPDATE_RANGE(cp->xlow, x-0.5*GPMAX(xlow, xhigh)*XRANGE_FACTOR, 
+					dummy_type, current_plot->x_axis, 
+					current_plot->noautoscale, NOOP, 
+					cp->xlow = -VERYLARGE);
+	STORE_WITH_LOG_AND_UPDATE_RANGE(cp->xhigh, x+0.5*GPMAX(xlow, xhigh)*XRANGE_FACTOR, 
+					dummy_type, current_plot->x_axis, 
+					current_plot->noautoscale, NOOP, 
+					cp->xhigh = -VERYLARGE);
+	STORE_WITH_LOG_AND_UPDATE_RANGE(cp->ylow, y-0.5*GPMAX(xlow, xhigh)*YRANGE_FACTOR, 
+					dummy_type, current_plot->y_axis, 
+					current_plot->noautoscale, NOOP, 
+					cp->ylow = -VERYLARGE);
+	STORE_WITH_LOG_AND_UPDATE_RANGE(cp->yhigh, y+0.5*GPMAX(xlow, xhigh)*YRANGE_FACTOR, 
+					dummy_type, current_plot->y_axis, 
+					current_plot->noautoscale, NOOP, 
+					cp->yhigh = -VERYLARGE);
+	/* So after updating the axes we re-store the parameters */
+	cp->xlow = xlow;    /* major axis */
+	cp->xhigh = xhigh;  /* minor axis */
+	cp->ylow = ylow;    /* orientation */
+	break;	
 #endif
+
     default:			/* auto-scale to xlow xhigh ylow yhigh */
 	STORE_WITH_LOG_AND_UPDATE_RANGE(cp->xlow, xlow, dummy_type, current_plot->x_axis, 
 					current_plot->noautoscale, NOOP, cp->xlow = -VERYLARGE);
@@ -1095,20 +1214,12 @@ store2d_point(
 	cp->z = width;
 
     /* If we have variable color corresponding to a z-axis value, use it to autoscale */
-    /* For CIRCLES, BOXES and BOXPLOT, yhigh is used to pass variable color data 
-     * so we use that to autoscale the color axis. */
-    if (current_plot->lp_properties.pm3d_color.type == TC_Z) {
-        if ((current_plot->plot_style == BOXES)
-#ifdef EAM_OBJECTS
-         || (current_plot->plot_style == CIRCLES)
-#endif
-         || (current_plot->plot_style == BOXPLOT))
-            STORE_WITH_LOG_AND_UPDATE_RANGE(cp->yhigh, cp->yhigh, dummy_type, COLOR_AXIS, 
-                               current_plot->noautoscale, NOOP, NOOP);
-        else
-            STORE_WITH_LOG_AND_UPDATE_RANGE(cp->z, cp->z, dummy_type, COLOR_AXIS, 
-                               current_plot->noautoscale, NOOP, NOOP);
-    }
+    /* June 2010 - New mechanism for variable color */
+    if (current_plot->lp_properties.pm3d_color.type == TC_Z && current_plot->varcolor) {
+	STORE_WITH_LOG_AND_UPDATE_RANGE(current_plot->varcolor[i], current_plot->varcolor[i],
+				dummy_type, COLOR_AXIS, current_plot->noautoscale, NOOP, NOOP);
+    }    
+
 
 }                               /* store2d_point */
 
@@ -1143,7 +1254,7 @@ boxplot_range_fiddling(struct curve_points *plot)
 {
     double extra_width = plot->points[0].xhigh - plot->points[0].xlow;
     if (extra_width == 0)
-    	extra_width = (boxwidth > 0 && boxwidth_is_absolute) ? boxwidth : 0.5;
+	extra_width = (boxwidth > 0 && boxwidth_is_absolute) ? boxwidth : 0.5;
 
     /* FIXME:  This is a boxplot-specific kludge to remove any extra, undefined
      * points at the end of the point list.  A more general fix would be nice.
@@ -1300,8 +1411,29 @@ store_label(
     if (tl->textcolor.type == TC_Z)
 	tl->textcolor.value = colorval;
     /* Check for optional (textcolor rgb variable) */
-    else if (tl->textcolor.type == TC_RGB && tl->textcolor.value < 0)
+    else if (listhead->textcolor.type == TC_RGB && listhead->textcolor.value < 0)
 	tl->textcolor.lt = colorval;
+    /* Check for optional (textcolor variable) */
+    else if (listhead->textcolor.type == TC_VARIABLE) {
+	struct lp_style_type lptmp;
+	load_linetype(&lptmp, (int)colorval);
+	tl->textcolor = lptmp.pm3d_color;
+    }
+
+    /* Check for optional (point linecolor palette ...) */
+    if (tl->lp_properties.pm3d_color.type == TC_Z)
+	tl->lp_properties.pm3d_color.value = colorval;
+    /* Check for optional (point linecolor rgb variable) */
+    else if (listhead->lp_properties.pm3d_color.type == TC_RGB 
+	     && listhead->lp_properties.pm3d_color.value < 0)
+	tl->lp_properties.pm3d_color.lt = colorval;
+    /* Check for optional (point linecolor variable) */
+    else if (listhead->lp_properties.l_type == LT_COLORFROMCOLUMN) {
+	struct lp_style_type lptmp;
+	load_linetype(&lptmp, (int)colorval);
+	tl->lp_properties.pm3d_color = lptmp.pm3d_color;
+    }
+    
 
     /* Check for null string (no label) */
     if (!string)
@@ -1568,6 +1700,9 @@ eval_plots()
 	    TBOOLEAN set_with = FALSE, set_lpstyle = FALSE;
 	    TBOOLEAN set_fillstyle = FALSE;
 	    TBOOLEAN set_labelstyle = FALSE;
+#ifdef EAM_OBJECTS
+	    TBOOLEAN set_ellipseaxes_units = FALSE;
+#endif
 
 	    plot_num++;
 
@@ -1784,29 +1919,6 @@ eval_plots()
 		    continue;
 		}
 
-		/* Labels can have font and text property info as plot options */
-		/* In any case we must allocate one instance of the text style */
-		/* that all labels in the plot will share.                     */
-		if (this_plot->plot_style == LABELPOINTS) {
-		    int stored_token = c_token;
-
-		    if (this_plot->labels == NULL) {
-			this_plot->labels = new_text_label(-1);
-			this_plot->labels->pos = JUST_CENTRE;
-			this_plot->labels->layer = LAYER_PLOTLABELS;
-		    }
-		    parse_label_options(this_plot->labels);
-		    if (stored_token != c_token) {
-			if (set_labelstyle) {
-			    duplication = TRUE;
-			    break;
-			} else {
-			    set_labelstyle = TRUE;
-			    continue;
-			}
-		    }
-		}
-
 		/* pick up line/point specs and other style-specific keywords
 		 * - point spec allowed if style uses points, ie style&2 != 0
 		 * - keywords for lt and pt are optional
@@ -1841,6 +1953,62 @@ eval_plots()
 			    continue;
 			}
 		    }
+		}
+		
+#ifdef EAM_OBJECTS
+		/* pick up the special 'units' keyword the 'ellipses' style allows */
+		if (this_plot->plot_style == ELLIPSES) {
+		    int stored_token = c_token;
+		    
+		    if (!set_ellipseaxes_units)
+		        this_plot->ellipseaxes_units = default_ellipse.o.ellipse.type;
+		    if (almost_equals(c_token,"unit$s")) {
+			c_token++;
+		        if (equals(c_token,"xy")) {
+		            this_plot->ellipseaxes_units = ELLIPSEAXES_XY;
+		        } else if (equals(c_token,"xx")) {
+		            this_plot->ellipseaxes_units = ELLIPSEAXES_XX;
+		        } else if (equals(c_token,"yy")) {
+		            this_plot->ellipseaxes_units = ELLIPSEAXES_YY;
+		        } else {
+		            int_error(c_token, "expecting 'xy', 'xx' or 'yy'" );
+		        }
+		        c_token++;
+		    }
+		    if (stored_token != c_token) {
+			if (set_ellipseaxes_units) {
+			    duplication=TRUE;
+			    break;
+			} else {
+			    set_ellipseaxes_units = TRUE;
+			    continue;
+			}
+		    }
+		}		
+#endif
+
+		/* Labels can have font and text property info as plot options */
+		/* In any case we must allocate one instance of the text style */
+		/* that all labels in the plot will share.                     */
+		if (this_plot->plot_style == LABELPOINTS) {
+		    int stored_token = c_token;
+
+		    if (this_plot->labels == NULL) {
+			this_plot->labels = new_text_label(-1);
+			this_plot->labels->pos = JUST_CENTRE;
+			this_plot->labels->layer = LAYER_PLOTLABELS;
+		    }
+		    parse_label_options(this_plot->labels);
+		    if (stored_token != c_token) {
+			if (set_labelstyle) {
+			    duplication = TRUE;
+			    break;
+			} else {
+			    set_labelstyle = TRUE;
+			    continue;
+			}
+		    }
+
 		} else {
 		    int stored_token = c_token;
 		    struct lp_style_type lp = DEFAULT_LP_STYLE_TYPE;
@@ -1873,8 +2041,8 @@ eval_plots()
 
 		/* Some plots have a fill style as well */
 		if (this_plot->plot_style & PLOT_STYLE_HAS_FILL){
+		    int stored_token = c_token;
 		    if (equals(c_token,"fs") || almost_equals(c_token,"fill$style")) {
-			int stored_token = c_token;
 			parse_fillstyle(&this_plot->fill_properties,
 				default_fillstyle.fillstyle,
 				default_fillstyle.filldensity,
@@ -1884,9 +2052,14 @@ eval_plots()
 			&& this_plot->fill_properties.fillstyle == FS_EMPTY)
 			    this_plot->fill_properties.fillstyle = FS_SOLID;
 			set_fillstyle = TRUE;
-			if (stored_token != c_token)
-			    continue;
 		    }
+		    if (equals(c_token,"fc") || almost_equals(c_token,"fillc$olor")) {
+			parse_colorspec(&this_plot->lp_properties.pm3d_color,TC_Z);
+			this_plot->lp_properties.use_palette = TRUE;
+			set_lpstyle = TRUE;
+		    }
+		    if (stored_token != c_token)
+			continue;
 		}
 
 		break; /* unknown option */
@@ -1970,7 +2143,7 @@ eval_plots()
 
 	    if (df_matrix) {
 		if (!(this_plot->plot_style == IMAGE || this_plot->plot_style == RGBIMAGE
-	              || this_plot->plot_style == RGBA_IMAGE || this_plot->plot_style == LINES
+		      || this_plot->plot_style == RGBA_IMAGE || this_plot->plot_style == LINES
 		      || this_plot->plot_style == POINTSTYLE))
 		int_error(NO_CARET, "this 2D plot style cannot handle matrix data");
 
@@ -2006,6 +2179,29 @@ eval_plots()
 		    (x_axis == SECOND_X_AXIS) ? second_axes : first_axes;
 		this_plot->labels->place.scaley =
 		    (y_axis == SECOND_Y_AXIS) ? second_axes : first_axes;
+		
+		/* Needed for variable color - June 2010 */
+		this_plot->lp_properties.pm3d_color = this_plot->labels->textcolor;
+		if (this_plot->labels->textcolor.type == TC_VARIABLE)
+		    this_plot->lp_properties.l_type = LT_COLORFROMCOLUMN;
+
+		/* We want to trigger the variable color mechanism even if 
+		 * there was no 'textcolor variable/palette/rgb var' , 
+		 * but there was a 'point linecolor variable/palette/rgb var'. */
+		if (this_plot->labels->textcolor.type != TC_Z
+		&& this_plot->labels->textcolor.type != TC_VARIABLE
+		&& (this_plot->labels->textcolor.type != TC_RGB 
+		 || this_plot->labels->textcolor.value >= 0)) {
+		    if ((this_plot->labels->lp_properties.pm3d_color.type == TC_RGB)
+		    &&  (this_plot->labels->lp_properties.pm3d_color.value < 0)) {
+		        this_plot->lp_properties.pm3d_color = this_plot->labels->lp_properties.pm3d_color;
+		    }
+		    if (this_plot->labels->lp_properties.pm3d_color.type == TC_Z)
+		        this_plot->lp_properties.pm3d_color.type = TC_Z;
+		    if (this_plot->labels->lp_properties.l_type == LT_COLORFROMCOLUMN)
+		        this_plot->lp_properties.l_type = LT_COLORFROMCOLUMN;
+		}
+		 
 	    }
 
 	    /* Initialize histogram data structure */
@@ -2089,7 +2285,7 @@ eval_plots()
 	    if (!in_parametric
 		&& this_plot->plot_style != IMAGE
 		&& this_plot->plot_style != RGBIMAGE
-                && this_plot->plot_style != RGBA_IMAGE
+		&& this_plot->plot_style != RGBA_IMAGE
 		/* don't increment the default line/point properties if
 		 * this_plot is an image */
 	    ) {
@@ -2165,7 +2361,7 @@ eval_plots()
 		 * Compensate for extent of the image so `set autoscale fix`
 		 * uses outer edges of outer pixels in axes adjustment.
 		 */
-                if ((this_plot->plot_style == IMAGE
+		if ((this_plot->plot_style == IMAGE
 		    || this_plot->plot_style == RGBIMAGE
 		    || this_plot->plot_style == RGBA_IMAGE)) {
 		    this_plot->image_properties.type = IC_PALETTE;
@@ -2397,7 +2593,10 @@ eval_plots()
 			    /* If non-para, it must be INRANGE */
 			    /* logscale ? log(x) : x */
 			    this_plot->points[i].x = t;
-			    if (boxwidth >= 0 && boxwidth_is_absolute) {
+
+			    /* For boxes [only] check use of boxwidth */
+			    if ((this_plot->plot_style == BOXES)
+			    &&  (boxwidth >= 0 && boxwidth_is_absolute)) {
 				double xlow, xhigh;
 				int dmy_type = INRANGE;
 				this_plot->points[i].z = 0;
@@ -2415,6 +2614,18 @@ eval_plots()
 				STORE_WITH_LOG_AND_UPDATE_RANGE( this_plot->points[i].xhigh, xhigh, dmy_type, x_axis,
 								    this_plot->noautoscale, NOOP, NOOP );
 			    }
+			    /* Fill in additional fields needed to draw a circle */
+#ifdef EAM_OBJECTS
+			    if (this_plot->plot_style == CIRCLES) {
+				this_plot->points[i].z = DEFAULT_RADIUS;
+				this_plot->points[i].ylow = 0;
+				this_plot->points[i].xhigh = 360;
+			    } else if (this_plot->plot_style == ELLIPSES) {
+				this_plot->points[i].z = DEFAULT_RADIUS;
+				this_plot->points[i].ylow = default_ellipse.o.ellipse.orientation;
+			    }
+#endif	
+
 			    STORE_WITH_LOG_AND_UPDATE_RANGE(this_plot->points[i].y, temp, this_plot->points[i].type, in_parametric ? x_axis : y_axis,
 			    				    this_plot->noautoscale, NOOP, goto come_here_if_undefined);
 
@@ -2542,15 +2753,12 @@ eval_plots()
 	fill_gpval_string("GPVAL_LAST_PLOT", replot_line);
     }
 
-    if (table_mode)
+    if (table_mode) {
 	print_table(first_plot, plot_num);
-    else {
-	START_LEAK_CHECK();     /* check for memory leaks in this routine */
 
+    } else {
 	/* do_plot now uses axis_array[] */
 	do_plot(first_plot, plot_num);
-
-	END_LEAK_CHECK();
 
 	/* after do_plot(), axis_array[].min and .max
 	 * contain the plotting range actually used (rounded
@@ -2558,8 +2766,6 @@ eval_plots()
 	 *  --> save them now for writeback if requested
 	 */
 	SAVE_WRITEBACK_ALL_AXES;
-	/* update GPVAL_ variables available to user */
-	update_gpval_variables(1);
 
 #ifdef VOLATILE_REFRESH
 	/* Mark these plots as safe for quick refresh */
@@ -2567,6 +2773,9 @@ eval_plots()
 	refresh_ok = 2;
 #endif
     }
+
+    /* update GPVAL_ variables available to user */
+    update_gpval_variables(1);
 
 }                               /* eval_plots */
 
@@ -2585,9 +2794,7 @@ parametric_fixup(struct curve_points *start_plot, int *plot_num)
 {
     struct curve_points *xp, *new_list = NULL, *free_list = NULL;
     struct curve_points **last_pointer = &new_list;
-    size_t tlen;
     int i, curve;
-    char *new_title;
 
     /*
      * Ok, go through all the plots and move FUNC types together.  Note: this

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: util3d.c,v 1.39 2010/03/23 05:40:23 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: util3d.c,v 1.42 2010/09/27 19:15:58 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - util3d.c */
@@ -955,11 +955,9 @@ draw3d_point_unconditional(p_vertex v, struct lp_style_type *lp)
     unsigned int x, y;
 
     TERMCOORD(v, x, y);
+    /* Jul 2010 EAM - is it safe to overwrite like this? Make a copy instead? */
+    lp->pm3d_color.value = v->real_z;
     term_apply_lp_properties(lp);
-    /* HBB 20010822: implemented "linetype palette" for points, too */
-    if (lp->use_palette) {
-	set_color(cb2gray( z2cb(v->real_z) ));
-    }
     if (!clip_point(x, y))
 	(term->point) (x, y, lp->p_type);
 }
@@ -994,7 +992,15 @@ draw3d_line_unconditional(
 	    ls.pm3d_color.value = (v1->real_z + v2->real_z) * 0.5;
 
     term_apply_lp_properties(&ls);
-    draw_clip_line(x1,y1,x2,y2);
+
+    /* Support for hidden3d VECTOR mode with arrowheads */
+    if (lp->p_type == PT_ARROWHEAD)
+	draw_clip_arrow(x1,y1,x2,y2,END_HEAD);
+    else if (lp->p_type == PT_BACKARROW)
+	draw_clip_arrow(x1,y1,x2,y2,BACKHEAD);
+    else
+
+	draw_clip_line(x1,y1,x2,y2);
 }
 
 void
@@ -1076,4 +1082,15 @@ polyline3d_next(p_vertex v2, struct lp_style_type *lp)
     TERMCOORD(v2, x2, y2);
     draw_clip_line(x1,y1,x2,y2);
     polyline3d_previous_vertex = *v2;
+}
+
+/*
+ * Dummy up an x-axis scale so that we can share the 2D arrowhead routine.
+ */
+void
+apply_3dhead_properties(struct arrow_style_type *arrow_properties)
+{
+    X_AXIS.term_scale = (plot_bounds.xright - plot_bounds.xleft)
+			/ (X_AXIS.max - X_AXIS.min);
+    apply_head_properties(arrow_properties);
 }

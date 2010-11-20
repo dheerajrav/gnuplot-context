@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: misc.c,v 1.118 2010/05/02 21:56:26 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: misc.c,v 1.123 2010/09/09 04:08:19 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - misc.c */
@@ -737,13 +737,19 @@ filledcurves_options_tofile(filledcurves_opts *fco, FILE *fp)
 TBOOLEAN
 need_fill_border(struct fill_style_type *fillstyle)
 {
-    /* Doesn't want a border at all */
-    if (fillstyle->border_color.type == TC_LT && fillstyle->border_color.lt == LT_NODRAW)
-	return FALSE;
+    struct lp_style_type p;
+    p.pm3d_color = fillstyle->border_color;
+
+    if (p.pm3d_color.type == TC_LT) {
+	/* Doesn't want a border at all */
+	if (p.pm3d_color.lt == LT_NODRAW)
+	    return FALSE;
+	load_linetype(&p, p.pm3d_color.lt+1);
+    }
 
     /* Wants a border in a new color */
-    if (fillstyle->border_color.type != TC_DEFAULT)
-	apply_pm3dcolor(&fillstyle->border_color,term);
+    if (p.pm3d_color.type != TC_DEFAULT)
+	apply_pm3dcolor(&p.pm3d_color,term);
     
     return TRUE;
 }
@@ -792,8 +798,7 @@ lp_parse(struct lp_style_type *lp, TBOOLEAN allow_ls, TBOOLEAN allow_point)
 		    parse_colorspec(&(newlp.pm3d_color), TC_Z);
 		    newlp.use_palette = 1;
 		} else if (equals(c_token,"bgnd")) {
-		    lp->l_type = LT_BACKGROUND;
-		    lp->use_palette = 0;
+		    *lp = background_lp;
 		    c_token++;
 		} else {
 		    /* These replace the base style */
@@ -864,9 +869,8 @@ lp_parse(struct lp_style_type *lp, TBOOLEAN allow_ls, TBOOLEAN allow_point)
 	    if (equals(c_token,"bgnd")) {
 		if (set_lt++)
 		    break;;
-		lp->l_type = LT_BACKGROUND;
-		lp->use_palette = 0;
 		c_token++;
+		*lp = background_lp;
 		continue;
 	    }
 
@@ -1029,7 +1033,7 @@ parse_fillstyle(struct fill_style_type *fs, int def_style, int def_density, int 
  * Parse the sub-options of text color specification
  *   { def$ault | lt <linetype> | pal$ette { cb <val> | frac$tion <val> | z }
  * The ordering of alternatives shown in the line above is kept in the symbol definitions
- * TC_DEFAULT TC_LT TC_RGB TC_CB TC_FRAC TC_Z  (0 1 2 3 4 5)
+ * TC_DEFAULT TC_LT TC_LINESTYLE TC_RGB TC_CB TC_FRAC TC_Z TC_VARIABLE (0 1 2 3 4 5 6 7)
  * and the "options" parameter to parse_colorspec limits legal input to the
  * corresponding point in the series. So TC_LT allows only default or linetype
  * coloring, while TC_Z allows all coloring options up to and including pal z
@@ -1116,6 +1120,9 @@ parse_colorspec(struct t_colorspec *tc, int options)
 	    if (options >= TC_Z)
 		tc->type = TC_Z;
 	}
+    } else if (options >= TC_VARIABLE && almost_equals(c_token,"var$iable")) {
+	tc->type = TC_VARIABLE;
+	c_token++;
     } else {
 	int_error(c_token, "colorspec option not recognized");
     }

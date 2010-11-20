@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: hidden3d.c,v 1.72 2010/05/16 21:29:34 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: hidden3d.c,v 1.75 2010/09/27 19:15:58 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - hidden3d.c */
@@ -549,18 +549,20 @@ make_edge(
     p_vertex v1 = vlist + vnum1;
     p_vertex v2 = vlist + vnum2;
 
+    thisedge->style = style;
+    thisedge->lp = lp;
+    thisedge->next = next;
+
     /* ensure z ordering inside each edge */
     if (v1->z >= v2->z) {
 	thisedge->v1 = vnum1;
 	thisedge->v2 = vnum2;
+	if (lp->p_type == PT_ARROWHEAD) thisedge->style = PT_ARROWHEAD;
     } else {
 	thisedge->v1 = vnum2;
 	thisedge->v2 = vnum1;
+	if (lp->p_type == PT_ARROWHEAD) thisedge->style = PT_BACKARROW;
     }
-
-    thisedge->style = style;
-    thisedge->lp = lp;
-    thisedge->next = next;
 
     return thisedge - elist;
 }
@@ -619,7 +621,7 @@ store_edge(
     if (drawbits &&		/* no bits set: 'blind' edge --> no test! */
 	! (hiddenTriangleLinesdrawnPattern & drawbits)
 	)
-	style = -3;
+	style = LT_NODRAW;
 
     return make_edge(vnum1, vnum2, lp, style, -1);
 }
@@ -936,13 +938,13 @@ color_edges(
 	switch (casenumber) {
 	case 0:
 	    /* both backfacing */
-	    if (elist[new_edge].style >= -2)
+	    if (elist[new_edge].style != LT_NODRAW)
 		elist[new_edge].style	= below;
-	    if (elist[old_edge].style >= -2)
+	    if (elist[old_edge].style != LT_NODRAW)
 		elist[old_edge].style = below;
 	    break;
 	case 2:
-	    if (elist[new_edge].style >= -2)
+	    if (elist[new_edge].style != LT_NODRAW)
 		elist[new_edge].style = below;
 	    /* FALLTHROUGH */
 	case 1:
@@ -950,7 +952,7 @@ color_edges(
 	    /* new back-, old one frontfacing */
 	    if (((new_edge == old_edge)
 		 && hiddenHandleBentoverQuadrangles) /* a diagonal edge! */
-		|| (elist[old_edge].style >= -2)) {
+		|| (elist[old_edge].style != LT_NODRAW)) {
 		/* conflict has occured: two polygons meet here, with opposige
 		 * sides being shown. What's to do?
 		 * 1) find a vertex of one polygon outside this common
@@ -1035,7 +1037,8 @@ build_networks(struct surface_points *plots, int pcount)
     long int *north_edges;	/* stores edges of polyline above */
     long int *these_edges;	/* same, being built for use by next turn */
     struct iso_curve *icrvs;
-    int above = -3, below;	/* line type for edges of front/back side*/
+    int above = LT_NODRAW;	/* line type for edges of front side*/
+    int below = LT_NODRAW;	/* line type for edges of back side*/
     struct lp_style_type *lp;	/* pointer to line and point properties */
 
     /* Count out the initial sizes needed for the polygon and vertex
@@ -1166,6 +1169,11 @@ build_networks(struct surface_points *plots, int pcount)
 	/* Assumes that upstream functions have made sure this is
 	 * initialized sensibly --- thou hast been warned */
 	lp_style = &(this_plot->lp_properties);
+
+	if (this_plot->plot_style == VECTOR) {
+	    apply_3dhead_properties(&(this_plot->arrow_properties));
+	    lp->p_type = PT_ARROWHEAD;
+	}
 
 	/* HBB 20000715: new initialization code block for non-grid
 	 * structured datasets. Sufficiently different from the rest
@@ -1657,6 +1665,11 @@ draw_edge(p_edge e, p_vertex v1, p_vertex v2)
     if (lptemp.l_type == LT_COLORFROMCOLUMN) {
 	recolor = TRUE;
 	load_linetype(&lptemp, (int)v1->real_z);
+    } else
+
+    /* This handles style VECTORS */
+    if (lptemp.p_type == PT_ARROWHEAD || lptemp.p_type == PT_BACKARROW) {
+	lptemp.p_type = e->style;
     } else
 
     /* This is the default style: color top and bottom in successive colors */
@@ -2175,7 +2188,7 @@ plot3d_hidden(struct surface_points *plots, int pcount)
 	temporary_pfirst = pfirst;
 
 	while (efirst >=0) {
-	    if (elist[efirst].style >= -2) /* skip invisible edges */
+	    if (elist[efirst].style != LT_NODRAW) /* skip invisible edges */
 		in_front(efirst, elist[efirst].v1, elist[efirst].v2,
 			 &temporary_pfirst);
 	    efirst = elist[efirst].next;

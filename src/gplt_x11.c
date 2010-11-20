@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: gplt_x11.c,v 1.198 2010/03/10 00:16:50 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: gplt_x11.c,v 1.200 2010/08/15 00:00:59 sfeam Exp $"); }
 #endif
 
 #define X11_POLYLINE 1
@@ -210,11 +210,6 @@ typedef struct axis_scale_t {
 #  define EXIT(status) exit(status)
 # endif	/* PIPE_IPC */
 #endif /* !VMS */
-
-#ifdef OSK
-# define EINTR	E_ILLFNC
-#endif
-
 
 #define Ncolors 13
 
@@ -668,10 +663,6 @@ main(int argc, char *argv[])
     int getfl;
 #endif
 
-#ifdef OSK
-    /* malloc large blocks, otherwise problems with fragmented mem */
-    _mallocmin(102400);
-#endif
 #ifdef __EMX__
     /* close open file handles */
     fcloseall();
@@ -5556,8 +5547,10 @@ char *fontname;
     char *orgfontname = NULL;
 #endif
 
-    if (!fontname || !(*fontname))
+    if (!fontname || !(*fontname)) {
 	fontname = default_font;
+	*previous_font_name = '\0';
+    }
 
     if (!fontname || !(*fontname)) {
 	if ((fontname = pr_GetR(db, ".font")))
@@ -5607,6 +5600,7 @@ char *fontname;
 	if (!strncmp(fontname, "DEFAULT", 7)) {
 	    sscanf(&fontname[8], "%d", &fontsize);
 	    fontname = default_font;
+	    *previous_font_name = '\0';
 #ifdef USE_X11_MULTIBYTE
 	    backfont = 1;
 #endif

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: tables.c,v 1.99 2010/05/02 23:47:03 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: tables.c,v 1.102 2010/08/08 03:46:41 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - tables.c */
@@ -389,6 +389,8 @@ const struct gen_table set_key_tbl[] =
     { "maxcol$s", S_KEY_MAXCOLS},
     { "maxcolu$mns", S_KEY_MAXCOLS},
     { "maxrow$s", S_KEY_MAXROWS},
+    { "opaque", S_KEY_FRONT},
+    { "noopaque", S_KEY_NOFRONT},
     { NULL, S_KEY_INVALID }
 };
 
@@ -624,6 +626,8 @@ const struct gen_table show_style_tbl[] =
     { "ar$row", SHOW_STYLE_ARROW },
     { "incr$ement", SHOW_STYLE_INCREMENT },
     { "hist$ogram", SHOW_STYLE_HISTOGRAM },
+    { "circ$le", SHOW_STYLE_CIRCLE },
+    { "ell$ipse", SHOW_STYLE_ELLIPSE },
     { "rect$angle", SHOW_STYLE_RECTANGLE },
     { "boxplot", SHOW_STYLE_BOXPLOT },
     { NULL, SHOW_STYLE_INVALID }
@@ -664,6 +668,7 @@ const struct gen_table plotstyle_tbl[] =
     { "rgba$lpha", RGBA_IMAGE },
 #ifdef EAM_OBJECTS
     { "cir$cles", CIRCLES },
+    { "ell$ipses", ELLIPSES },
 #endif
     { NULL, -1 }
 };

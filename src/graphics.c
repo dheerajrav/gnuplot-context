@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: graphics.c,v 1.327 2010/05/02 23:47:03 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: graphics.c,v 1.343 2010/09/27 19:15:58 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - graphics.c */
@@ -159,13 +159,15 @@ static void map_position_double __PROTO((struct position* pos, double* x, double
 
 static int find_maxl_keys __PROTO((struct curve_points *plots, int count, int *kcnt));
 
+static void do_key_layout __PROTO((legend_key *key, TBOOLEAN key_pass, int *xl, int *yl));
 static void do_key_sample __PROTO((struct curve_points *this_plot, legend_key *key,
 				   char *title,  struct termentry *t, int xl, int yl));
 
-static TBOOLEAN check_for_variable_color __PROTO((struct curve_points *plot, struct coordinate *point));
+static TBOOLEAN check_for_variable_color __PROTO((struct curve_points *plot, double *colorvalue));
 
 #ifdef EAM_OBJECTS
 static void plot_circles __PROTO((struct curve_points *plot));
+static void plot_ellipses __PROTO((struct curve_points *plot));
 static void do_rectangle __PROTO((int dimensions, t_object *this_object, int style));
 #endif
 
@@ -449,7 +451,7 @@ boundary(struct curve_points *plots, int count)
 	    top_margin += (int) t->v_char;
 
 	plot_bounds.ytop -= top_margin;
-	if (plot_bounds.ytop >= (ysize + yoffset) * (t->ymax-1)) {
+	if (plot_bounds.ytop == (int)(0.5 + (ysize + yoffset) * (t->ymax-1))) {
 	    /* make room for the end of rotated ytics or y2tics */
 	    plot_bounds.ytop -= (int) (t->h_char * 2);
 	}
@@ -839,6 +841,11 @@ boundary(struct curve_points *plots, int count)
     if (axis_array[FIRST_X_AXIS].ticdef.def.user) {
 	struct ticmark *tic = axis_array[FIRST_X_AXIS].ticdef.def.user;
 	int maxrightlabel = plot_bounds.xright;
+
+	/* We don't really know the plot layout yet, but try for an estimate */
+	AXIS_SETSCALE(FIRST_X_AXIS, plot_bounds.xleft, plot_bounds.xright);
+	axis_set_graphical_range(FIRST_X_AXIS, plot_bounds.xleft, plot_bounds.xright);
+
 	while (tic) {
 	    if (tic->label) {
 		double xx;
@@ -846,20 +853,21 @@ boundary(struct curve_points *plots, int count)
 			   * cos(DEG2RAD * (double)(axis_array[FIRST_X_AXIS].tic_rotate))
 			   * term->h_char;
 
-		/* We don't really know the plot layout yet, but try for an estimate */
-		AXIS_SETSCALE(FIRST_X_AXIS, plot_bounds.xleft, plot_bounds.xright);
-		axis_set_graphical_range(FIRST_X_AXIS, plot_bounds.xleft, plot_bounds.xright);
-		xx = axis_log_value_checked(FIRST_X_AXIS, tic->position, "xtic");
-	        xx = AXIS_MAP(FIRST_X_AXIS, xx);
-		xx += (axis_array[FIRST_X_AXIS].tic_rotate) ? length : length /2;
-		if (maxrightlabel < xx)
-		    maxrightlabel = xx;
+		if (inrange(tic->position, 
+		    axis_array[FIRST_X_AXIS].set_min, 
+		    axis_array[FIRST_X_AXIS].set_max)) {
+			xx = axis_log_value_checked(FIRST_X_AXIS, tic->position, "xtic");
+		        xx = AXIS_MAP(FIRST_X_AXIS, xx);
+			xx += (axis_array[FIRST_X_AXIS].tic_rotate) ? length : length /2;
+			if (maxrightlabel < xx)
+			    maxrightlabel = xx;
+		}
 	    }
 	    tic = tic->next;
 	}
 	xtic_textwidth = maxrightlabel - plot_bounds.xright;
-	if (xtic_textwidth > term->xmax/2) {
-	    xtic_textwidth = term->xmax/2;
+	if (xtic_textwidth > term->xmax/4) {
+	    xtic_textwidth = term->xmax/4;
 	    int_warn(NO_CARET, "difficulty making room for xtic labels");
 	}
     }
@@ -1259,21 +1267,17 @@ apply_head_properties(struct arrow_style_type *arrow_properties)
     curr_arrow_headlength = 0;
     if (arrow_properties->head_length > 0) {
 	/* set head length+angle for term->arrow */
-	int itmp, x1, x2;
-	struct position headsize = {0,0,0,0.,0.,0.};
+	double xtmp, ytmp;
+	struct position headsize = {first_axes,graph,graph,0.,0.,0.};
 
 	headsize.x = arrow_properties->head_length;
 	headsize.scalex = arrow_properties->head_lengthunit;
 
-	headsize.y = 1.0; /* any value, just avoid log y */
-	map_position(&headsize, &x2, &itmp, "arrow");
-
-	headsize.x = 0; /* measure length from zero */
-	map_position(&headsize, &x1, &itmp, "arrow");
+	map_position_r(&headsize, &xtmp, &ytmp, "arrow");
 
 	curr_arrow_headangle = arrow_properties->head_angle;
 	curr_arrow_headbackangle = arrow_properties->head_backangle;
-	curr_arrow_headlength = x2 - x1;
+	curr_arrow_headlength = xtmp;
     }
 }
 
@@ -1467,15 +1471,15 @@ place_objects(struct object *listhead, int layer, int dimensions, BoundingBox *c
 	    term_apply_lp_properties(&lpstyle);
 
 	    if (dimensions == 2)
-		do_ellipse(2, &this_object->o.ellipse, style);
+		do_ellipse(2, &this_object->o.ellipse, style, TRUE);
 	    else if (splot_map)
-		do_ellipse(3, &this_object->o.ellipse, style);
+		do_ellipse(3, &this_object->o.ellipse, style, TRUE);
 	    else
 		break;
 
 	    /* Retrace the border if the style requests it */
 	    if (need_fill_border(fillstyle))
-		do_ellipse(dimensions, &this_object->o.ellipse, 0);
+		do_ellipse(dimensions, &this_object->o.ellipse, 0, TRUE);
 
 	    break;
 	}
@@ -1548,6 +1552,7 @@ do_plot(struct curve_points *plots, int pcount)
     struct curve_points *this_plot = NULL;
     int xl = 0, yl = 0;
     int key_count = 0;
+    TBOOLEAN key_pass = FALSE;
     legend_key *key = &keyT;
 
     x_axis = FIRST_X_AXIS;
@@ -1771,59 +1776,15 @@ do_plot(struct curve_points *plots, int pcount)
     if (term->layer)
 	(term->layer)(TERM_LAYER_FRONTTEXT);
 
-    /* WORK OUT KEY SETTINGS AND DO KEY TITLE / BOX */
-    if (lkey) {			/* may have been cancelled if something went wrong */
-	/* just use key->bounds.xleft etc worked out in boundary() */
-	xl = key->bounds.xleft + key_size_left;
-	yl = key->bounds.ytop;
-
-	if (*key->title) {
-	    int center = (key->bounds.xleft + key->bounds.xright) / 2;
-	    double extra_height = 0.0;
-
-	    if (key->textcolor.type == TC_RGB && key->textcolor.value < 0)
-		apply_pm3dcolor(&(key->box.pm3d_color), t);
-	    else
-		apply_pm3dcolor(&(key->textcolor), t);
-	    if ((t->flags & TERM_ENHANCED_TEXT) && strchr(key->title,'^'))
-		extra_height += 0.51;
-	    write_multiline(center, yl - (0.5 + extra_height/2.0) * t->v_char,
-			    key->title, CENTRE, JUST_TOP, 0, key->font);
-	    if ((t->flags & TERM_ENHANCED_TEXT) && strchr(key->title,'_'))
-		extra_height += 0.3;
-	    ktitl_lines += extra_height;
-	    key->bounds.ybot -= extra_height * t->v_char;
-	    yl -= t->v_char * ktitl_lines;
-	    (*t->linetype)(LT_BLACK);
-	}
-
-	yl -= (int)(0.5 * key->height_fix * t->v_char);
-	yl_ref = yl -= key_entry_height / 2;	/* centralise the keys */
-	key_count = 0;
-
-	if (key->box.l_type > LT_NODRAW) {
-	    BoundingBox *clip_save = clip_area;
-	    if (term->flags & TERM_CAN_CLIP)
-		clip_area = NULL;
-	    else
-		clip_area = &canvas;
-	    term_apply_lp_properties(&key->box);
-	    newpath();
-	    draw_clip_line(key->bounds.xleft, key->bounds.ybot, key->bounds.xleft, key->bounds.ytop);
-	    draw_clip_line(key->bounds.xleft, key->bounds.ytop, key->bounds.xright, key->bounds.ytop);
-	    draw_clip_line(key->bounds.xright, key->bounds.ytop, key->bounds.xright, key->bounds.ybot);
-	    draw_clip_line(key->bounds.xright, key->bounds.ybot, key->bounds.xleft, key->bounds.ybot);
-	    closepath();
-	    /* draw a horizontal line between key title and first entry */
-	    draw_clip_line(key->bounds.xleft, key->bounds.ytop - (ktitl_lines) * t->v_char,
-			   key->bounds.xright, key->bounds.ytop - (ktitl_lines) * t->v_char);
-	    clip_area = clip_save;
-	}
-    } /* lkey */
+    /* Draw the key, or at least reserve space for it (pass 1) */
+    if (lkey)
+	do_key_layout( key, key_pass, &xl, &yl );
+    SECOND_KEY_PASS:
 
     /* DRAW CURVES */
     this_plot = plots;
     for (curve = 0; curve < pcount; this_plot = this_plot->next, curve++) {
+
 	TBOOLEAN localkey = lkey;	/* a local copy */
 
 	/* Sync point for start of new curve (used by svg, post, ...) */
@@ -1858,7 +1819,7 @@ do_plot(struct curve_points *plots, int pcount)
 	&&  histogram_opts.type == HT_STACKED_IN_TOWERS) {
 	    text_label *key_entry;
 	    localkey = 0;
-	    if (this_plot->labels) {
+	    if (this_plot->labels && (key_pass || !key->front)) {
 		struct lp_style_type save_lp = this_plot->lp_properties;
 		for (key_entry = this_plot->labels->next; key_entry; key_entry = key_entry->next) {
 		    key_count++;
@@ -1882,7 +1843,7 @@ do_plot(struct curve_points *plots, int pcount)
 	    localkey = FALSE;
 	} else if (this_plot->plot_type == NODATA) {
 	    localkey = FALSE;
-	} else {
+	} else if (key_pass || !key->front) {
 	    ignore_enhanced(this_plot->title_no_enhanced);
 		/* don't write filename or function enhanced */
 	    if (localkey && this_plot->title && !this_plot->title_is_suppressed) {
@@ -1896,13 +1857,13 @@ do_plot(struct curve_points *plots, int pcount)
 
 	/* If any plots have opted out of autoscaling, we need to recheck */
 	/* whether their points are INRANGE or not.                       */
-	if (this_plot->noautoscale)
+	if (this_plot->noautoscale  &&  !key_pass)
 	    recheck_ranges(this_plot);
 
 	/* and now the curves, plus any special key requirements */
 	/* be sure to draw all lines before drawing any points */
 	/* Skip missing/empty curves */
-	if (this_plot->plot_type != NODATA) {
+	if (this_plot->plot_type != NODATA  &&  !key_pass) {
 
 	    switch (this_plot->plot_style) {
 	    case IMPULSES:
@@ -1928,10 +1889,6 @@ do_plot(struct curve_points *plots, int pcount)
 		plot_points(this_plot);
 		break;
 	    case DOTS:
-		if (localkey && this_plot->title && !this_plot->title_is_suppressed) {
-		    if (on_page(xl + key_point_offset, yl))
-			(*t->point) (xl + key_point_offset, yl, -1);
-		}
 		plot_dots(this_plot);
 		break;
 	    case YERRORLINES:
@@ -2028,29 +1985,42 @@ do_plot(struct curve_points *plots, int pcount)
 	    case CIRCLES:
 		plot_circles(this_plot);
 		break;
+		
+	    case ELLIPSES:
+		plot_ellipses(this_plot);
+		break;
+		
 #endif
 	    }
 	}
 
 
 	if (localkey && this_plot->title && !this_plot->title_is_suppressed) {
+	    /* If there are two passes, defer point sample till the second */
+	    if (key->front && !key_pass) {
+		; /* Do nothing during first pass */
+
 	    /* we deferred point sample until now */
-	    if (this_plot->plot_style == LINESPOINTS
-	    &&  this_plot->lp_properties.p_interval < 0) {
+	    } else if (this_plot->plot_style == LINESPOINTS
+	         &&  this_plot->lp_properties.p_interval < 0) {
 		(*t->linetype)(LT_BACKGROUND);
 		(*t->point)(xl + key_point_offset, yl, 6);
 		term_apply_lp_properties(&this_plot->lp_properties);
-	    }
-	    if (this_plot->plot_style == BOXPLOT)
-		;	/* Don't draw a sample point in the key */
-	    else
 
-	    if (this_plot->plot_style & PLOT_STYLE_HAS_POINT) {
+	    } else if (this_plot->plot_style == BOXPLOT) {
+		;	/* Don't draw a sample point in the key */
+
+	    } else if (this_plot->plot_style == DOTS) {
+		if (on_page(xl + key_point_offset, yl))
+		    (*t->point) (xl + key_point_offset, yl, -1);
+
+	    } else if (this_plot->plot_style & PLOT_STYLE_HAS_POINT) {
 		if (this_plot->lp_properties.p_size == PTSZ_VARIABLE)
 		    (*t->pointsize)(pointsize);
 		if (on_page(xl + key_point_offset, yl))
 		    (*t->point) (xl + key_point_offset, yl, this_plot->lp_properties.p_type);
 	    }
+
 	    if (key->invert)
 		yl = key->bounds.ybot + yl_ref + key_entry_height/2 - yl;
 	    if (key_count >= key_rows) {
@@ -2065,6 +2035,13 @@ do_plot(struct curve_points *plots, int pcount)
 	if (term->layer)
 	    (term->layer)(TERM_LAYER_AFTER_PLOT);
 
+    }
+
+    /* Go back and draw the legend in a separate pass if necessary */
+    if (lkey && key->front && !key_pass) {
+	key_pass = TRUE;
+	do_key_layout( key, key_pass, &xl, &yl );
+	goto SECOND_KEY_PASS;
     }
 
     /* DRAW TICS AND GRID */
@@ -2156,7 +2133,7 @@ plot_impulses(struct curve_points *plot, int yaxis_x, int xaxis_y)
 	}
 
 	/* variable color read from data column */
-	check_for_variable_color(plot, &plot->points[i]);
+	check_for_variable_color(plot, &plot->varcolor[i]);
 
 	if (polar)
 	    (*t->move) (yaxis_x, xaxis_y);
@@ -2183,7 +2160,7 @@ plot_lines(struct curve_points *plot)
     for (i = 0; i < plot->p_count; i++) {
 
 	/* rgb variable  -  color read from data column */
-	check_for_variable_color(plot, &plot->points[i]);
+	check_for_variable_color(plot, &plot->varcolor[i]);
 
 	switch (plot->points[i].type) {
 	case INRANGE:{
@@ -2756,6 +2733,7 @@ struct curve_points *plot)
 	    xu1 = x1;
 	    xu2 = x2;
 	}
+	dx = x2 - x1;
 
     /* Clip against y-axis range */
 	axis = plot->y_axis;
@@ -3321,8 +3299,20 @@ plot_bars(struct curve_points *plot)
 		    continue;
 	    }
 
+	    /* Check for variable color - June 2010 */
+	    if ((plot->plot_style != HISTOGRAMS)
+		&& (plot->plot_style != FILLEDCURVES)
+		) {
+		check_for_variable_color(plot, &plot->varcolor[i]);
+	    }
+	    
+	    /* Error bars should be drawn in the border color for filled boxes
+	     * but only if there *is* a border color. */
+	    if ((plot->plot_style == BOXERROR) && t->fillbox)
+		(void) need_fill_border(&plot->fill_properties);
+
 	    /* by here everything has been mapped */
-	    if (!polar) {
+	    if (!polar) {		
 		/* HBB 981130: use Igor's routine *only* for polar errorbars */
 		(*t->move) (xM, ylowM);
 		/* draw the main bar */
@@ -3440,7 +3430,10 @@ plot_bars(struct curve_points *plot)
 	    if (!high_inrange && !low_inrange && xlowM == xhighM)
 		/* both out of range on the same side */
 		continue;
-
+		
+	    /* Check for variable color - June 2010 */
+	    check_for_variable_color(plot, &plot->varcolor[i]);
+	    
 	    /* by here everything has been mapped */
 	    (*t->move) (xlowM, yM);
 	    (*t->vector) (xhighM, yM);	/* draw the main bar */
@@ -3640,8 +3633,9 @@ plot_boxes(struct curve_points *plot, int xaxis_y)
 			yb = map_y(dyb);
 
 		/* Variable color */
-		if (plot->plot_style == BOXES) {
-		    check_for_variable_color(plot, &plot->points[i]);
+		if (plot->plot_style == BOXES || plot->plot_style == BOXXYERROR
+		    || plot->plot_style == BOXERROR) {
+		    check_for_variable_color(plot, &plot->varcolor[i]);
 		}
 
 		if ((plot->fill_properties.fillstyle != FS_EMPTY) && t->fillbox) {
@@ -3739,7 +3733,7 @@ plot_points(struct curve_points *plot)
 		}
 
 		/* rgb variable  -  color read from data column */
-		check_for_variable_color(plot, &plot->points[i]);
+		check_for_variable_color(plot, &plot->varcolor[i]);
 
 		(*t->point) (x, y, plot->lp_properties.p_type);
 	    }
@@ -3770,12 +3764,16 @@ plot_circles(struct curve_points *plot)
 	    x = map_x(plot->points[i].x);
 	    y = map_y(plot->points[i].y);
 	    radius = x - map_x(plot->points[i].xlow);
+	    if (plot->points[i].z == DEFAULT_RADIUS) {
+		double junk;
+		map_position_r( &default_circle.o.circle.extent, &radius, &junk, "radius");
+	    }
 
 	    arc_begin = plot->points[i].ylow;
 	    arc_end = plot->points[i].xhigh;
 	    
 	    /* rgb variable  -  color read from data column */
-	    if (!check_for_variable_color(plot, &plot->points[i]) && withborder)
+	    if (!check_for_variable_color(plot, &plot->varcolor[i]) && withborder)
 		term_apply_lp_properties(&plot->lp_properties);
 	    do_arc(x,y, radius, arc_begin, arc_end, style);
 	    if (withborder) {
@@ -3784,6 +3782,88 @@ plot_circles(struct curve_points *plot)
 	    }
 	}
     }
+}
+
+/* plot_ellipses:
+ * Plot the curves in ELLIPSES style
+ */
+static void
+plot_ellipses(struct curve_points *plot)
+{
+    int i;
+    t_ellipse *e = (t_ellipse *) gp_alloc(sizeof(t_ellipse), "ellipse plot");
+    double tempx, tempy, tempfoo;
+    struct fill_style_type *fillstyle = &plot->fill_properties;
+    int style = style_from_fill(fillstyle);
+    TBOOLEAN withborder = FALSE;
+
+    if (fillstyle->border_color.type != TC_LT
+    ||  fillstyle->border_color.lt != LT_NODRAW)
+	withborder = TRUE;
+	
+    e->extent.scalex = (plot->x_axis == SECOND_X_AXIS) ? second_axes : first_axes;
+    e->extent.scaley = (plot->y_axis == SECOND_Y_AXIS) ? second_axes : first_axes;
+    e->type = plot->ellipseaxes_units; 
+	
+    for (i = 0; i < plot->p_count; i++) {
+	if (plot->points[i].type == INRANGE) {
+	    e->center.x = map_x(plot->points[i].x);
+	    e->center.y = map_y(plot->points[i].y);
+	   	    
+	    e->extent.x = plot->points[i].xlow; /* major axis */
+	    e->extent.y = plot->points[i].xhigh; /* minor axis */
+	    /* the mapping can be set by the 
+	     * "set ellipseaxes" setting
+	     * both x units, mixed, both y units */
+	    /* clumsy solution */
+	    switch (e->type) {
+	    case ELLIPSEAXES_XY:
+	        map_position_r(&e->extent, &tempx, &tempy, "ellipse");
+	        e->extent.x = tempx;
+	        e->extent.y = tempy;        
+	        break;
+	    case ELLIPSEAXES_XX:
+	        map_position_r(&e->extent, &tempx, &tempy, "ellipse");
+	        tempfoo = tempx;
+	        e->extent.x = e->extent.y;
+	        map_position_r(&e->extent, &tempy, &tempx, "ellipse");
+	        e->extent.x = tempfoo;
+	        e->extent.y = tempy;
+	        break;
+	    case ELLIPSEAXES_YY:
+	        map_position_r(&e->extent, &tempx, &tempy, "ellipse");
+	        tempfoo = tempy;
+	        e->extent.y = e->extent.x;
+	        map_position_r(&e->extent, &tempy, &tempx, "ellipse");
+	        e->extent.x = tempx;
+	        e->extent.y = tempfoo;
+	        break;
+	    }
+	    
+	    if (plot->points[i].z <= DEFAULT_RADIUS) {
+	        /*memcpy(&(e->extent), &default_ellipse.o.ellipse.extent, sizeof(t_position));*/
+	        /*e->extent.x = default_ellipse.o.ellipse.extent.x;
+	        e->extent.y = default_ellipse.o.ellipse.extent.y;*/
+	        map_position_r(&default_ellipse.o.ellipse.extent, &e->extent.x, &e->extent.y, "ellipse");
+	    }
+	    
+	    if (plot->points[i].z == DEFAULT_ELLIPSE) 
+	        e->orientation = default_ellipse.o.ellipse.orientation;
+	    else
+	        e->orientation = plot->points[i].ylow;
+
+	    /* rgb variable  -  color read from data column */
+	    if (!check_for_variable_color(plot, &plot->varcolor[i]) && withborder)
+		term_apply_lp_properties(&plot->lp_properties);
+	    do_ellipse(2, e, style, FALSE);
+	    if (withborder) {
+		need_fill_border(&plot->fill_properties);
+		do_ellipse(2, e, 0, FALSE);
+	    }
+	}
+    }
+    free(e);
+    /* free(willy); */
 }
 #endif
 
@@ -3802,7 +3882,7 @@ plot_dots(struct curve_points *plot)
 	    x = map_x(plot->points[i].x);
 	    y = map_y(plot->points[i].y);
 	    /* rgb variable  -  color read from data column */
-	    check_for_variable_color(plot, &plot->points[i]);
+	    check_for_variable_color(plot, &plot->varcolor[i]);
 	    /* point type -1 is a dot */
 	    (*t->point) (x, y, -1);
 	}
@@ -3835,10 +3915,8 @@ plot_vectors(struct curve_points *plot)
 	points[1].x = plot->points[i].xhigh;
 	points[1].y = plot->points[i].yhigh;
 
-	/* variable color read from extra data column. Most styles */
-	/* have this stored in yhigh, but VECTOR stuffed it into z */
-	points[0].yhigh = points[0].z;
-	check_for_variable_color(plot, &points[0]);
+	/* variable color read from extra data column. */
+	check_for_variable_color(plot, &plot->varcolor[i]);
 
 	if (inrange(points[1].x, X_AXIS.min, X_AXIS.max)
 	    && inrange(points[1].y, Y_AXIS.min, Y_AXIS.max)) {
@@ -3950,6 +4028,9 @@ plot_f_bars(struct curve_points *plot)
 	if (!high_inrange && !low_inrange && ylowM == yhighM)
 	    /* both out of range on the same side */
 	    continue;
+	    
+	/* variable color read from extra data column. June 2010 */
+	check_for_variable_color(plot, &plot->varcolor[i]);
 
 	/* by here everything has been mapped */
 	(*t->move) (xM, ylowM);
@@ -4118,6 +4199,9 @@ plot_c_bars(struct curve_points *plot)
 		if (plot->lp_properties.use_palette)
 		    apply_pm3dcolor(&plot->lp_properties.pm3d_color,t);
 	}
+
+	/* variable color read from extra data column. June 2010 */
+	check_for_variable_color(plot, &plot->varcolor[i]);
 	
 	/* Boxes are always filled if an explicit non-empty fillstyle is set. */
 	/* If the fillstyle is FS_EMPTY, fill to indicate (open > close).     */
@@ -4320,7 +4404,7 @@ plot_boxplot(struct curve_points *plot)
     /* Now draw individual points for the outliers */
     if (boxplot_opts.outliers) {
 	int i,j,x,y;
-	p_width = pointsize * term->h_tic;
+	p_width = plot->lp_properties.p_size * term->h_tic;
 
 	for (i = 0; i < plot->p_count; i++) {
 
@@ -4420,13 +4504,12 @@ edge_intersect(
 	if (inrange(X_AXIS.max, ix, ox)) {
 	    *ex = X_AXIS.max;
 	    return RIGHT_EDGE;
-	} else if (inrange(X_AXIS.min, ix, ox)) {
-	    *ex = X_AXIS.min;
-	    return LEFT_EDGE;
-	} else {
-	    graph_error("error in edge_intersect");
-	    return 0;
 	}
+	*ex = X_AXIS.min;
+	if (!inrange(X_AXIS.min, ix, ox))
+	    int_warn(NO_CARET,"error in edge_intersect");
+	return LEFT_EDGE;
+
     } else if (ix == ox) {
 	/* vertical line */
 	/* assume inrange(ix, X_AXIS.min, X_AXIS.max) */
@@ -4435,13 +4518,11 @@ edge_intersect(
 	if (inrange(Y_AXIS.max, iy, oy)) {
 	    *ey = Y_AXIS.max;
 	    return TOP_EDGE;
-	} else if (inrange(Y_AXIS.min, iy, oy)) {
-	    *ey = Y_AXIS.min;
-	    return BOTTOM_EDGE;
-	} else {
-	    graph_error("error in edge_intersect");
-	    return 0;
 	}
+	*ey = Y_AXIS.min;
+	if (!inrange(Y_AXIS.min, iy, oy))
+	    int_warn(NO_CARET,"error in edge_intersect");
+	return BOTTOM_EDGE;
     }
     /* slanted line of some kind */
 
@@ -5518,7 +5599,7 @@ do_key_sample(
     else
 	clip_area = &canvas;
 
-    if (key->textcolor.type == TC_RGB && key->textcolor.value < 0)
+    if (key->textcolor.type == TC_VARIABLE)
 	/* Draw key text in same color as plot */
 	;
     else if (key->textcolor.type != TC_DEFAULT)
@@ -5559,6 +5640,17 @@ do_key_sample(
 #ifdef EAM_OBJECTS
 	if (this_plot->plot_style == CIRCLES && w > 0) {
 	    do_arc(xl + key_point_offset, yl, key_entry_height/4, 0., 360., style);
+	} else if (this_plot->plot_style == ELLIPSES && w > 0) {
+	    t_ellipse *key_ellipse = (t_ellipse *) gp_alloc(sizeof(t_ellipse), 
+	        "cute little ellipse for the key sample");
+	    key_ellipse->center.x = xl + key_point_offset;
+	    key_ellipse->center.y = yl;
+	    key_ellipse->extent.x = w * 2/3;
+	    key_ellipse->extent.y = h;
+	    key_ellipse->orientation = 0.0;
+	    /* already in term coords, no need to map */
+	    do_ellipse(2, key_ellipse, style, FALSE);
+	    free(key_ellipse);
 	} else
 #endif
 	if (w > 0) {    /* All other plot types with fill */
@@ -5738,44 +5830,96 @@ do_rectangle( int dimensions, t_object *this_object, int style )
 }
 
 void
-do_ellipse( int dimensions, t_ellipse *e, int style )
+do_ellipse( int dimensions, t_ellipse *e, int style, TBOOLEAN do_own_mapping )
 {
     gpiPoint vertex[120];
     int i;
     double angle;
     double cx, cy;
     double xoff, yoff;
+    double junkfoo;
     int junkw, junkh;
     double cosO = cos(DEG2RAD * e->orientation);
     double sinO = sin(DEG2RAD * e->orientation);
     double A = e->extent.x / 2.0;	/* Major axis radius */
     double B = e->extent.y / 2.0;	/* Minor axis radius */
     struct position pos = e->extent;	/* working copy with axis info attached */
+    double aspect = (double)term->v_tic / (double)term->h_tic;
 
     /* Choose how many segments to draw for this ellipse */
     int segments = 72;
     double ang_inc  =  M_PI / 36.;
 
     /* Find the center of the ellipse */
-    if (dimensions == 2)
-	map_position_double(&e->center, &cx, &cy, "ellipse");
+    /* If this ellipse is part of a plot - as opposed to an object -
+     * then the caller plot_ellipses function already did the mapping for us.
+     * Else we do it here. The 'ellipses' plot style is 2D only, but objects 
+     * can apparently be placed on splot maps too, so we do 3D mapping if needed. */
+	if (!do_own_mapping) {
+	    cx = e->center.x;
+	    cy = e->center.y;
+	}
+	else if (dimensions == 2)
+	    map_position_double(&e->center, &cx, &cy, "ellipse");
     else
-	map3d_position_double(&e->center, &cx, &cy, "ellipse");
+	    map3d_position_double(&e->center, &cx, &cy, "ellipse");
 
     /* Calculate the vertices */
     vertex[0].style = style;
     for (i=0, angle = 0.0; i<=segments; i++, angle += ang_inc) {
-	pos.x = A * cosO * cos(angle) - B * sinO * sin(angle);
-	pos.y = A * sinO * cos(angle) + B * cosO * sin(angle);
-	if (dimensions == 2)
-	    map_position_r(&pos, &xoff, &yoff, "ellipse");
-	else {
-	    map3d_position_r(&pos, &junkw, &junkh, "ellipse");
-	    xoff = junkw;
-	    yoff = junkh;
-	}
-	vertex[i].x = cx + xoff;
-	vertex[i].y = cy + yoff;
+        /* Given that the (co)sines of same sequence of angles 
+         * are calculated every time - shouldn't they be precomputed
+         * and put into a table? */
+	    pos.x = A * cosO * cos(angle) - B * sinO * sin(angle);
+	    pos.y = A * sinO * cos(angle) + B * cosO * sin(angle);
+	    if (!do_own_mapping) {
+	        xoff = pos.x;
+	        yoff = pos.y;
+	    }
+	    else if (dimensions == 2)
+	    switch (e->type) {
+	    case ELLIPSEAXES_XY:
+	        map_position_r(&pos, &xoff, &yoff, "ellipse");
+		    break;
+	    case ELLIPSEAXES_XX:
+	        map_position_r(&pos, &xoff, &junkfoo, "ellipse");
+	        pos.x = pos.y;
+		    map_position_r(&pos, &yoff, &junkfoo, "ellipse");
+	        break;
+	    case ELLIPSEAXES_YY:
+	        map_position_r(&pos, &junkfoo, &yoff, "ellipse");
+	        pos.y = pos.x;
+		    map_position_r(&pos, &junkfoo, &xoff, "ellipse");
+		    break;
+		}	        
+	    else {
+	    switch (e->type) {
+	    case ELLIPSEAXES_XY:
+	        map3d_position_r(&pos, &junkw, &junkh, "ellipse");
+	        xoff = junkw;
+	        yoff = junkh;
+		    break;
+	    case ELLIPSEAXES_XX:
+	        map3d_position_r(&pos, &junkw, &junkh, "ellipse");
+	        xoff = junkw;
+	        pos.x = pos.y;
+		    map3d_position_r(&pos, &junkh, &junkw, "ellipse");
+		    yoff = junkh;
+	        break;
+	    case ELLIPSEAXES_YY:
+	        map3d_position_r(&pos, &junkw, &junkh, "ellipse");
+	        yoff = junkh;
+	        pos.y = pos.x;
+		    map3d_position_r(&pos, &junkh, &junkw, "ellipse");
+		    xoff = junkw;
+		    break;
+		}	      
+	    }
+	    vertex[i].x = cx + xoff;
+	    if (!do_own_mapping) 
+	        vertex[i].y = cy + yoff * aspect;
+	    else
+	        vertex[i].y = cy + yoff;
     }
 
     if (style) {
@@ -5858,18 +6002,21 @@ do_polygon( int dimensions, t_polygon *p, int style )
 #endif
 
 static TBOOLEAN
-check_for_variable_color(struct curve_points *plot, struct coordinate *point)
+check_for_variable_color(struct curve_points *plot, double *colorvalue)
 {
+    if (!plot->varcolor)
+	return FALSE;
+
     if ((plot->lp_properties.pm3d_color.value < 0.0)
     &&  (plot->lp_properties.pm3d_color.type == TC_RGB)) {
-	set_rgbcolor(point->yhigh);
+	set_rgbcolor(*colorvalue);
 	return TRUE;
     } else if (plot->lp_properties.pm3d_color.type == TC_Z) {
-	set_color( cb2gray(point->yhigh) );
+	set_color( cb2gray(*colorvalue) );
 	return TRUE;
     } else if (plot->lp_properties.l_type == LT_COLORFROMCOLUMN) {
 	lp_style_type lptmp;
-	lp_use_properties(&lptmp, (int)(point->yhigh));
+	lp_use_properties(&lptmp, (int)(*colorvalue));
 	apply_pm3dcolor(&(lptmp.pm3d_color), term);
 	return TRUE;
     } else
@@ -6458,4 +6605,75 @@ skip_pixel:
     }
     }
 
+}
+
+/* Graph legend is now optionally done in two passes. The first pass calculates	*/
+/* and reserves the necessary space.  Next the individual plots in the graph 	*/
+/* are drawn. Then the reserved space for the legend is blanked out, and 	*/
+/* finally the second pass through this code draws the legend.			*/
+static void
+do_key_layout(legend_key *key, TBOOLEAN key_pass, int *xinkey, int *yinkey)
+{
+    struct termentry *t = term;
+    int xl = key->bounds.xleft + key_size_left;
+    int yl = key->bounds.ytop;
+
+    /* In two-pass mode, we blank out the key area after the graph	*/
+    /* is drawn and then redo the key in the blank area.		*/
+    if (key_pass && t->fillbox) {
+	(*t->linetype)(LT_BACKGROUND);
+	(*t->fillbox)(FS_OPAQUE, key->bounds.xleft, key->bounds.ybot,
+				key->bounds.xright - key->bounds.xleft,
+				key->bounds.ytop - key->bounds.ybot);
+    }
+
+    if (*key->title) {
+	int center = (key->bounds.xleft + key->bounds.xright) / 2;
+	double extra_height = 0.0;
+
+	if ((t->flags & TERM_ENHANCED_TEXT) && strchr(key->title,'^'))
+	    extra_height += 0.51;
+
+	/* Only draw the title once */
+	if (key_pass || !key->front) {
+	    if (key->textcolor.type == TC_RGB && key->textcolor.value < 0)
+		apply_pm3dcolor(&(key->box.pm3d_color), t);
+	    else
+		apply_pm3dcolor(&(key->textcolor), t);
+	    write_multiline(center, yl - (0.5 + extra_height/2.0) * t->v_char,
+			key->title, CENTRE, JUST_TOP, 0, key->font);
+	    (*t->linetype)(LT_BLACK);
+	}
+
+	if ((t->flags & TERM_ENHANCED_TEXT) && strchr(key->title,'_'))
+	    extra_height += 0.3;
+	ktitl_lines += extra_height;
+	key->bounds.ybot -= extra_height * t->v_char;
+	yl -= t->v_char * ktitl_lines;
+    }
+
+    yl -= (int)(0.5 * key->height_fix * t->v_char);
+    yl_ref = yl -= key_entry_height / 2;	/* centralise the keys */
+
+    if (key->box.l_type > LT_NODRAW) {
+	BoundingBox *clip_save = clip_area;
+	if (term->flags & TERM_CAN_CLIP)
+	    clip_area = NULL;
+	else
+	    clip_area = &canvas;
+	term_apply_lp_properties(&key->box);
+	newpath();
+	draw_clip_line(key->bounds.xleft, key->bounds.ybot, key->bounds.xleft, key->bounds.ytop);
+	draw_clip_line(key->bounds.xleft, key->bounds.ytop, key->bounds.xright, key->bounds.ytop);
+	draw_clip_line(key->bounds.xright, key->bounds.ytop, key->bounds.xright, key->bounds.ybot);
+	draw_clip_line(key->bounds.xright, key->bounds.ybot, key->bounds.xleft, key->bounds.ybot);
+	closepath();
+	/* draw a horizontal line between key title and first entry */
+	draw_clip_line( key->bounds.xleft, key->bounds.ytop - (ktitl_lines) * t->v_char,
+			key->bounds.xright, key->bounds.ytop - (ktitl_lines) * t->v_char);
+	clip_area = clip_save;
+    }
+
+    *xinkey = xl;
+    *yinkey = yl;
 }

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: set.c,v 1.314 2010/05/02 23:47:03 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: set.c,v 1.323 2010/09/16 05:56:49 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - set.c */
@@ -1877,7 +1877,10 @@ set_key()
 	case S_KEY_TEXTCOLOR:
 	    {
 	    struct t_colorspec lcolor = DEFAULT_COLORSPEC;
-	    parse_colorspec(&lcolor, TC_FRAC);
+	    parse_colorspec(&lcolor, TC_VARIABLE);
+	    /* Only for backwards compatibility */
+	    if (lcolor.type == TC_RGB && lcolor.value == -1.0)
+		lcolor.type = TC_VARIABLE;
 	    key->textcolor = lcolor;
 	    }
 	    c_token--;
@@ -1901,6 +1904,13 @@ set_key()
 	    if (key->maxrows < 0)
 		key->maxrows = 0;
 	    c_token--; /* it is incremented after loop */
+	    break;
+
+	case S_KEY_FRONT:
+	    key->front = TRUE;
+	    break;
+	case S_KEY_NOFRONT:
+	    key->front = FALSE;
 	    break;
 
 	case S_KEY_MANUAL:
@@ -2196,9 +2206,9 @@ set_logscale()
 
 	if (!END_OF_COMMAND) {
 	    newbase = fabs(real_expression());
-	    if (newbase < 1.1)
+	    if (newbase <= 1.0)
 		int_error(c_token,
-			  "log base must be >= 1.1; logscale unchanged");
+			  "log base must be > 1.0; logscale unchanged");
 	}
 
 	for (axis = 0; axis < AXIS_ARRAY_SIZE; axis++)
@@ -3401,8 +3411,8 @@ set_object()
 
     /* The next token must either be a tag or the object type */
     c_token++;
-    if (almost_equals(c_token, "rect$angle") || equals(c_token, "ellipse") 
-    ||  equals(c_token, "circle") || almost_equals(c_token, "poly$gon"))
+    if (almost_equals(c_token, "rect$angle") || almost_equals(c_token, "ell$ipse") 
+    ||  almost_equals(c_token, "circ$le") || almost_equals(c_token, "poly$gon"))
 	tag = -1; /* We'll figure out what it really is later */
     else {
 	tag = int_expression();
@@ -3413,10 +3423,10 @@ set_object()
     if (almost_equals(c_token, "rect$angle")) {
 	set_obj(tag, OBJ_RECTANGLE);
 
-    } else if (equals(c_token, "ellipse")) {
+    } else if (almost_equals(c_token, "ell$ipse")) {
 	set_obj(tag, OBJ_ELLIPSE);
 
-    } else if (equals(c_token, "circle")) {
+    } else if (almost_equals(c_token, "circ$le")) {
 	set_obj(tag, OBJ_CIRCLE);
 
     } else if (almost_equals(c_token, "poly$gon")) {
@@ -3629,10 +3639,25 @@ set_obj(int tag, int obj_type)
 		    get_position(&this_ellipse->extent);
 		    continue;
 	
-		} else if (equals(c_token,"angle")) {
+		} else if (almost_equals(c_token,"ang$le")) {
 		    c_token++;
 		    this_ellipse->orientation = real_expression();
 		    continue;
+
+		} else if (almost_equals(c_token,"unit$s")) {
+		    c_token++;
+		    if (equals(c_token,"xy") || END_OF_COMMAND) {
+	                this_ellipse->type = ELLIPSEAXES_XY;
+	            } else if (equals(c_token,"xx")) {
+	                this_ellipse->type = ELLIPSEAXES_XX;
+	            } else if (equals(c_token,"yy")) {
+	                this_ellipse->type = ELLIPSEAXES_YY;
+	            } else {
+	                int_error(c_token, "expecting 'xy', 'xx' or 'yy'" );
+	            }
+	            c_token++; 
+		    continue;
+		
 		}
 		break;
 
@@ -3892,6 +3917,42 @@ set_style()
 	c_token++;
 	set_obj(-2, OBJ_RECTANGLE);
 	break;
+    case SHOW_STYLE_CIRCLE:
+	c_token++;
+	if (almost_equals(c_token++,"r$adius")) {
+	    get_position(&default_circle.o.circle.extent);
+	}
+	break;
+    case SHOW_STYLE_ELLIPSE:
+        c_token++;
+	while (!END_OF_COMMAND) {
+	    if (equals(c_token,"size")) {
+	        c_token++;    
+	        get_position(&default_ellipse.o.ellipse.extent);
+	        c_token--;
+	    } else if (almost_equals(c_token,"ang$le")) {
+	        c_token++;
+	        if (isanumber(c_token) || type_udv(c_token) == INTGR || type_udv(c_token) == CMPLX) {
+	            default_ellipse.o.ellipse.orientation = real_expression();
+	            c_token--;
+	        }
+	    } else if (almost_equals(c_token,"unit$s")) {
+	        c_token++;
+	        if (equals(c_token,"xy") || END_OF_COMMAND) {
+	            default_ellipse.o.ellipse.type = ELLIPSEAXES_XY;
+	        } else if (equals(c_token,"xx")) {
+	            default_ellipse.o.ellipse.type = ELLIPSEAXES_XX;
+	        } else if (equals(c_token,"yy")) {
+	            default_ellipse.o.ellipse.type = ELLIPSEAXES_YY;
+	        } else {
+	            int_error(c_token, "expecting 'xy', 'xx' or 'yy'" );
+	        }
+	    } else 
+	        int_error(c_token, "expecting 'units {xy|xx|yy}', 'angle <number>' or 'size <position>'" );
+	    
+	    c_token++;
+	}
+	break;
 #endif
     case SHOW_STYLE_HISTOGRAM:
 	parse_histogramstyle(&histogram_opts,HT_CLUSTERED,histogram_opts.gap);
@@ -3909,7 +3970,7 @@ set_style()
 	break;
     default:
 	int_error(c_token,
-		  "expecting 'data', 'function', 'line', 'fill', 'rectangle', or 'arrow'" );
+		  "expecting 'data', 'function', 'line', 'fill', 'rectangle', 'circle', 'ellipse' or 'arrow'" );
     }
 }
 
@@ -4441,8 +4502,8 @@ set_view()
 	}
     }
 
-    if (local_vals[0] < 0 || local_vals[0] > 180)
-	int_error(c_token, errmsg1, 'x', 180);
+    if (local_vals[0] < 0 || local_vals[0] > 360)
+	int_error(c_token, errmsg1, 'x', 360);
     if (local_vals[1] < 0 || local_vals[1] > 360)
 	int_error(c_token, errmsg1, 'z', 360);
     if (local_vals[2] < 1e-6)
@@ -4454,7 +4515,7 @@ set_view()
     surface_rot_z = local_vals[1];
     surface_scale = local_vals[2];
     surface_zscale = local_vals[3];
-
+    surface_lscale = log(surface_scale);
 }
 
 
@@ -5417,7 +5478,7 @@ parse_label_options( struct text_label *this_label )
 
 	if ((equals(c_token,"tc") || almost_equals(c_token,"text$color"))
 	    && ! set_textcolor ) {
-	    parse_colorspec( &textcolor, TC_Z );
+	    parse_colorspec( &textcolor, TC_VARIABLE );
 	    set_textcolor = TRUE;
 	    continue;
 	}

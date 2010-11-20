@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: command.c,v 1.193 2010/03/14 18:01:46 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: command.c,v 1.200 2010/09/27 02:09:25 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - command.c */
@@ -94,7 +94,7 @@ static char *RCSid() { return RCSid("$Id: command.c,v 1.193 2010/03/14 18:01:46 
 
 #define PROMPT "gnuplot> "
 
-#if (defined(MSDOS) || defined(DOS386)) && defined(__TURBOC__) && !defined(_Windows)
+#if defined(MSDOS) && defined(__TURBOC__) && !defined(_Windows)
 unsigned _stklen = 16394;        /* increase stack size */
 #endif /* MSDOS && TURBOC */
 
@@ -458,14 +458,13 @@ void
 restore_prompt()
 {
     if (interactive) {
-#if defined(HAVE_LIBREADLINE)
+#if defined(HAVE_LIBREADLINE) || defined(HAVE_LIBEDITLINE)
+#  if !defined(MISSING_RL_FORCED_UPDATE_DISPLAY)
 	rl_forced_update_display();
-#else
-#if defined(HAVE_LIBEDITLINE)
-	/* FIXME: editline does not support forced update,
-	          so this is probably not enough */
+#  else
 	rl_redisplay();
-#endif
+#  endif
+#else
 	fputs(PROMPT, stderr);
 	fflush(stderr);
 #endif
@@ -1719,6 +1718,7 @@ test_time_subcommand()
     char *string = NULL;
     struct tm tm;
     double secs;
+    double usec;
 
     /* given a format and a time string, exercise the time code */
 
@@ -1727,7 +1727,7 @@ test_time_subcommand()
 	if (isstring(++c_token)) {
 	    m_quote_capture(&string, c_token, c_token);
 	    memset(&tm, 0, sizeof(tm));
-	    gstrptime(string, format, &tm);
+	    gstrptime(string, format, &tm, &usec);
 	    secs = gtimegm(&tm);
 	    fprintf(stderr, "internal = %f - %d/%d/%d::%d:%d:%d , wday=%d, yday=%d\n",
 		    secs, tm.tm_mday, tm.tm_mon + 1, tm.tm_year % 100,
@@ -1821,7 +1821,7 @@ invalid_command()
 static int
 changedir(char *path)
 {
-#if defined(MSDOS) || defined(WIN16) || defined(DOS386)
+#if defined(MSDOS)
 # if defined(__ZTC__)
     unsigned dummy;		/* it's a parameter needed for dos_setdrive */
 # endif
@@ -1910,6 +1910,7 @@ replotrequest()
 	free(replot_args);
     }
     plot_token = 0;		/* whole line to be saved as replot line */
+    refresh_ok = 0;		/* start of replot will destory existing data */
 
     screen_ok = FALSE;
     num_tokens = scanner(&gp_input_line, &gp_input_line_len);
@@ -2195,7 +2196,7 @@ help_command()
 	/* if can't find environment variable then just use HELPFILE */
 
 /* patch by David J. Liu for getting GNUHELP from home directory */
-#  if (defined(__TURBOC__) && (defined(MSDOS) || defined(DOS386))) || defined(__DJGPP__)
+#  if (defined(__TURBOC__) && defined(MSDOS)) || defined(__DJGPP__)
 	help_ptr = HelpFile;
 #  else			/* __TURBOC__ */
 	help_ptr = HELPFILE;
@@ -2388,9 +2389,11 @@ rlgets(char *s, size_t n, const char *prompt)
 #if defined(HAVE_LIBREADLINE)
 		HIST_ENTRY *removed = remove_history(where_history());
 		/* according to history docs we are supposed to free the stuff */
-		if (removed->line) free(removed->line);
-		if (removed->data) free(removed->data);
-		free(removed);
+		if (removed) {
+		    free(removed->line);
+		    free(removed->data);
+		    free(removed);
+		}
 #else
 		remove_history(where_history());
 #endif /* !HAVE_LIBREADLINE */
@@ -2414,7 +2417,7 @@ rlgets(char *s, size_t n, const char *prompt)
 # endif				/* READLINE || HAVE_LIBREADLINE */
 
 
-# if defined(MSDOS) || defined(_Windows) || defined(DOS386)
+# if defined(MSDOS) || defined(_Windows)
 void
 do_shell()
 {
@@ -2475,7 +2478,7 @@ do_shell()
 /* read from stdin, everything except VMS */
 
 # if !defined(READLINE) && !defined(HAVE_LIBREADLINE) && !defined(HAVE_LIBEDITLINE)
-#  if (defined(MSDOS) || defined(DOS386)) && !defined(_Windows) && !defined(__EMX__) && !defined(DJGPP)
+#  if defined(MSDOS) && !defined(_Windows) && !defined(__EMX__) && !defined(DJGPP)
 
 /* if interactive use console IO so CED will work */
 
