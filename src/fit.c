@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: fit.c,v 1.72 2010/07/30 19:11:40 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: fit.c,v 1.74 2010/12/06 22:28:27 sfeam Exp $"); }
 #endif
 
 /*  NOTICE: Change of Copyright Status
@@ -129,6 +129,7 @@ char fitbuf[256];
 /* log-file for fit command */
 char *fitlogfile = NULL;
 TBOOLEAN fit_errorvariables = FALSE;
+TBOOLEAN fit_quiet = FALSE;
 
 /* private variables: */
 
@@ -391,7 +392,8 @@ marquardt(double a[], double **C, double *chisq, double *lambda)
     }
     if (tmp_chisq < *chisq) {	/* Success, accept new solution */
 	if (*lambda > MIN_LAMBDA) {
-	    (void) putc('/', stderr);
+	    if (!fit_quiet)
+	        (void) putc('/', stderr);
 	    *lambda /= lambda_down_factor;
 	}
 	*chisq = tmp_chisq;
@@ -403,7 +405,8 @@ marquardt(double a[], double **C, double *chisq, double *lambda)
 	    a[j] = temp_a[j];
 	return BETTER;
     } else {			/* failure, increase lambda and return */
-	(void) putc('*', stderr);
+        if (!fit_quiet)
+	    (void) putc('*', stderr);
 	*lambda *= lambda_up_factor;
 	return WORSE;
     }
@@ -598,7 +601,8 @@ regress(double a[])
 	Eex("FIT: error occurred during fit");
     res = BETTER;
 
-    show_fit(iter, chisq, chisq, a, lambda, STANDARD);
+    if (!fit_quiet)
+        show_fit(iter, chisq, chisq, a, lambda, STANDARD);
     show_fit(iter, chisq, chisq, a, lambda, log_f);
 
     /* Reset flag describing fit result status */
@@ -634,6 +638,7 @@ regress(double a[])
 	}
 #endif
 
+
 	if (ctrlc_flag) {
 	    show_fit(iter, chisq, last_chisq, a, lambda, STANDARD);
 	    ctrlc_flag = FALSE;
@@ -645,7 +650,8 @@ regress(double a[])
 	    last_chisq = chisq;
 	}
 	if ((res = marquardt(a, C, &chisq, &lambda)) == BETTER)
-	    show_fit(iter, chisq, last_chisq, a, lambda, STANDARD);
+	    if (!fit_quiet)
+	        show_fit(iter, chisq, last_chisq, a, lambda, STANDARD);
     } while ((res != ML_ERROR)
 	     && (lambda < MAX_LAMBDA)
 	     && ((maxiter == 0) || (iter <= maxiter))
@@ -1233,6 +1239,7 @@ fit_command()
     time_t timer;
     int token1, token2, token3;
     char *tmp, *file_name;
+    AXIS saved_axis;
 
     c_token++;
 
@@ -1263,11 +1270,11 @@ fit_command()
       if (num_ranges > 5)
 	int_error(c_token, "only 6 range specs are permitted");
       i=var_order[num_ranges];
-      /* Store the Z axis dummy variable and range (if any) in the
-       * axis for the next independent variable.  Save the current
-       * values in an otherwise unused axis, so they can be restored
-       * later if there are fewer than 5 independent variables. */
-      axis_array[SECOND_Z_AXIS] = axis_array[i]; /* copy entire structure */
+      /* Store the Z axis dummy variable and range (if any) in the axis
+       * for the next independent variable.  Save the current values to be
+       * restored later if there are fewer than 5 independent variables.
+       */
+      saved_axis = axis_array[i];
       dummy_token[6] = dummy_token[i];
 
       dummy_token[num_ranges] = -1;
@@ -1361,7 +1368,7 @@ fit_command()
 	Z_AXIS.max = axis_array[i].max;
       
       /* restore former values */
-      axis_array[i] = axis_array[SECOND_Z_AXIS]; /* copy entire structure */
+      axis_array[i] = saved_axis;
       dummy_token[num_ranges-1] = dummy_token[6];
     }
 
@@ -1729,17 +1736,20 @@ Dblfn(const char *fmt, va_dcl)
 
     VA_START(args, fmt);
 # if defined(HAVE_VFPRINTF) || _LIBC
-    vfprintf(STANDARD, fmt, args);
+    if (!fit_quiet)
+        vfprintf(STANDARD, fmt, args);
     va_end(args);
     VA_START(args, fmt);
     vfprintf(log_f, fmt, args);
 # else
-    _doprnt(fmt, args, STANDARD);
+    if (!fit_quiet)
+        _doprnt(fmt, args, STANDARD);
     _doprnt(fmt, args, log_f);
 # endif
     va_end(args);
 #else
-    fprintf(STANDARD, fmt, a1, a2, a3, a4, a5, a6, a7, a8);
+    if (!fit_quiet)
+        fprintf(STANDARD, fmt, a1, a2, a3, a4, a5, a6, a7, a8);
     fprintf(log_f, fmt, a1, a2, a3, a4, a5, a6, a7, a8);
 #endif /* VA_START */
 }

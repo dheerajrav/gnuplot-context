@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: unset.c,v 1.137 2010/09/16 05:56:49 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: unset.c,v 1.142 2011/01/07 18:24:25 juhaszp Exp $"); }
 #endif
 
 /* GNUPLOT - unset.c */
@@ -120,6 +120,7 @@ static void unset_palette __PROTO((void));
 static void reset_colorbox __PROTO((void));
 static void unset_colorbox __PROTO((void));
 static void unset_pointsize __PROTO((void));
+static void unset_pointintervalbox __PROTO((void));
 static void unset_polar __PROTO((void));
 static void unset_print __PROTO((void));
 static void unset_psdir __PROTO((void));
@@ -309,6 +310,9 @@ unset_command()
     case S_COLORBOX:
 	unset_colorbox();
 	break;
+    case S_POINTINTERVALBOX:
+	unset_pointintervalbox();
+	break;
     case S_POINTSIZE:
 	unset_pointsize();
 	break;
@@ -326,6 +330,9 @@ unset_command()
 	unset_object();
 	break;
 #endif
+    case S_RTICS:
+	unset_tics(POLAR_AXIS);
+	break;
     case S_SAMPLES:
 	unset_samples();
 	break;
@@ -492,7 +499,7 @@ unset_command()
 	unset_range(COLOR_AXIS);
 	break;
     case S_RRANGE:
-	unset_range(R_AXIS);
+	unset_range(POLAR_AXIS);
 	break;
     case S_TRANGE:
 	unset_range(T_AXIS);
@@ -502,6 +509,10 @@ unset_command()
 	break;
     case S_VRANGE:
 	unset_range(V_AXIS);
+	break;
+    case S_RAXIS:
+	raxis = FALSE;
+	c_token++;
 	break;
     case S_XZEROAXIS:
 	unset_zeroaxis(FIRST_X_AXIS);
@@ -811,6 +822,7 @@ unset_format()
 	SET_DEFFORMAT(SECOND_X_AXIS, set_for_axis);
 	SET_DEFFORMAT(SECOND_Y_AXIS, set_for_axis);
 	SET_DEFFORMAT(COLOR_AXIS   , set_for_axis);
+	SET_DEFFORMAT(POLAR_AXIS   , set_for_axis);
     }
 }
 
@@ -1045,8 +1057,11 @@ unset_locale()
 static void
 reset_logscale(AXIS_INDEX axis)
 {
+    TBOOLEAN undo_rlog = (axis == POLAR_AXIS && R_AXIS.log);
     axis_array[axis].log = FALSE;
     axis_array[axis].base = 0.0;
+    if (undo_rlog)
+	rrange_to_xy();
 }
 
 /* process 'unset logscale' command */
@@ -1066,11 +1081,11 @@ unset_logscale()
 	/* do reverse search because of "x", "x1", "x2" sequence in
 	 * axisname_tbl */
 	while (i < token[c_token].length) {
-	    axis = lookup_table_nth_reverse(axisname_tbl, AXIS_ARRAY_SIZE,
+	    axis = lookup_table_nth_reverse(axisname_tbl, LAST_REAL_AXIS+1,
 					    gp_input_line + token[c_token].start_index + i);
 	    if (axis < 0) {
 		token[c_token].start_index += i;
-		int_error(c_token, "unknown axis");
+		int_error(c_token, "invalid axis");
 	    }
 	    reset_logscale(axisname_tbl[axis].value);
 	    i += strlen(axisname_tbl[axis].key);
@@ -1283,6 +1298,13 @@ unset_pm3d()
     if (func_style == PM3DSURFACE) func_style = LINES;
 }
 
+
+/* process 'unset pointintervalbox' command */
+static void
+unset_pointintervalbox()
+{
+    pointintervalbox = 1.0;
+}
 
 /* process 'unset pointsize' command */
 static void
@@ -1674,6 +1696,9 @@ reset_command()
 	axis_array[axis].writeback_max = axis_array[axis].set_max
 	    = axis_defaults[axis].max;
 
+	axis_array[axis].min_constraint = CONSTRAINT_NONE;
+	axis_array[axis].max_constraint = CONSTRAINT_NONE;
+	
 	/* 'tics' default is on for some, off for the other axes: */
 	unset_tics(axis);
 	axis_array[axis].ticmode = axis_defaults[axis].ticmode;
@@ -1683,6 +1708,7 @@ reset_command()
 
 	reset_logscale(axis);
     }
+    raxis = TRUE;
 
     unset_boxplot();
     unset_boxwidth();
@@ -1741,6 +1767,7 @@ reset_command()
     unset_margin(&rmargin);
     unset_margin(&tmargin);
     unset_pointsize();
+    unset_pointintervalbox();
     pm3d_reset();
     reset_colorbox();
     reset_palette();

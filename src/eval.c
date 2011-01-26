@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: eval.c,v 1.84 2010/09/18 22:00:37 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: eval.c,v 1.89 2011/01/01 15:33:32 juhaszp Exp $"); }
 #endif
 
 /* GNUPLOT - eval.c */
@@ -173,7 +173,7 @@ const struct ft_entry GPFAR ft[] =
     {"atanh",  f_atanh},
     {"lambertw",  f_lambertw}, /* HBB, from G.Kuhnle 20001107 */
     {"airy",  f_airy},         /* janert, 20090905 */
-
+    {"expint",  f_expint},     /* Jim Van Zandt, 20101010 */
 
     {"column",  f_column},	/* for using */
     {"valid",  f_valid},	/* for using */
@@ -199,6 +199,7 @@ const struct ft_entry GPFAR ft[] =
     {"words", f_words},		/* implemented as word(s,-1) */
     {"strftime",  f_strftime},  /* time to string */
     {"strptime",  f_strptime},  /* string to time */
+    {"time", f_time},		/* get current time */
     {"system", f_system},       /* "dynamic backtics" */
     {"exist", f_exists},	/* exists("foo") replaces defined(foo) */
     {"exists", f_exists},	/* exists("foo") replaces defined(foo) */
@@ -701,8 +702,7 @@ fill_gpval_axis(AXIS_INDEX axis)
     set_gpval_axis_sth_double(prefix, axis, "REVERSE", (A.range_flags & RANGE_REVERSE), 1);
     set_gpval_axis_sth_double(prefix, axis, "LOG", A.base, 0);
 
-    if (axis < R_AXIS) {
-	if (axis == T_AXIS) axis = COLOR_AXIS; /* T axis is never drawn; colorbar is. */
+    if (axis < POLAR_AXIS) {
 	set_gpval_axis_sth_double("GPVAL_DATA", axis, "MIN", AXIS_DE_LOG_VALUE(axis, A.data_min), 0);
 	set_gpval_axis_sth_double("GPVAL_DATA", axis, "MAX", AXIS_DE_LOG_VALUE(axis, A.data_max), 0);
     }
@@ -795,6 +795,8 @@ update_gpval_variables(int context)
 	fill_gpval_axis(T_AXIS);
 	fill_gpval_axis(U_AXIS);
 	fill_gpval_axis(V_AXIS);
+	fill_gpval_float("GPVAL_R_MIN", R_AXIS.min);
+	fill_gpval_float("GPVAL_R_LOG", R_AXIS.base);
 	update_plot_bounds();
 	fill_gpval_integer("GPVAL_PLOT", is_3d_plot ? 0:1);
 	fill_gpval_integer("GPVAL_SPLOT", is_3d_plot ? 1:0);
@@ -850,9 +852,7 @@ update_gpval_variables(int context)
 
 	/* Permanent copy of user-clobberable variables pi and NaN */
 	fill_gpval_float("GPVAL_pi", M_PI);
-#ifdef HAVE_ISNAN
 	fill_gpval_float("GPVAL_NaN", not_a_number());
-#endif
     }
 
     if (context == 3 || context == 4) {

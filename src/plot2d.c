@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: plot2d.c,v 1.227 2010/09/21 03:58:58 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: plot2d.c,v 1.237 2010/11/19 04:03:23 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - plot2d.c */
@@ -164,14 +164,16 @@ cp_free(struct curve_points *cp)
     while (cp) {
 	struct curve_points *next = cp->next;
 
-	if (cp->title)
-	    free(cp->title);
-	if (cp->points)
-	    free(cp->points);
+	free(cp->title);
+	cp->title = NULL;
+	free(cp->points);
+	cp->points = NULL;
+	free(cp->varcolor);
+	cp->varcolor = NULL;
 	if (cp->labels)
 	    free_labels(cp->labels);
-	if (cp->varcolor)
-	    free(cp->varcolor);
+	cp->labels = NULL;
+
 	free(cp);
 	cp = next;
     }
@@ -206,7 +208,7 @@ plotrequest()
     AXIS_INIT2D(SECOND_X_AXIS, 0);
     AXIS_INIT2D(SECOND_Y_AXIS, 1);
     AXIS_INIT2D(T_AXIS, 0);
-    AXIS_INIT2D(R_AXIS, 1);
+    AXIS_INIT2D(POLAR_AXIS, 1);
     AXIS_INIT2D(COLOR_AXIS, 1);
 
     t_axis = (parametric || polar) ? T_AXIS : FIRST_X_AXIS;
@@ -322,6 +324,7 @@ static int
 get_data(struct curve_points *current_plot)
 {
     int i /* num. points ! */ , j;
+    int ngood;
     int max_cols, min_cols;    /* allowed range of column numbers */
     double v[MAXDATACOLS];
     int storetoken = current_plot->token;
@@ -527,7 +530,7 @@ get_data(struct curve_points *current_plot)
     if (df_no_use_specs > 0 && df_no_use_specs < min_cols)
 	int_error(NO_CARET, "Not enough columns for this style");
 
-    i = 0;
+    i = 0; ngood = 0;
 
     /* If the user has set an explicit locale for numeric input, apply it */
     /* here so that it affects data fields read from the input file.      */
@@ -544,6 +547,7 @@ get_data(struct curve_points *current_plot)
 	}
 
 	if (j > 0) {
+	    ngood++;
 	    /* June 2010 - New mechanism for variable color                  */
 	    /* If variable color is requested, take the color value from the */
 	    /* final column of input and decrement the column count by one.  */
@@ -1023,7 +1027,7 @@ images:
     /* We are finished reading user input; return to C locale for internal use */
     reset_numeric_locale();
 
-    return i;                   /* i==0 indicates an 'empty' file */
+    return ngood;                   /* 0 indicates an 'empty' file */
 }
 
 /* called by get_data for each point */
@@ -1066,14 +1070,39 @@ store2d_point(
     if (polar) {
 	double newx, newy;
 
-	if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MAX) 
-	&&  y > axis_array[R_AXIS].max) {
-	    cp->type = OUTRANGE;
+	if (y < R_AXIS.data_min)
+	    R_AXIS.data_min = y;
+	if (y < R_AXIS.min) {
+	    if (R_AXIS.autoscale & AUTOSCALE_MIN)
+		    R_AXIS.min = (y>0) ? 0 : y;
 	}
-	if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MIN)) {
+	if (y > R_AXIS.data_max)
+	    R_AXIS.data_max = y;
+	if (y > R_AXIS.max) {
+	    if (R_AXIS.autoscale & AUTOSCALE_MAX)	{
+		if (R_AXIS.max_constraint & CONSTRAINT_UPPER) {
+		    if (R_AXIS.max_ub >= y)
+			R_AXIS.max = y;
+		    else
+			R_AXIS.max = R_AXIS.max_ub;
+		} else {
+		    R_AXIS.max = y;
+		}
+	    } else {
+		cp->type = OUTRANGE;
+	    }
+	}
+
+	if (R_AXIS.log) {
+	    if (R_AXIS.min <= 0 || R_AXIS.autoscale & AUTOSCALE_MIN)
+		int_error(NO_CARET,"In log mode rrange must not include 0");
+	    y = AXIS_DO_LOG(POLAR_AXIS,y) - AXIS_DO_LOG(POLAR_AXIS,R_AXIS.min);
+	} else
+
+	if (!(R_AXIS.autoscale & AUTOSCALE_MIN))
 	    /* we store internally as if plotting r(t)-rmin */
-	    y -= axis_array[R_AXIS].min;
-	}
+	    y -= R_AXIS.min;
+
 	newx = y * cos(x * ang2rad);
 	newy = y * sin(x * ang2rad);
 	y = newy;
@@ -1087,26 +1116,34 @@ store2d_point(
 	    xhigh = x + radius;
 
 	} else {
-	    if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MAX) 
-	    &&  yhigh > axis_array[R_AXIS].max) {
+	    if (!(R_AXIS.autoscale & AUTOSCALE_MAX) 
+	    &&  yhigh > R_AXIS.max) {
 		cp->type = OUTRANGE;
 	    }
-	    if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MIN)) {
+	    if (R_AXIS.log) {
+		yhigh = AXIS_DO_LOG(POLAR_AXIS,yhigh)
+			- AXIS_DO_LOG(POLAR_AXIS,R_AXIS.min);
+	    } else
+	    if (!(R_AXIS.autoscale & AUTOSCALE_MIN)) {
 		/* we store internally as if plotting r(t)-rmin */
-		yhigh -= axis_array[R_AXIS].min;
+		yhigh -= R_AXIS.min;
 	    }
 	    newx = yhigh * cos(xhigh * ang2rad);
 	    newy = yhigh * sin(xhigh * ang2rad);
 	    yhigh = newy;
 	    xhigh = newx;
 
-	    if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MAX) 
-	    &&  ylow > axis_array[R_AXIS].max) {
+	    if (!(R_AXIS.autoscale & AUTOSCALE_MAX) 
+	    &&  ylow > R_AXIS.max) {
 		cp->type = OUTRANGE;
 	    }
-	    if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MIN)) {
+	    if (R_AXIS.log) {
+		ylow = AXIS_DO_LOG(POLAR_AXIS,ylow)
+		     - AXIS_DO_LOG(POLAR_AXIS,R_AXIS.min);
+	    } else
+	    if (!(R_AXIS.autoscale & AUTOSCALE_MIN)) {
 		/* we store internally as if plotting r(t)-rmin */
-		ylow -= axis_array[R_AXIS].min;
+		ylow -= R_AXIS.min;
 	    }
 	    newx = ylow * cos(xlow * ang2rad);
 	    newy = ylow * sin(xlow * ang2rad);
@@ -1230,7 +1267,10 @@ static void
 box_range_fiddling(struct curve_points *plot)
 {
     double xlow, xhigh;
+    int i = plot->p_count - 1;
 
+    if (i == 0)
+	return;
     if (axis_array[plot->x_axis].autoscale & AUTOSCALE_MIN) {
 	if (plot->points[0].type != UNDEFINED && plot->points[1].type != UNDEFINED) {
 	    xlow = plot->points[0].x - (plot->points[1].x - plot->points[0].x) / 2.;
@@ -1239,7 +1279,6 @@ box_range_fiddling(struct curve_points *plot)
 	}
     }
     if (axis_array[plot->x_axis].autoscale & AUTOSCALE_MAX) {
-	int i = plot->p_count -1;
 	if (plot->points[i].type != UNDEFINED && plot->points[i-1].type != UNDEFINED) {
 	    xhigh = plot->points[i].x + (plot->points[i].x - plot->points[i-1].x) / 2.;
 	    if (axis_array[plot->x_axis].max < xhigh)
@@ -1252,7 +1291,12 @@ box_range_fiddling(struct curve_points *plot)
 static void
 boxplot_range_fiddling(struct curve_points *plot)
 {
-    double extra_width = plot->points[0].xhigh - plot->points[0].xlow;
+    double extra_width;
+
+    if (plot->points[0].type == UNDEFINED)
+	int_error(NO_CARET,"boxplot has undefined x coordinate");
+
+    extra_width = plot->points[0].xhigh - plot->points[0].xlow;
     if (extra_width == 0)
 	extra_width = (boxwidth > 0 && boxwidth_is_absolute) ? boxwidth : 0.5;
 
@@ -1420,18 +1464,20 @@ store_label(
 	tl->textcolor = lptmp.pm3d_color;
     }
 
-    /* Check for optional (point linecolor palette ...) */
-    if (tl->lp_properties.pm3d_color.type == TC_Z)
-	tl->lp_properties.pm3d_color.value = colorval;
-    /* Check for optional (point linecolor rgb variable) */
-    else if (listhead->lp_properties.pm3d_color.type == TC_RGB 
-	     && listhead->lp_properties.pm3d_color.value < 0)
-	tl->lp_properties.pm3d_color.lt = colorval;
-    /* Check for optional (point linecolor variable) */
-    else if (listhead->lp_properties.l_type == LT_COLORFROMCOLUMN) {
-	struct lp_style_type lptmp;
-	load_linetype(&lptmp, (int)colorval);
-	tl->lp_properties.pm3d_color = lptmp.pm3d_color;
+    if (listhead->lp_properties.pointflag > 0) {
+	/* Check for optional (point linecolor palette ...) */
+	if (tl->lp_properties.pm3d_color.type == TC_Z)
+	    tl->lp_properties.pm3d_color.value = colorval;
+	/* Check for optional (point linecolor rgb variable) */
+	else if (listhead->lp_properties.pm3d_color.type == TC_RGB 
+		&& listhead->lp_properties.pm3d_color.value < 0)
+	    tl->lp_properties.pm3d_color.lt = colorval;
+	/* Check for optional (point linecolor variable) */
+	else if (listhead->lp_properties.l_type == LT_COLORFROMCOLUMN) {
+	    struct lp_style_type lptmp;
+	    load_linetype(&lptmp, (int)colorval);
+	    tl->lp_properties.pm3d_color = lptmp.pm3d_color;
+	}
     }
     
 
@@ -2054,7 +2100,10 @@ eval_plots()
 			set_fillstyle = TRUE;
 		    }
 		    if (equals(c_token,"fc") || almost_equals(c_token,"fillc$olor")) {
-			parse_colorspec(&this_plot->lp_properties.pm3d_color,TC_Z);
+			struct lp_style_type lptmp;
+			c_token++;
+			lp_parse(&lptmp, FALSE, FALSE);
+			this_plot->lp_properties.pm3d_color = lptmp.pm3d_color;
 			this_plot->lp_properties.use_palette = TRUE;
 			set_lpstyle = TRUE;
 		    }
@@ -2108,7 +2157,7 @@ eval_plots()
 		/* user may prefer explicit line styles */
 		if (prefer_line_styles)
 		    lp_use_properties(&this_plot->lp_properties, line_num+1);
-		else if (first_perm_linestyle)
+		else
 		    load_linetype(&this_plot->lp_properties, line_num+1);
 
 		if (this_plot->plot_style == BOXPLOT)
@@ -2139,6 +2188,23 @@ eval_plots()
 		if ((this_plot->plot_style & PLOT_STYLE_HAS_POINT)
 		&&  (this_plot->lp_properties.p_size == PTSZ_VARIABLE))
 		    this_plot->lp_properties.p_size = 1;
+	    }
+	    if (polar) switch (this_plot->plot_style) {
+		case LINES:
+		case POINTSTYLE:
+		case IMPULSES:
+		case LINESPOINTS:
+		case DOTS:
+		case VECTOR:
+		case FILLEDCURVES:
+		case LABELPOINTS:
+		case CIRCLES:
+		case YERRORBARS:
+		case YERRORLINES:
+				break;	
+		default:
+				int_error(NO_CARET, 
+				    "This plot style is not available in polar mode");
 	    }
 
 	    if (df_matrix) {
@@ -2188,7 +2254,8 @@ eval_plots()
 		/* We want to trigger the variable color mechanism even if 
 		 * there was no 'textcolor variable/palette/rgb var' , 
 		 * but there was a 'point linecolor variable/palette/rgb var'. */
-		if (this_plot->labels->textcolor.type != TC_Z
+		if (this_plot->labels->lp_properties.pointflag > 0
+		&& this_plot->labels->textcolor.type != TC_Z
 		&& this_plot->labels->textcolor.type != TC_VARIABLE
 		&& (this_plot->labels->textcolor.type != TC_RGB 
 		 || this_plot->labels->textcolor.value >= 0)) {
@@ -2560,35 +2627,50 @@ eval_plots()
 				this_plot->points[i].z = 0;
 			} else if (polar) {
 			    double y;
-			    if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MAX) && temp > axis_array[R_AXIS].max)
-				this_plot->points[i].type = OUTRANGE;
-			    if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MIN))
-				temp -= axis_array[R_AXIS].min;
-			    y = temp * sin(x * ang2rad);
-			    x = temp * cos(x * ang2rad);
-			    if (boxwidth >= 0 &&  boxwidth_is_absolute) {
-				double xlow, xhigh;
-				coord_type dmy_type = INRANGE;
-				this_plot->points[i].z = 0;
-				if (axis_array[this_plot->x_axis].log) {
-				    double base = axis_array[this_plot->x_axis].base;
-				    xlow = x * pow(base, -boxwidth/2.);
-				    xhigh = x * pow(base, boxwidth/2.);
-				} else {
-				    xlow = x - boxwidth/2;
-				    xhigh = x + boxwidth/2;
-				}
-				STORE_WITH_LOG_AND_UPDATE_RANGE( this_plot->points[i].xlow, xlow, dmy_type, x_axis, 
-								 this_plot->noautoscale, NOOP, NOOP );
-				dmy_type = INRANGE;
-				STORE_WITH_LOG_AND_UPDATE_RANGE( this_plot->points[i].xhigh, xhigh, dmy_type, x_axis,
-								 this_plot->noautoscale, NOOP, NOOP );
+			    double phi = x;
+
+			    if (temp > R_AXIS.max) {
+				if (R_AXIS.autoscale & AUTOSCALE_MAX)
+				    R_AXIS.max = temp;
+				else
+				    this_plot->points[i].type = OUTRANGE;
 			    }
-			    temp = y;
-			    STORE_WITH_LOG_AND_UPDATE_RANGE(this_plot->points[i].x, x, this_plot->points[i].type, x_axis,
-			    				    this_plot->noautoscale, NOOP, goto come_here_if_undefined);
-			    STORE_WITH_LOG_AND_UPDATE_RANGE(this_plot->points[i].y, y, this_plot->points[i].type, y_axis,
-			    				    this_plot->noautoscale, NOOP, goto come_here_if_undefined);
+			    if (temp < R_AXIS.min) {
+				if (R_AXIS.autoscale & AUTOSCALE_MIN)
+				    R_AXIS.min = (temp>0) ? 0 : temp;
+			    }
+			    if (R_AXIS.log) {
+				temp = AXIS_DO_LOG(POLAR_AXIS,temp)
+				     - AXIS_DO_LOG(POLAR_AXIS,R_AXIS.min);
+			    } else
+			    if (!(R_AXIS.autoscale & AUTOSCALE_MIN))
+				temp -= R_AXIS.min;
+			    y = temp * sin(phi * ang2rad);
+			    x = temp * cos(phi * ang2rad);
+
+
+			    if ((this_plot->plot_style == FILLEDCURVES) 
+			    &&  (this_plot->filledcurves_options.closeto == FILLEDCURVES_ATR)) {
+			    	double xhigh, yhigh;
+				double temp = this_plot->filledcurves_options.at;
+				temp = AXIS_LOG_VALUE(POLAR_AXIS,temp)
+				     - AXIS_LOG_VALUE(POLAR_AXIS,R_AXIS.min);
+				yhigh = temp * sin(phi * ang2rad);
+				xhigh = temp * cos(phi * ang2rad);
+				STORE_WITH_LOG_AND_UPDATE_RANGE(
+				    this_plot->points[i].xhigh, xhigh, this_plot->points[i].type, x_axis,
+				    this_plot->noautoscale, NOOP, goto come_here_if_undefined);
+			 	STORE_WITH_LOG_AND_UPDATE_RANGE(
+				    this_plot->points[i].yhigh, yhigh, this_plot->points[i].type, y_axis,
+				    this_plot->noautoscale, NOOP, goto come_here_if_undefined);
+			    }
+
+			    STORE_WITH_LOG_AND_UPDATE_RANGE(
+			    	this_plot->points[i].x, x, this_plot->points[i].type, x_axis,
+			    	this_plot->noautoscale, NOOP, goto come_here_if_undefined);
+			    STORE_WITH_LOG_AND_UPDATE_RANGE(
+			    	this_plot->points[i].y, y, this_plot->points[i].type, y_axis,
+			        this_plot->noautoscale, NOOP, goto come_here_if_undefined);
 			} else {        /* neither parametric or polar */
 			    /* If non-para, it must be INRANGE */
 			    /* logscale ? log(x) : x */
@@ -2837,11 +2919,11 @@ parametric_fixup(struct curve_points *start_plot, int *plot_num)
 		    double r = yp->points[i].y;
 		    double t = xp->points[i].y * ang2rad;
 		    double x, y;
-		    if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MAX) && r > axis_array[R_AXIS].max)
+		    if (!(R_AXIS.autoscale & AUTOSCALE_MAX) && r > R_AXIS.max)
 			yp->points[i].type = OUTRANGE;
-		    if (!(axis_array[R_AXIS].autoscale & AUTOSCALE_MIN)) {
+		    if (!(R_AXIS.autoscale & AUTOSCALE_MIN)) {
 			/* store internally as if plotting r(t)-rmin */
-			r -= axis_array[R_AXIS].min;
+			r -= R_AXIS.min;
 		    }
 		    x = r * cos(t);
 		    y = r * sin(t);

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: hidden3d.c,v 1.75 2010/09/27 19:15:58 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: hidden3d.c,v 1.77 2010/09/28 22:40:17 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - hidden3d.c */
@@ -1171,8 +1171,12 @@ build_networks(struct surface_points *plots, int pcount)
 	lp_style = &(this_plot->lp_properties);
 
 	if (this_plot->plot_style == VECTOR) {
-	    apply_3dhead_properties(&(this_plot->arrow_properties));
 	    lp->p_type = PT_ARROWHEAD;
+	    if (this_plot->arrow_properties.head == NOHEAD) {
+		this_plot->arrow_properties.head_length= 1;
+		this_plot->arrow_properties.head_angle = 0;
+	    }
+	    apply_3dhead_properties(&(this_plot->arrow_properties));
 	}
 
 	/* HBB 20000715: new initialization code block for non-grid
@@ -1654,21 +1658,28 @@ draw_edge(p_edge e, p_vertex v1, p_vertex v2)
     struct t_colorspec color = e->lp->pm3d_color;
     struct lp_style_type lptemp = *(e->lp);
     TBOOLEAN recolor = FALSE;
+    TBOOLEAN arrow = (lptemp.p_type == PT_ARROWHEAD || lptemp.p_type == PT_BACKARROW);
+    int varcolor;
+
+    if (arrow && (e->style == PT_BACKARROW))
+	varcolor = v2->real_z;
+    else
+	varcolor = v1->real_z;
 
     /* This handles 'lc rgb variable' */
     if (color.type == TC_RGB && color.lt == LT_COLORFROMCOLUMN) {
 	recolor = TRUE;
-	lptemp.pm3d_color.lt = (int)v1->real_z;
+	lptemp.pm3d_color.lt = varcolor;
     } else
 
     /* This handles 'lc variable' */
     if (lptemp.l_type == LT_COLORFROMCOLUMN) {
 	recolor = TRUE;
-	load_linetype(&lptemp, (int)v1->real_z);
+	load_linetype(&lptemp, varcolor);
     } else
 
     /* This handles style VECTORS */
-    if (lptemp.p_type == PT_ARROWHEAD || lptemp.p_type == PT_BACKARROW) {
+    if (arrow) {
 	lptemp.p_type = e->style;
     } else
 
@@ -1682,8 +1693,11 @@ draw_edge(p_edge e, p_vertex v1, p_vertex v2)
     if (recolor) {
 	color = lptemp.pm3d_color;
 	lptemp = *(e->lp);
-	lptemp.l_type = e->style;
 	lptemp.pm3d_color = color;
+	if (arrow)
+	    lptemp.p_type = e->style;
+	else
+	    lptemp.l_type = e->style;
     }
 
     draw3d_line_unconditional(v1, v2, &lptemp, color);

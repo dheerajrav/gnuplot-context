@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: term.c,v 1.209 2010/09/27 23:13:32 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: term.c,v 1.213 2011/01/11 01:04:13 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - term.c */
@@ -78,7 +78,6 @@ static char *RCSid() { return RCSid("$Id: term.c,v 1.209 2010/09/27 23:13:32 sfe
 
 #include "alloc.h"
 #include "axis.h"
-#include "bitmap.h"
 #include "command.h"
 #include "driver.h"
 #include "graphics.h"
@@ -90,6 +89,10 @@ static char *RCSid() { return RCSid("$Id: term.c,v 1.209 2010/09/27 23:13:32 sfe
 #include "version.h"
 #include "misc.h"
 #include "getcolor.h"
+
+#ifndef NO_BITMAP_SUPPORT
+#include "bitmap.h"
+#endif
 
 #ifdef USE_MOUSE
 #include "mouse.h"
@@ -136,8 +139,8 @@ enum set_encoding_id encoding;
 /* table of encoding names, for output of the setting */
 const char *encoding_names[] = {
     "default", "iso_8859_1", "iso_8859_2", "iso_8859_9", "iso_8859_15",
-    "cp437", "cp850", "cp852", "cp950", "cp1250", "cp1254", "koi8r", "koi8u", 
-    "utf8", NULL };
+    "cp437", "cp850", "cp852", "cp950", "cp1250", "cp1251", "cp1254", 
+    "koi8r", "koi8u", "utf8", NULL };
 /* 'set encoding' options */
 const struct gen_table set_encoding_tbl[] =
 {
@@ -152,6 +155,7 @@ const struct gen_table set_encoding_tbl[] =
     { "cp852", S_ENC_CP852 },
     { "cp950", S_ENC_CP950 },
     { "cp1250", S_ENC_CP1250 },
+    { "cp1251", S_ENC_CP1251 },
     { "cp1254", S_ENC_CP1254 },
     { "koi8$r", S_ENC_KOI8_R },
     { "koi8$u", S_ENC_KOI8_U },
@@ -1315,8 +1319,7 @@ do_arrow(
 	    ex += xm;
 	    ey += ym;
 	}
-	if (clip_line(&sx, &sy, &ex, &ey))
-	    draw_clip_line(sx, sy, ex, ey);
+	draw_clip_line(sx, sy, ex, ey);
     }
 
     /* Restore previous clipping box */
@@ -1805,7 +1808,7 @@ init_terminal()
    LINUX_setup has failed, also if we are logged in by network */
 #ifdef LINUXVGA
 	if (LINUX_graphics_allowed)
-#ifdef VGAGL
+#if defined(VGAGL) && defined (THREEDKIT)
 	    term_name = "vgagl";
 #else
 	    term_name = "linux";

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: misc.c,v 1.123 2010/09/09 04:08:19 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: misc.c,v 1.128 2010/11/19 04:03:23 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - misc.c */
@@ -689,10 +689,11 @@ get_filledcurves_style_options(filledcurves_opts *fco)
     c_token++;
 
     fco->closeto = p;
+    fco->at = 0;
     if (!equals(c_token, "="))
 	return;
     /* parameter required for filledcurves x1=... and friends */
-    if (p != FILLEDCURVES_ATXY)
+    if (p < FILLEDCURVES_ATXY)
 	fco->closeto += 4;
     c_token++;
     fco->at = real_expression();
@@ -805,10 +806,10 @@ lp_parse(struct lp_style_type *lp, TBOOLEAN allow_ls, TBOOLEAN allow_point)
 		    int lt = int_expression();
 		    lp->l_type = lt - 1;
 		    /* user may prefer explicit line styles */
-		    if (first_perm_linestyle)
-			load_linetype(lp, lt);
 		    if (prefer_line_styles && allow_ls)
 			lp_use_properties(lp, lt);
+		    else
+			load_linetype(lp, lt);
 		}
 	    } /* linetype, lt */
 
@@ -994,7 +995,10 @@ parse_fillstyle(struct fill_style_type *fs, int def_style, int def_density, int 
 	    if (equals(c_token,"-") || isanumber(c_token)) {
 		fs->border_color.type = TC_LT;
 		fs->border_color.lt = int_expression() - 1;
-	    } else if (!END_OF_COMMAND) {
+	    } else if (equals(c_token,"lc") || almost_equals(c_token,"linec$olor")) {
+		parse_colorspec(&fs->border_color, TC_Z);
+	    } else if (equals(c_token,"rgb")
+		   ||  equals(c_token,"lt") || almost_equals(c_token,"linet$ype")) {
 		c_token--;
 		parse_colorspec(&fs->border_color, TC_Z);
 	    }

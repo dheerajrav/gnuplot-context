@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: tables.c,v 1.102 2010/08/08 03:46:41 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: tables.c,v 1.105 2010/12/05 00:01:02 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - tables.c */
@@ -225,6 +225,7 @@ const struct gen_table set_tbl[] =
     { "colorn$ames", S_COLORNAMES },
     { "colors", S_COLORNAMES },
     { "p$lot", S_PLOT },
+    { "pointint$ervalbox", S_POINTINTERVALBOX },
     { "poi$ntsize", S_POINTSIZE },
     { "pol$ar", S_POLAR },
     { "pr$int", S_PRINT },
@@ -272,6 +273,8 @@ const struct gen_table set_tbl[] =
     { "noy2ti$cs", S_NOY2TICS },
     { "zti$cs", S_ZTICS },
     { "nozti$cs", S_NOZTICS },
+    { "rti$cs", S_RTICS },
+    { "norti$cs", S_NORTICS },
     { "cbti$cs", S_CBTICS },
     { "nocbti$cs", S_NOCBTICS },
 
@@ -318,6 +321,7 @@ const struct gen_table set_tbl[] =
     { "y2zeroa$xis", S_Y2ZEROAXIS },
     { "zzeroa$xis", S_ZZEROAXIS },
     { "zeroa$xis", S_ZEROAXIS },
+    { "rax$is", S_RAXIS },
 
     { "z$ero", S_ZERO },
     { NULL, S_INVALID }
@@ -681,6 +685,7 @@ const struct gen_table filledcurves_opts_tbl[] =
     { "x2", FILLEDCURVES_X2 },
     { "y2", FILLEDCURVES_Y2 },
     { "xy", FILLEDCURVES_ATXY },
+    { "r", FILLEDCURVES_ATR },
     { "above", FILLEDCURVES_ABOVE },
     { "below", FILLEDCURVES_BELOW },
     { NULL, -1 }

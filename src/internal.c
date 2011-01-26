@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: internal.c,v 1.57 2010/09/18 22:00:37 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: internal.c,v 1.61 2011/01/08 13:37:26 broeker Exp $"); }
 #endif
 
 /* GNUPLOT - internal.c */
@@ -40,7 +40,7 @@ static char *RCSid() { return RCSid("$Id: internal.c,v 1.57 2010/09/18 22:00:37 
 #include "stdfn.h"
 #include "alloc.h"
 #include "util.h"		/* for int_error() */
-# include "gp_time.h"           /* for str(p|f)time */
+#include "gp_time.h"           /* for str(p|f)time */
 #include "command.h"            /* for do_system_func */
 #include "variable.h" /* For locale handling */
 
@@ -1433,6 +1433,52 @@ f_strptime(union argument *arg)
     gpfree_string(&val);
     gpfree_string(&fmt);
     push(Gcomplex(&val, result, 0.0));
+}
+
+/* Get current system time in seconds since 2000 
+ * The type of the value popped from the stack 
+ * determines what is returned.
+ * If integer, the result is also an integer.
+ * If real (complex), the result is also real, 
+ * with microsecond precision (if available).
+ * If string, it is assumed to be a format string, 
+ * and it is passed to strftime to get a formatted time string.
+ */
+void
+f_time(union argument *arg)
+{
+    struct value val, val2;
+    double time_now;
+#ifdef HAVE_SYS_TIME_H
+    struct timeval tp;
+
+    gettimeofday(&tp, NULL);
+    tp.tv_sec -= SEC_OFFS_SYS;
+    time_now = tp.tv_sec + (tp.tv_usec/1000000.0);
+#else
+
+    time_now = (double) time(NULL);
+    time_now -= SEC_OFFS_SYS;
+#endif
+
+    (void) arg; /* Avoid compiler warnings */
+    pop(&val); 
+    
+    switch(val.type) {
+	case INTGR:
+	    push(Ginteger(&val, (int) time_now));
+	    break;
+	case CMPLX:
+	    push(Gcomplex(&val, time_now, 0.0));
+	    break;
+	case STRING:
+	    push(&val); /* format string */
+	    push(Gcomplex(&val2, time_now, 0.0));
+	    f_strftime(arg);
+	    break;
+	default:
+	    int_error(NO_CARET,"internal error: invalid argument type");
+    }
 }
 
 

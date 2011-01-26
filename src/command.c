@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: command.c,v 1.200 2010/09/27 02:09:25 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: command.c,v 1.202 2010/11/18 23:59:59 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - command.c */
@@ -1386,7 +1386,7 @@ refresh_request()
     AXIS_INIT2D_REFRESH(SECOND_Y_AXIS,TRUE);
 
     AXIS_UPDATE2D_REFRESH(T_AXIS);  /* Untested: T and R want INIT2D or UPDATE2D?? */
-    AXIS_UPDATE2D_REFRESH(R_AXIS);  /* It doesn't matter, they are used for functions, not for data */
+    AXIS_UPDATE2D_REFRESH(POLAR_AXIS);
 
     AXIS_UPDATE2D_REFRESH(FIRST_Z_AXIS);
     AXIS_UPDATE2D_REFRESH(COLOR_AXIS);
@@ -2269,7 +2269,7 @@ help_command()
 	helpbuf[len++] = ' ';	/* add a space */
     capture(helpbuf + len, start, c_token - 1, MAX_LINE_LEN - len);
     squash_spaces(helpbuf + base);	/* only bother with new stuff */
-    lower_case(helpbuf + base);	/* only bother with new stuff */
+    /* lower_case(helpbuf + base); */ /* Breaks "help 3D" */
     len = strlen(helpbuf);
 
     /* now, a lone ? will print subtopics only */

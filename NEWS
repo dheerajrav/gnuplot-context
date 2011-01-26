@@ -2,6 +2,7 @@ New features, changes and fixes since gnuplot version 4.4
 =========================================================
 
 * NEW time formats can handle fractional seconds (microsecond precision)
+* NEW time() function returns current time
 * NEW hidden3d supports "with impulses"
 * NEW hidden3d supports arrow style parameters for "with vectors"
 * NEW user-definable linetypes
@@ -12,11 +13,19 @@ New features, changes and fixes since gnuplot version 4.4
 * NEW variable (per-data point) color for additional plot styles
 * NEW "set key opaque" produces a key with an opaque background
 * NEW ISO-IEC-80000 prefixes (ki Mi Gi etc) available as gprintf formats %b %B
+* NEW encodings cp950 cp1251
+* NEW option "set fit quiet"
+* NEW option "kdensity2d" for two-dimensional kernel density plots
+* NEW configuration option --without-bitmap-terminals (see note in INSTALL)
+* NEW polar mode raxis, rtics, rrange, log-scaling, bounded filledcurves
 * FIX length estimation of UTF-8 strings
+* FIX accurate placement of color boundaries in the colorbar
 * CHANGE 3D zoom using middle mouse button is now a logarithmic response
 * CHANGE 3D impulses are now always drawn from z=0
 * CHANGE remove vestigial code supporting Amiga, Apollo, and 16-bit MSDOS/WIN
 * CHANGE extend formats x/X/o/O to 64 bits if necessary to represent the value
+* CHANGE "set palette maxcolors" no longer fights with "set palette defined"
+* CHANGE javascript support for HTML5 canvas does not use global variables
 
 New features, changes and fixes in gnuplot version 4.4.0
 ========================================================

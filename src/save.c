@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: save.c,v 1.184 2010/08/08 03:46:41 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: save.c,v 1.190 2010/12/05 00:01:02 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - save.c */
@@ -291,10 +291,11 @@ set y2data%s\n",
 	fprintf(fp, "set dgrid3d %d,%d splines\n",
           	dgrid3d_row_fineness, dgrid3d_col_fineness );
       } else {
-	fprintf(fp, "set dgrid3d %d,%d %s %f,%f\n",
+	fprintf(fp, "set dgrid3d %d,%d %s%s %f,%f\n",
           	dgrid3d_row_fineness,
           	dgrid3d_col_fineness,
 		reverse_table_lookup(dgrid3d_mode_tbl, dgrid3d_mode),
+		dgrid3d_kdensity ? " kdensity2d" : "",
           	dgrid3d_x_scale,
           	dgrid3d_y_scale );
       }
@@ -311,6 +312,7 @@ set y2data%s\n",
     SAVE_FORMAT(SECOND_Y_AXIS);
     SAVE_FORMAT(FIRST_Z_AXIS );
     SAVE_FORMAT(COLOR_AXIS );
+    SAVE_FORMAT(POLAR_AXIS );
 #undef SAVE_FORMAT
 
     fprintf(fp, "set angles %s\n",
@@ -351,6 +353,7 @@ set y2data%s\n",
 	save_linetype(fp, &mgrid_lp, FALSE);
 	fputc('\n', fp);
     }
+    fprintf(fp, "%sset raxis\n", raxis ? "" : "un");
 
     fprintf(fp, "set key title \"%s\"", conv_text(key->title));
     if (key->font)
@@ -566,6 +569,7 @@ set y2data%s\n",
     SAVE_LOG(SECOND_Y_AXIS);
     SAVE_LOG(FIRST_Z_AXIS );
     SAVE_LOG(COLOR_AXIS );
+    SAVE_LOG(POLAR_AXIS );
 #undef SAVE_LOG
 
     save_offsets(fp, "set offsets");
@@ -573,10 +577,11 @@ set y2data%s\n",
     /* FIXME */
     fprintf(fp, "\
 set pointsize %g\n\
+set pointintervalbox %g\n\
 set encoding %s\n\
 %sset polar\n\
 %sset parametric\n",
-	    pointsize,
+	    pointsize, pointintervalbox,
 	    encoding_names[encoding],
 	    (polar) ? "" : "un",
 	    (parametric) ? "" : "un");
@@ -595,7 +600,8 @@ set encoding %s\n\
 	fprintf(fp, "%g, %g, %g, %g",
 	    surface_rot_x, surface_rot_z, surface_scale, surface_zscale);
     }
-    fprintf(fp, "  %s", aspect_ratio_3D == 2 ? "equal xy" :
+    if (aspect_ratio_3D)
+	fprintf(fp, "\nset view  %s", aspect_ratio_3D == 2 ? "equal xy" :
 			aspect_ratio_3D == 3 ? "equal xyz": "");
 
     fprintf(fp, "\n\
@@ -747,6 +753,7 @@ set origin %g,%g\n",
     save_tics(fp, SECOND_X_AXIS);
     save_tics(fp, SECOND_Y_AXIS);
     save_tics(fp, COLOR_AXIS);
+    save_tics(fp, POLAR_AXIS);
 
 #define SAVE_AXISLABEL_OR_TITLE(name,suffix,lab)			 \
     {									 \
@@ -769,7 +776,7 @@ set origin %g,%g\n",
     fprintf(fp, "set timestamp %s \n", timelabel_bottom ? "bottom" : "top");
     SAVE_AXISLABEL_OR_TITLE("", "timestamp", timelabel);
 
-    save_range(fp, R_AXIS);
+    save_range(fp, POLAR_AXIS);
     save_range(fp, T_AXIS);
     save_range(fp, U_AXIS);
     save_range(fp, V_AXIS);
@@ -835,8 +842,8 @@ set origin %g,%g\n",
     }
     fputs((pm3d.ftriangles ? " " : " no"), fp);
     fputs("ftriangles", fp);
-    if (pm3d.hidden3d_tag) fprintf(fp," hidden3d %d", pm3d.hidden3d_tag);
-	else fputs(" nohidden3d", fp);
+    if (pm3d.hidden3d_tag > 0) fprintf(fp," hidden3d %d", pm3d.hidden3d_tag);
+	else fputs(pm3d.hidden3d_tag ? " hidden3d" : " nohidden3d", fp);
     fputs(" corners2color ", fp);
     switch (pm3d.which_corner_color) {
 	case PM3D_WHICHCORNER_MEAN:    fputs("mean", fp); break;
@@ -1064,13 +1071,29 @@ save_range(FILE *fp, AXIS_INDEX axis)
 {
     fprintf(fp, "set %srange [ ", axis_defaults[axis].name);
     if (axis_array[axis].set_autoscale & AUTOSCALE_MIN) {
+	if (axis_array[axis].min_constraint & CONSTRAINT_LOWER ) {
+	    SAVE_NUM_OR_TIME(fp, axis_array[axis].min_lb, axis);
+	    fputs(" < ", fp);
+	}
 	putc('*', fp);
+	if (axis_array[axis].min_constraint & CONSTRAINT_UPPER ) {
+	    fputs(" < ", fp);
+	    SAVE_NUM_OR_TIME(fp, axis_array[axis].min_ub, axis);
+	}
     } else {
 	SAVE_NUM_OR_TIME(fp, axis_array[axis].set_min, axis);
     }
     fputs(" : ", fp);
     if (axis_array[axis].set_autoscale & AUTOSCALE_MAX) {
+	if (axis_array[axis].max_constraint & CONSTRAINT_LOWER ) {
+	    SAVE_NUM_OR_TIME(fp, axis_array[axis].max_lb, axis);
+	    fputs(" < ", fp);
+	}
 	putc('*', fp);
+	if (axis_array[axis].max_constraint & CONSTRAINT_UPPER ) {
+	    fputs(" < ", fp);
+	    SAVE_NUM_OR_TIME(fp, axis_array[axis].max_ub, axis);
+	}
     } else {
 	SAVE_NUM_OR_TIME(fp, axis_array[axis].set_max, axis);
     }

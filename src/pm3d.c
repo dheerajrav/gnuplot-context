@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: pm3d.c,v 1.79 2010/06/29 20:01:39 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: pm3d.c,v 1.82 2010/12/04 06:04:41 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - pm3d.c */
@@ -31,6 +31,8 @@ static char *RCSid() { return RCSid("$Id: pm3d.c,v 1.79 2010/06/29 20:01:39 sfea
 
 #include <stdlib.h> /* qsort() */
 
+/* Needed by routine filled_quadrangle() in color.c */
+struct lp_style_type pm3d_border_lp;
 
 /*
   Global options for pm3d algorithm (to be accessed by set / show).
@@ -53,7 +55,10 @@ typedef struct {
     double gray;
     double z; /* maximal z value after rotation to graph coordinate system */
     gpdPoint corners[4];
-    gpiPoint icorners[4]; /* also if EXTENDED_COLOR_SPECS is not defined */
+#ifdef EXTENDED_COLOR_SPECS
+    gpiPoint icorners[4];
+#endif
+    t_colorspec *border_color;	/* Only used by depthorder processing */
 } quadrangle;
 
 static int allocated_quadrangles = 0;
@@ -357,7 +362,9 @@ void pm3d_depth_queue_flush(void)
 	quadrangle* qp;
 	quadrangle* qe;
 	gpdPoint* gpdPtr;
-	gpiPoint* gpiPtr;
+#ifdef EXTENDED_COLOR_SPECS
+	gpdPoint* gpiPtr;
+#endif
 	vertex out;
 	double z = 0; /* assignment keeps the compiler happy */
 	double w = trans_mat[3][3];
@@ -366,17 +373,22 @@ void pm3d_depth_queue_flush(void)
 	for (qp = quadrangles, qe = quadrangles + current_quadrangle; qp != qe; qp++) {
 
 	    gpdPtr = qp->corners;
+#ifdef EXTENDED_COLOR_SPECS
 	    gpiPtr = qp->icorners;
+#endif
 
-	    for (i = 0; i < 4; i++, gpdPtr++, gpiPtr++) {
+	    for (i = 0; i < 4; i++, gpdPtr++) {
 
 		map3d_xyz(gpdPtr->x, gpdPtr->y, gpdPtr->z, &out);
 
 		if (i == 0 || out.z > z)
 		    z = out.z;
 
+#ifdef EXTENDED_COLOR_SPECS
 		gpiPtr->x = (unsigned int) ((out.x * xscaler / w) + xmiddle);
 		gpiPtr->y = (unsigned int) ((out.y * yscaler / w) + ymiddle);
+		gpiPtr++;
+#endif
 	    }
 
 	    qp->z = z; /* maximal z value of all four corners */
@@ -387,7 +399,13 @@ void pm3d_depth_queue_flush(void)
 	for (qp = quadrangles, qe = quadrangles + current_quadrangle; qp != qe; qp++) {
 
 	    set_color(qp->gray);
+	    if (pm3d.hidden3d_tag < 0)
+		pm3d_border_lp.pm3d_color = *(qp->border_color);
+#ifdef EXTENDED_COLOR_SPECS
 	    ifilled_quadrangle(qp->icorners);
+#else
+	    filled_quadrangle(qp->corners);
+#endif
 	}
     }
 
@@ -424,6 +442,12 @@ pm3d_plot(struct surface_points *this_plot, int at_which_z)
 
     if (this_plot == NULL)
 	return;
+
+    /* Apply and save the user-requested line properties */
+    pm3d_border_lp = this_plot->lp_properties;
+    if (pm3d.hidden3d_tag > 0)
+	lp_use_properties(&pm3d_border_lp, pm3d.hidden3d_tag);
+    term_apply_lp_properties(&pm3d_border_lp);
 
     if (at_which_z != PM3D_AT_BASE && at_which_z != PM3D_AT_TOP && at_which_z != PM3D_AT_SURFACE)
 	return;
@@ -853,6 +877,7 @@ pm3d_plot(struct surface_points *this_plot, int at_which_z)
 			    quadrangle* qp = quadrangles + current_quadrangle;
 			    memcpy(qp->corners, corners, 4 * sizeof (gpdPoint));
 			    qp->gray = gray;
+			    qp->border_color = &this_plot->lp_properties.pm3d_color;
 			    current_quadrangle++;
 			}
 		    }
@@ -865,6 +890,7 @@ pm3d_plot(struct surface_points *this_plot, int at_which_z)
 		    quadrangle* qp = quadrangles + current_quadrangle;
 		    memcpy(qp->corners, corners, 4 * sizeof (gpdPoint));
 		    qp->gray = gray;
+		    qp->border_color = &this_plot->lp_properties.pm3d_color;
 		    current_quadrangle++;
 		}
 	    } /* interpolate between points */
@@ -961,9 +987,8 @@ pm3d_draw_one(struct surface_points *plot)
 	/* Draw either at 'where' option of the given surface or at pm3d.where
 	 * global option. */
 
-    if (!where[0]) {
+    if (!where[0])
 	return;
-    }
 
     /* for pm3dCompress.awk */
     if (gppsfile && (pm3d.direction != PM3D_DEPTH))

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: plot3d.c,v 1.182 2010/07/29 17:51:38 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: plot3d.c,v 1.184 2010/11/06 22:02:37 juhaszp Exp $"); }
 #endif
 
 /* GNUPLOT - plot3d.c */
@@ -73,6 +73,7 @@ int dgrid3d_mode = DGRID3D_QNORM;
 double dgrid3d_x_scale = 1.0;
 double dgrid3d_y_scale = 1.0;
 TBOOLEAN dgrid3d = FALSE;
+TBOOLEAN dgrid3d_kdensity = FALSE;
 
 /* static prototypes */
 
@@ -661,8 +662,8 @@ grid_nongrid_data(struct surface_points *this_plot)
 	    ||  (y > axis_array[y_axis].max && !(axis_array[y_axis].autoscale & AUTOSCALE_MAX)))
 		points->type = OUTRANGE;
 
-	    if (dgrid3d_mode != DGRID3D_SPLINES)
-                z = z / w;
+	    if (dgrid3d_mode != DGRID3D_SPLINES && !dgrid3d_kdensity)
+               z = z / w;
             
 	    STORE_WITH_LOG_AND_UPDATE_RANGE(points->z, z, 
 					    points->type, z_axis,
@@ -1598,7 +1599,7 @@ eval_3dplots()
 		    /* user may prefer explicit line styles */
 		    if (prefer_line_styles)
 			lp_use_properties(&lp, line_num+1);
-		    else if (first_perm_linestyle)
+		    else
 			load_linetype(&lp, line_num+1);
 
  		    lp_parse(&lp, TRUE,

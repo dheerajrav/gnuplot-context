@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: show.c,v 1.244 2010/08/30 18:29:57 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: show.c,v 1.249 2010/12/05 00:01:02 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - show.c */
@@ -99,6 +99,7 @@ static void show_style_circle __PROTO((void));
 static void show_style_ellipse __PROTO((void));
 #endif
 static void show_grid __PROTO((void));
+static void show_raxis __PROTO((void));
 static void show_zeroaxis __PROTO((AXIS_INDEX));
 static void show_label __PROTO((int tag));
 static void show_keytitle __PROTO((void));
@@ -117,6 +118,7 @@ static void show_palette_gradient __PROTO((void));
 static void show_palette_colornames __PROTO((void));
 static void show_colorbox __PROTO((void));
 static void show_pointsize __PROTO((void));
+static void show_pointintervalbox __PROTO((void));
 static void show_encoding __PROTO((void));
 static void show_decimalsign __PROTO((void));
 static void show_fit __PROTO((void));
@@ -251,6 +253,9 @@ show_command()
     case S_GRID:
 	show_grid();
 	break;
+    case S_RAXIS:
+	show_raxis();
+	break;
     case S_ZEROAXIS:
 	show_zeroaxis(FIRST_X_AXIS);
 	show_zeroaxis(FIRST_Y_AXIS);
@@ -337,6 +342,9 @@ show_command()
     case S_COLORNAMES:
 	c_token--;
 	show_palette_colornames();
+	break;
+    case S_POINTINTERVALBOX:
+	show_pointintervalbox();
 	break;
     case S_POINTSIZE:
 	show_pointsize();
@@ -448,7 +456,7 @@ show_command()
 	show_timestamp();
 	break;
     case S_RRANGE:
-	show_range(R_AXIS);
+	show_range(POLAR_AXIS);
 	break;
     case S_TRANGE:
 	show_range(T_AXIS);
@@ -570,6 +578,9 @@ show_command()
     case S_CBDTICS:
     case S_CBMTICS:
 	show_tics(FALSE, FALSE, FALSE, FALSE, FALSE, TRUE);
+	break;
+    case S_RTICS:
+	show_ticdef(POLAR_AXIS);
 	break;
     case S_X2TICS:
     case S_X2DTICS:
@@ -754,6 +765,7 @@ show_all()
     show_format();
     show_style();
     show_grid();
+    show_raxis();
     show_zeroaxis(FIRST_X_AXIS);
     show_zeroaxis(FIRST_Y_AXIS);
     show_zeroaxis(FIRST_Z_AXIS);
@@ -770,6 +782,7 @@ show_all()
     show_colorbox();
     show_pm3d();
     show_pointsize();
+    show_pointintervalbox();
     show_encoding();
     show_decimalsign();
     show_fit();
@@ -1130,7 +1143,7 @@ show_autoscale()
     }
 
     if (polar) {
-	SHOW_AUTOSCALE(R_AXIS)
+	SHOW_AUTOSCALE(POLAR_AXIS)
     }
 
     SHOW_AUTOSCALE(FIRST_X_AXIS );
@@ -1361,12 +1374,13 @@ show_dgrid3d()
 		dgrid3d_col_fineness );
       } else {
 	fprintf(stderr, 
-		"\tdata grid3d is enabled for mesh of size %dx%d, kernel=%s, scale factors x=%f, y=%f\n", 
+		"\tdata grid3d is enabled for mesh of size %dx%d, kernel=%s,\n\tscale factors x=%f, y=%f%s\n", 
 		dgrid3d_row_fineness,
 		dgrid3d_col_fineness,
 		reverse_table_lookup(dgrid3d_mode_tbl, dgrid3d_mode),
 		dgrid3d_x_scale,
-		dgrid3d_y_scale );
+		dgrid3d_y_scale,
+		dgrid3d_kdensity ? ", kdensity2d mode" : "" );
       }
     else
 	fputs("\tdata grid3d is disabled\n", stderr);
@@ -1432,6 +1446,7 @@ show_format()
     SHOW_FORMAT(SECOND_Y_AXIS);
     SHOW_FORMAT(FIRST_Z_AXIS );
     SHOW_FORMAT(COLOR_AXIS);
+    SHOW_FORMAT(POLAR_AXIS);
 #undef SHOW_FORMAT
 }
 
@@ -1623,6 +1638,7 @@ show_grid()
     SHOW_GRID(SECOND_Y_AXIS);
     SHOW_GRID(FIRST_Z_AXIS );
     SHOW_GRID(COLOR_AXIS);
+    SHOW_GRID(POLAR_AXIS);
 #undef SHOW_GRID
     fputs(" tics\n", stderr);
 
@@ -1640,6 +1656,11 @@ show_grid()
     fprintf(stderr, "\tGrid drawn at %s\n", (grid_layer==-1) ? "default layer" : ((grid_layer==0) ? "back" : "front"));
 }
 
+static void
+show_raxis()
+{
+    fprintf(stderr,"raxis is %sdrawn\n",raxis ? "" : "not ");
+}
 
 /* process 'show {x|y|z}zeroaxis' command */
 static void
@@ -1933,6 +1954,7 @@ show_logscale()
     SHOW_LOG(SECOND_X_AXIS);
     SHOW_LOG(SECOND_Y_AXIS);
     SHOW_LOG(COLOR_AXIS );
+    SHOW_LOG(POLAR_AXIS );
 #undef SHOW_LOG
 
     if (count == 0)
@@ -2414,11 +2436,11 @@ show_pm3d()
 	fputs("at least 1 point of the quadrangle in x,y ranges\n", stderr);
     else
 	fputs( "all 4 points of the quadrangle in x,y ranges\n", stderr);
-    if (pm3d.hidden3d_tag) {
-	fprintf(stderr,"\tpm3d-hidden3d is on an will use linestyle %d\n",
+    if (pm3d.hidden3d_tag > 0) {
+	fprintf(stderr,"\tpm3d-hidden3d is on and will use linestyle %d\n",
 	    pm3d.hidden3d_tag);
     } else {
-	fputs("\tpm3d-hidden3d is off\n", stderr);
+	fprintf(stderr,"\tpm3d-hidden3d is %s\n", pm3d.hidden3d_tag ? "on" : "off");
     }
 
     fprintf(stderr,"\tsteps for bilinear interpolation: %d,%d\n",
@@ -2441,6 +2463,14 @@ show_pointsize()
 {
     SHOW_ALL_NL;
     fprintf(stderr, "\tpointsize is %g\n", pointsize);
+}
+
+/* process 'show pointintervalbox' command */
+static void
+show_pointintervalbox()
+{
+    SHOW_ALL_NL;
+    fprintf(stderr, "\tpointintervalbox is %g\n", pointintervalbox);
 }
 
 
@@ -3239,12 +3269,9 @@ disp_value(FILE *fp, struct value *val, TBOOLEAN need_quotes)
 	fprintf(fp, "%d", val->v.int_val);
 	break;
     case CMPLX:
-#ifdef HAVE_ISNAN
 	if (isnan(val->v.cmplx_val.real))
 	    fprintf(fp, "NaN");
-	else
-#endif
-	if (val->v.cmplx_val.imag != 0.0)
+	else if (val->v.cmplx_val.imag != 0.0)
 	    fprintf(fp, "{%s, %s}",
 		    num_to_str(val->v.cmplx_val.real),
 		    num_to_str(val->v.cmplx_val.imag));

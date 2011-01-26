@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: wgraph.c,v 1.83 2010/07/26 20:24:29 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: wgraph.c,v 1.85 2010/12/17 18:19:24 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - win/wgraph.c */
@@ -40,6 +40,10 @@ static char *RCSid() { return RCSid("$Id: wgraph.c,v 1.83 2010/07/26 20:24:29 sf
  *   Russell Lang
  */
 
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
 #define STRICT
 #include <windows.h>
 #include <windowsx.h>
@@ -58,6 +62,7 @@ static char *RCSid() { return RCSid("$Id: wgraph.c,v 1.83 2010/07/26 20:24:29 sf
 #ifdef USE_MOUSE
 # include "gpexecute.h"
 # include "mouse.h"
+# include "command.h"
 #endif
 # include "color.h"
 # include "getcolor.h"
@@ -972,7 +977,7 @@ drawgraph(LPGW lpgw, HDC hdc, LPRECT rect)
 		LOGPEN cur_penstruct;
 		short cur_pen = curptr->x;
 
-		if (cur_pen > WGNUMPENS)
+		if (cur_pen >= WGNUMPENS)
 		    cur_pen = cur_pen % WGNUMPENS;
 		if (cur_pen <= LT_BACKGROUND) {
 		    cur_pen = 0;

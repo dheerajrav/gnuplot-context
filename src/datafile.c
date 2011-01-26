@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: datafile.c,v 1.191 2010/09/27 20:24:46 juhaszp Exp $"); }
+static char *RCSid() { return RCSid("$Id: datafile.c,v 1.193 2010/11/07 11:54:23 juhaszp Exp $"); }
 #endif
 
 /* GNUPLOT - datafile.c */
@@ -787,10 +787,9 @@ df_tokenise(char *s)
 	    }
 
 	    df_column[df_no_cols].good = count == 1 ? DF_GOOD : DF_BAD;
-#ifdef HAVE_ISNAN
+
 	    if (isnan(df_column[df_no_cols].datum))
 		df_column[df_no_cols].good = DF_BAD;
-#endif
 	}
 
 	++df_no_cols;
@@ -1899,6 +1898,15 @@ df_readascii(double v[], int max)
 			    line_okay = 0;
 			break;      /* return or ignore depending on line_okay */
 		    }
+		}
+		/* Special case to make 'using 0' et al. to work with labels */
+		if (use_spec[output].expected_type == CT_STRING
+		    && (column == -2 || column == -1 || column == 0)) {
+		    char *s = gp_alloc(32*sizeof(char), 
+			"temp string for label hack");
+		    sprintf(s, "%d", (int)v[output]);
+		    free(df_stringexpression[output]);
+		    df_tokens[output] = df_stringexpression[output] = s;
 		}
 	    }
 	}
