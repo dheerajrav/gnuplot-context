@@ -1,7 +1,7 @@
 /*
  *  $Id: lua.trm,v 1.11 2010/10/09 21:01:50 sfeam Exp $
  *  $Date: 2010/10/09 21:01:50 $
- *  $Rev: 90 $
+ *  $Rev: 98 $
  */
 
 /* 
@@ -43,7 +43,7 @@
 
 #include "driver.h"
 
-#define LUA_TERM_REVISON "$Rev: 97 $"
+#define LUA_TERM_REVISON "$Rev: 98 $"
 
 #ifdef TERM_REGISTER
 register_term(lua)
@@ -346,11 +346,13 @@ LUA_GP_get_all_variables(lua_State *L) {
           lua_pushstring(L, "real");
           lua_rawseti(L, -2, 2);
         }
-
+#ifdef HAVE_ISNAN
         if (isnan(val->v.cmplx_val.real)) {
           lua_pushnil(L);
           lua_rawseti(L, -2, 3);
-        } else {
+        } else
+#endif
+        {
           lua_pushnumber(L, val->v.cmplx_val.real);
           lua_rawseti(L, -2, 3);
         }
@@ -441,8 +443,6 @@ LUA_get_term_vars(void) {
 
 static void
 LUA_set_term_vars() {
-  extern const char lua_ident[];
-
   /* set term.version */
   lua_pushstring(L, gnuplot_version);
   lua_setfield(L, luaterm, "gp_version");
@@ -453,12 +453,10 @@ LUA_set_term_vars() {
   lua_pushstring(L, LUA_TERM_REVISON);
   lua_setfield(L, luaterm, "lua_term_revision");
   /* set term.lua_ident */
-  lua_pushstring(L, lua_ident);
+  lua_pushstring(L, LUA_RELEASE);
   lua_setfield(L, luaterm, "lua_ident");
-  lua_pushboolean(L, 1);
-  lua_setfield(L, luaterm, "IS_GNUPLOT_43");
-  
-  /* some static definitions */
+
+  /* some static definitions from term_api.h */
   lua_pushinteger(L, TERM_CAN_MULTIPLOT);     /* tested if stdout not redirected */
   lua_setfield(L, luaterm, "TERM_CAN_MULTIPLOT");
   lua_pushinteger(L, TERM_CANNOT_MULTIPLOT);  /* tested if stdout is redirected  */
@@ -479,6 +477,16 @@ LUA_set_term_vars() {
   lua_setfield(L, luaterm, "TERM_CAN_CLIP");
   lua_pushinteger(L, TERM_CAN_DASH);          /* terminal knows dashed lines */
   lua_setfield(L, luaterm, "TERM_CAN_DASH");
+  lua_pushinteger(L, TERM_ALPHA_CHANNEL);     /* alpha channel transparency      */
+  lua_setfield(L, luaterm, "TERM_ALPHA_CHANNEL");
+  lua_pushinteger(L, TERM_MONOCHROME);        /* term is running in mono mode    */
+  lua_setfield(L, luaterm, "TERM_MONOCHROME");
+  lua_pushinteger(L, TERM_LINEWIDTH);         /* support for set term linewidth  */
+  lua_setfield(L, luaterm, "TERM_LINEWIDTH");
+#ifdef TERM_FONTSCALE
+  lua_pushinteger(L, TERM_FONTSCALE);         /* terminal supports fontscale     */
+  lua_setfield(L, luaterm, "TERM_FONTSCALE");
+#endif
 }
 
 static int
@@ -676,17 +684,21 @@ LUA_options()
   int tc_off = c_token+1; /* token counter offset */
   int need_init = 1;
 
-
   /* 'set term tikz' is short for 'set term lua tikz' */
-  if (c_token == 3) {
-    if (almost_equals(2,"termop$tions"))
-      need_init = 0;
-    else if (equals(2,"tikz"))
+  if (c_token == 3 && equals(2,"tikz")) {
       c_token--;
+  } else if (c_token == 2) { /* 'set termoptions' */
+      if (!LUA_script) {
+        int_error(NO_CARET, "No Lua context for setting terminal options!");
+        return;
+      }
+      need_init = 0;
   }
 
-  if (!END_OF_COMMAND) {
     opt_str = gp_input_line + token[c_token].start_index;
+
+  if (need_init) {
+    if (!END_OF_COMMAND) {
     if (*opt_str == '"' || *opt_str == '\'') {
       s = try_to_get_string();
         gp_expand_tilde(&s);
@@ -710,20 +722,23 @@ LUA_options()
       LUA_script = s;
     }
     opt_str = gp_input_line + token[c_token].start_index;
+    /* FIXME: added by Ethan, but i think "c_token = num_tokens;" below does virtually the same here
     while (!END_OF_COMMAND)
-	c_token++;
-
-  } else {
+       c_token++;
+    */
+    } else {
     LUA_close();
     int_error(NO_CARET, "No Lua driver name or file name given!");
   }
 
   /* init lua when opening the terminal or on script change */
-  if(need_init) {
     if(!LUA_init_lua()) {
       return;
     }
   }
+
+  /* since options are tokenized again in the script we always "finish" this here */
+  c_token = num_tokens;
 
   if(LUA_init_luaterm_function("options")) {
     /* isolate the "set term ...;" part of the command line */
@@ -796,8 +811,8 @@ TERM_PUBLIC void
 LUA_move(unsigned int x, unsigned int y)
 {
   if(LUA_init_luaterm_function("move")) {
-    lua_pushinteger(L, x);
-    lua_pushinteger(L, y);
+    lua_pushinteger(L, (int)x);
+    lua_pushinteger(L, (int)y);
     LUA_call_report(lua_pcall(L, 2, 1, tb));
   	lua_term_result = (int)lua_tointeger(L, -1);
 	lua_pop(L, 1);
@@ -812,8 +827,8 @@ LUA_point(unsigned int x, unsigned int y, int number)
   lua_term_result = 0;
   
   if(LUA_init_luaterm_function("point")) {
-    lua_pushinteger(L, x);
-    lua_pushinteger(L, y);
+    lua_pushinteger(L, (int)x);
+    lua_pushinteger(L, (int)y);
     lua_pushinteger(L, number);
     LUA_call_report(lua_pcall(L, 3, 1, tb));
   	lua_term_result = (int)lua_tointeger(L, -1);
@@ -839,8 +854,8 @@ TERM_PUBLIC void
 LUA_vector(unsigned int ux, unsigned int uy)
 {
   if(LUA_init_luaterm_function("vector")) {
-    lua_pushinteger(L, ux);
-    lua_pushinteger(L, uy);
+    lua_pushinteger(L, (int)ux);
+    lua_pushinteger(L, (int)uy);
     LUA_call_report(lua_pcall(L, 2, 1, tb));
   	lua_term_result = (int)lua_tointeger(L, -1);
 	lua_pop(L, 1);
@@ -861,10 +876,10 @@ LUA_arrow(
   lua_term_result = 0;
 
   if(LUA_init_luaterm_function("arrow")) {
-    lua_pushinteger(L, sx);
-    lua_pushinteger(L, sy);
-    lua_pushinteger(L, ex);
-    lua_pushinteger(L, ey);
+    lua_pushinteger(L, (int)sx);
+    lua_pushinteger(L, (int)sy);
+    lua_pushinteger(L, (int)ex);
+    lua_pushinteger(L, (int)ey);
     lua_pushinteger(L, head);
     /*   additional vars  */
     lua_pushinteger(L, curr_arrow_headlength);    /* access head length + angle (int) */
@@ -885,8 +900,8 @@ TERM_PUBLIC void
 LUA_put_text(unsigned int x, unsigned int y, const char str[])
 {
   if(LUA_init_luaterm_function("put_text")) {
-    lua_pushinteger(L, x);
-    lua_pushinteger(L, y);
+    lua_pushinteger(L, (int)x);
+    lua_pushinteger(L, (int)y);
     lua_pushstring(L, str);
     LUA_call_report(lua_pcall(L, 3, 1, tb));
     lua_term_result = (int)lua_tointeger(L, -1);
@@ -956,10 +971,10 @@ LUA_boxfill (int style, unsigned int x1,
   if(LUA_init_luaterm_function("boxfill")) {
     lua_pushstring(L, LUA_get_fillstyle(style));
     lua_pushinteger(L, style >> 4);
-    lua_pushinteger(L, x1);
-    lua_pushinteger(L, y1);
-    lua_pushinteger(L, width);
-    lua_pushinteger(L, height);
+    lua_pushinteger(L, (int)x1);
+    lua_pushinteger(L, (int)y1);
+    lua_pushinteger(L, (int)width);
+    lua_pushinteger(L, (int)height);
     LUA_call_report(lua_pcall(L, 6, 1, tb));
     lua_term_result = (int)lua_tointeger(L, -1);
     lua_pop(L, 1);
@@ -1216,7 +1231,7 @@ TERM_TABLE_START(tikz_driver)
     LUA_text, null_scale, LUA_graphics, LUA_move, LUA_vector,
     LUA_linetype, LUA_put_text, LUA_text_angle,
     LUA_justify_text, LUA_point, LUA_arrow, LUA_set_font, LUA_pointsize,
-    TERM_BINARY|TERM_IS_LATEX /*flags*/, 0 /*suspend*/, 0 /*resume*/,
+    TERM_BINARY /*flags*/, 0 /*suspend*/, 0 /*resume*/,
     LUA_boxfill, LUA_linewidth
 #ifdef USE_MOUSE
     , 0, 0, 0, 0, 0
