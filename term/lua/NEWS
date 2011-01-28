@@ -1,3 +1,11 @@
+2011-01-23
+
+  * support for ConTeXt and plain TeX
+  * removed dependencies for LaTeX packages other than TikZ
+  * needs TikZ Version >= 2.0
+  * better support for saving terminal options with gnuplot 'save' command
+  * fixed "overflow" on negative coordinates that are outside of the crop box
+
 2009-03-29
 
   * Providing a script or target name is now mandatory. The new syntax:

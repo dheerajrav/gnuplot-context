@@ -1,7 +1,7 @@
 /*
  *  $Id: lua.trm,v 1.11 2010/10/09 21:01:50 sfeam Exp $
  *  $Date: 2010/10/09 21:01:50 $
- *  $Rev: 98 $
+ *  $Rev: 99 $
  */
 
 /* 
@@ -43,7 +43,7 @@
 
 #include "driver.h"
 
-#define LUA_TERM_REVISON "$Rev: 98 $"
+#define LUA_TERM_REVISON "$Rev: 99 $"
 
 #ifdef TERM_REGISTER
 register_term(lua)
@@ -455,7 +455,7 @@ LUA_set_term_vars() {
   /* set term.lua_ident */
   lua_pushstring(L, LUA_RELEASE);
   lua_setfield(L, luaterm, "lua_ident");
-
+  
   /* some static definitions from term_api.h */
   lua_pushinteger(L, TERM_CAN_MULTIPLOT);     /* tested if stdout not redirected */
   lua_setfield(L, luaterm, "TERM_CAN_MULTIPLOT");
@@ -724,9 +724,9 @@ LUA_options()
     opt_str = gp_input_line + token[c_token].start_index;
     /* FIXME: added by Ethan, but i think "c_token = num_tokens;" below does virtually the same here
     while (!END_OF_COMMAND)
-       c_token++;
+	c_token++;
     */
-    } else {
+  } else {
     LUA_close();
     int_error(NO_CARET, "No Lua driver name or file name given!");
   }
