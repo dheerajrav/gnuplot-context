@@ -440,6 +440,7 @@ typedef struct CONTEXT_params_t {
 	dimension_t         xsize;               /* 5in   */
 	dimension_t         ysize;               /* 3in   */
 	TBOOLEAN            standalone;          /* false */
+	TBOOLEAN            timestamp;           /* true  */
 	char               *header;              /* ""    */
 	TBOOLEAN            color;               /* true  */
 	TBOOLEAN            dashed;              /* true  */
@@ -459,6 +460,7 @@ typedef struct CONTEXT_params_t {
 	{CONTEXT_XSIZE_VALUE, CONTEXT_XSIZE_UNIT},\
 	{CONTEXT_YSIZE_VALUE, CONTEXT_YSIZE_UNIT},\
 	FALSE,\
+	TRUE,\
 	NULL,\
 	TRUE,\
 	TRUE,\
@@ -480,6 +482,7 @@ enum CONTEXT_id {
 	CONTEXT_OPT_SIZE,
 	CONTEXT_OPT_SIZE_DEFAULT,
 	CONTEXT_OPT_INPUT, CONTEXT_OPT_STANDALONE,
+	CONTEXT_OPT_TIMESTAMP, CONTEXT_OPT_NOTIMESTAMP,
 	CONTEXT_OPT_HEADER, CONTEXT_OPT_NOHEADER,
 	CONTEXT_OPT_COLOR, CONTEXT_OPT_MONOCHROME,
 	CONTEXT_OPT_DASHED, CONTEXT_OPT_SOLID,
@@ -498,6 +501,8 @@ static struct gen_table CONTEXT_opts[] = {
 	{ "defaultsize", CONTEXT_OPT_SIZE_DEFAULT },
 	{ "inp$ut", CONTEXT_OPT_INPUT },
 	{ "stand$alone", CONTEXT_OPT_STANDALONE },
+	{ "time$stamp", CONTEXT_OPT_TIMESTAMP },
+	{ "notime$stamp", CONTEXT_OPT_NOTIMESTAMP },
 	{ "header", CONTEXT_OPT_HEADER },
 	{ "noheader", CONTEXT_OPT_NOHEADER },
 	{ "col$or", CONTEXT_OPT_COLOR },
@@ -547,6 +552,7 @@ CONTEXT_params_reset()
 	CONTEXT_params.ysize.unit       = CONTEXT_YSIZE_UNIT;
 
 	CONTEXT_params.standalone       = FALSE;
+	CONTEXT_params.timestamp        = TRUE;
 	if (CONTEXT_params.header) {
 		free(CONTEXT_params.header);
 		CONTEXT_params.header = NULL;
@@ -680,6 +686,14 @@ CONTEXT_options()
 		case CONTEXT_OPT_STANDALONE:
 			c_token++;
 			CONTEXT_params.standalone = TRUE;
+			break;
+		case CONTEXT_OPT_TIMESTAMP:
+			c_token++;
+			CONTEXT_params.timestamp = TRUE;
+			break;
+		case CONTEXT_OPT_NOTIMESTAMP:
+			c_token++;
+			CONTEXT_params.timestamp = FALSE;
 			break;
 
 		case CONTEXT_OPT_HEADER:
@@ -963,12 +977,13 @@ CONTEXT_options()
 	CONTEXT_adjust_dimensions();
 
 	snprintf(term_options, sizeof(term_options),
-			"size %g%s,%g%s %s %s",
+			"size %g%s,%g%s %s %s %s",
 			CONTEXT_params.xsize.value,
 			unit_name(CONTEXT_params.xsize.unit),
 			CONTEXT_params.ysize.value,
 			unit_name(CONTEXT_params.ysize.unit),
 			CONTEXT_params.standalone ? "standalone" : "input",
+			CONTEXT_params.timestamp ? "timestamp" : "notimestamp",
 			CONTEXT_params.header == NULL ? "noheader \\\n   " : "\\\n   header ");
 
 	if (CONTEXT_params.header != NULL) {
@@ -1088,7 +1103,11 @@ CONTEXT_init()
 	timedate=asctime(localtime(&now));
 	timedate[strlen(timedate)-1]='\0';
 
-	fprintf(gpoutfile, "%% Written by ConTeXt terminal for GNUPLOT on: %s", asctime(localtime(&now)));
+	fprintf(gpoutfile, "%% Written by ConTeXt terminal for GNUPLOT");
+	if(CONTEXT_params.timestamp) {
+		fprintf(gpoutfile, " on: %s", asctime(localtime(&now)));
+	}
+	fprintf(gpoutfile, "\n");
 	fprintf(gpoutfile, "%% GNUPLOT version %s patchlevel %s\n", gnuplot_version, gnuplot_patchlevel);
 	fprintf(gpoutfile, "%% See also http://wiki.contextgarden.net/Gnuplot\n%%\n");
 
@@ -1823,7 +1842,8 @@ CONTEXT_fillbox(int style, unsigned int x1, unsigned int y1, unsigned int width,
 		CONTEXT_endpath();
 
 	/* create a new path */
-	fprintf(gpoutfile, "p := unitsquare xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb);\n", width/100.0, height/100.0, x1/100.0, y1/100.0);
+	/*fprintf(gpoutfile, "p := unitsquare xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb);\n", width/100.0, height/100.0, x1/100.0, y1/100.0);*/
+	fprintf(gpoutfile, "p := gp_rect ((%.2fa,%.2fb),(%.2fa,%.2fb));\n", x1/100.0, y1/100.0, width/100.0, height/100.0);
 	
 	/* fills the box according to the "style"
 	 * the code went out of this routine because of undocumented behaviour
@@ -2245,6 +2265,7 @@ START_HELP(context)
 "                     {defaultsize | size <scale> |",
 "                      size <xsize> {in|cm}, <ysize> {in|cm}}",
 "                     {input | standalone}",
+"                     {timestamp | notimestamp}",
 "                     {noheader | header \"<header>\"}",
 "                     {color | colour | monochrome}",
 "                     {mitered | rounded | beveled}",
@@ -2280,6 +2301,9 @@ START_HELP(context)
 "",
 " Use `header` for any additional settings/definitions/macros",
 " that you might want to include in a standalone graphic. `noheader` is the default.",
+"",
+" `notimestamp` prevents printing creation time in comments",
+" (if version control is used, one may prefer not to commit new version when only date changes).",
 "",
 " `color` to make color plots is the default, but `monochrome` doesn't do anything special yet.",
 " If you have any good ideas how the behaviour should differ to suit the monochrome printers better,",
