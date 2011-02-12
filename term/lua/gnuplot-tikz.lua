@@ -250,8 +250,11 @@ pgf.write_graph_begin = function (font, noenv)
     gp.write("%% ") -- comment out
   end
   gp.write(string.format("%s[gnuplot%s]\n", gfx.format[gfx.opt.tex_format].begintikzpicture, global_opt))
-  gp.write(string.format("%%%% generated with GNUPLOT %sp%s (%s; terminal rev. %s, script rev. %s)\n%%%% %s\n",
-      term.gp_version, term.gp_patchlevel, _VERSION, string.sub(term.lua_term_revision,7,-3), pgf.REVISION,os.date()))
+  gp.write(string.format("%%%% generated with GNUPLOT %sp%s (%s; terminal rev. %s, script rev. %s)\n",
+      term.gp_version, term.gp_patchlevel, _VERSION, string.sub(term.lua_term_revision,7,-3), pgf.REVISION))
+  if not gfx.opt.notimestamp then
+    gp.write(string.format("%%%% %s\n", os.date()))
+  end
   if font ~= "" then
     gp.write(string.format("\\tikzset{every node/.append style={font=%s}}\n", font))
   end
@@ -521,7 +524,7 @@ pgf.create_style = function()
 
 local f_latex   = io.open(name_latex, "w+")
 f_latex:write([[
-%%  
+%%
 %%  LaTeX wrapper for gnuplot-tikz style file
 %%
 \NeedsTeXFormat{LaTeX2e}
@@ -601,10 +604,17 @@ f:write([[
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %%     Common style file for TeX, LaTeX and ConTeXt
-%%  
+%%
 %%  It is associated with the 'gnuplot.lua' script, and usually generated
 %%  automatically. So take care whenever you make any changes!
 %%
+
+% check for the correct TikZ version
+\def\gpchecktikzversion#1.#2\relax{%
+\ifnum#1<2%
+  \PackageError{gnuplot-lua-tikz}{PGF/TikZ version >= 2.0 is required, but version \pgfversion\space was found}{}%
+\fi}
+\expandafter\gpchecktikzversion\pgfversion\relax
 
 % FIXME: is there a more elegant way to determine the output format?
 
@@ -747,9 +757,9 @@ f:write([[
 
 % wrapper for color settings
 \def\gpcolor#1{\tikzset{global #1}}
-\tikzset{rgb color/.code={\pgfutil@definecolor{.}{rgb}{#1}\tikzset{color=.}}}
-\tikzset{global rgb color/.code={\pgfutil@definecolor{.}{rgb}{#1}\pgfsetcolor{.}}}
-\tikzset{global color/.code={\pgfsetcolor{#1}}}
+\tikzset{rgb color/.code={\pgfutil@definecolor{.}{rgb}{#1}\color{.}}}
+\tikzset{global rgb color/.code={\pgfutil@definecolor{.}{rgb}{#1}\color{.}}}
+\tikzset{global color/.code={\color{#1}}}
 
 % prevent plot mark distortions due to changes in the PGF transformation matrix
 % use `\gpscalepointstrue' and `\gpscalepointsfalse' for enabling and disabling
@@ -972,7 +982,6 @@ pgf.print_help = function(fwrite)
       {notikzarrows | tikzarrows}
       {rgbimages | cmykimages}
       {bitmap | nobitmap}
-      {noclip | clip}
       {providevars <var name>,...}
       {createstyle}
       {help}
@@ -1171,7 +1180,9 @@ gfx.opt = {
   -- if true, cmyk image model will be used for bitmap images
   cmykimage = false,
   -- output TeX flavor, default is LaTeX
-  tex_format = 'latex'
+  tex_format = 'latex',
+  -- for regression tests etc. we can turn off the timestamp
+  notimestamp = false
 }
 
 -- Formats for the various TeX flavors 
@@ -1267,7 +1278,7 @@ gfx.units = {
 gfx.parse_number_unit = function (str, from, to)
   to = to or 'cm'
   from = from or 'cm'
-  local num, unit = string.match(str, '([%d%.]+)([a-z]*)')
+  local num, unit = string.match(str, '^([%d%.]+)([a-z]*)$')
   if unit and (string.len(unit) > 0) then
     from = unit
   else
@@ -1462,6 +1473,8 @@ gfx.format_color = function(ctype, val)
     -- c = pgf.styles.lt_colors[((val[1]+3) % #pgf.styles.lt_colors) + 1][1]
   elseif ctype == 'RGB' then
     c = string.format("rgb color={%.3g,%.3g,%.3g}", val[1], val[2], val[3])
+  elseif ctype == 'RGBA' then
+      c = string.format("rgb color={%.3g,%.3g,%.3g},opacity=%.3g", val[1], val[2], val[3], val[4])
   elseif ctype == 'GRAY' then
     c = string.format("color=black!%i", 100*val[1]+0.5)
   end
@@ -1498,9 +1511,9 @@ else
   -- default size for CM@10pt
   term.h_char = math.floor(pgf.DEFAULT_FONT_H_CHAR * (pgf.DEFAULT_FONT_SIZE/10) * (pgf.DEFAULT_RESOLUTION/1000) + .5)
   term.v_char = math.floor(pgf.DEFAULT_FONT_V_CHAR * (pgf.DEFAULT_FONT_SIZE/10) * (pgf.DEFAULT_RESOLUTION/1000) + .5)
-  term.description = "Lua PGF/TikZ terminal for LaTeX2e"
+  term.description = "Lua PGF/TikZ terminal for TeX and friends"
   term_default_flags = term.TERM_BINARY + term.TERM_IS_POSTSCRIPT + term.TERM_CAN_MULTIPLOT
-                        + term.TERM_CAN_DASH + term.TERM_ALPHA_CHANNEL + term.TERM_LINEWIDTH + term.TERM_IS_LATEX
+                + term.TERM_CAN_DASH + term.TERM_ALPHA_CHANNEL + term.TERM_LINEWIDTH + term.TERM_IS_LATEX
   term.flags = term_default_flags + term.TERM_CAN_CLIP
 end
 
@@ -1519,8 +1532,6 @@ term.options = function(opt_str, initial, t_count)
   local s_start, s_end = 1, 1
   local term_opt = ""
   local term_opt_font, term_opt_size, term_opt_scale, term_opt_preamble = "", "", "", ""
-
-  -- gfx.opt.latex_preamble = ""
 
   -- trim spaces
   opt_str = opt_str:gsub("^%s*(.-)%s*$", "%1")
@@ -1650,6 +1661,9 @@ term.options = function(opt_str, initial, t_count)
     elseif almost_equals(o_next, "so$lid") then
       -- no dashed and dotted etc. lines
       gfx.opt.lines_dashed = false
+    elseif almost_equals(o_next, "notime$stamp") then
+      -- omit output of the timestamp
+      gfx.opt.notimestamp = true
     elseif almost_equals(o_next, "da$shed") then
       -- dashed and dotted etc. lines
       gfx.opt.lines_dashed = true
@@ -2082,7 +2096,7 @@ end
 -- points[row][column]
 -- m: #cols, n: #rows
 -- corners: clip box and draw box coordinates
--- ctype: "RGB" or "GRAY" (unused since we allways use RGB to keep things simple)
+-- ctype: "RGB" or "RGBA" or "PALETTE"
 term.image = function(m, n, points, corners, ctype)
   gfx.check_in_path()
   
@@ -2106,7 +2120,7 @@ term.image = function(m, n, points, corners, ctype)
       yy = corners[1][2]-math.floor(cnt/m)*h
       yyy = yy-h
       xxx = xx+w
-      pgf.draw_fill({{xx, yy}, {xxx, yy}, {xxx, yyy}, {xx, yyy}}, '', gfx.format_color('RGB', points[cnt]) , 100, 100)
+      pgf.draw_fill({{xx, yy}, {xxx, yy}, {xxx, yyy}, {xx, yyy}}, '', gfx.format_color(ctype, points[cnt]) , 100, 100)
     end
   end
   pgf.write_clipbox_end()

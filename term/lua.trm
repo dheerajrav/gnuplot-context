@@ -256,10 +256,10 @@ LUA_GP_int_warn(lua_State *L) {
 static int
 LUA_GP_term_out(lua_State *L) {
   char c;             /* dummy input char */
-  char *line;
-  int pagelines = 0;  
+  char *line, *last;
+  int pagelines = 0;
   const char *msg = "";
-  
+
   int n = lua_gettop(L);  /* Number of arguments */
   switch (n) {
     case 1:
@@ -270,10 +270,9 @@ LUA_GP_term_out(lua_State *L) {
       break;
   }
 
-  line = strtok((char*)msg, "\n");
-  while(line != NULL) {
-    /* built-in dumb pager code stolen from help.c
-      maybe someone has a fancy old ATARI :-) */
+  last = (char *)msg;
+  while (line = strchr(last, '\n')) {
+    *line = '\0';
     if (pagelines >= 22) {
       fputs("Press return for more: ", stderr);
 #if defined(ATARI) || defined(MTOS)
@@ -287,11 +286,14 @@ LUA_GP_term_out(lua_State *L) {
 #endif
       pagelines = 0;
     }
-    fputs(line, stderr);
+    fputs(last, stderr);
     fputs("\n", stderr);
     pagelines++;
-    line = strtok(NULL, "\n");
+    last = line+1;
   }
+  if (*last)
+    fputs(last, stderr);
+
   return(0);
 }
 
@@ -455,7 +457,7 @@ LUA_set_term_vars() {
   /* set term.lua_ident */
   lua_pushstring(L, LUA_RELEASE);
   lua_setfield(L, luaterm, "lua_ident");
-  
+
   /* some static definitions from term_api.h */
   lua_pushinteger(L, TERM_CAN_MULTIPLOT);     /* tested if stdout not redirected */
   lua_setfield(L, luaterm, "TERM_CAN_MULTIPLOT");
@@ -695,50 +697,47 @@ LUA_options()
       need_init = 0;
   }
 
-    opt_str = gp_input_line + token[c_token].start_index;
+  opt_str = gp_input_line + token[c_token].start_index;
 
   if (need_init) {
     if (!END_OF_COMMAND) {
-    if (*opt_str == '"' || *opt_str == '\'') {
-      s = try_to_get_string();
-        gp_expand_tilde(&s);
-    } else {
-      s = gp_alloc(token_len(c_token)+strlen("gnuplot-.lua")+1, "LUA_script");
-      memcpy(s, "gnuplot-", 8);
-      memcpy(s+8, opt_str , token_len(c_token));
-      memcpy(s+8+token_len(c_token), ".lua\0", 5);
-      c_token++;
-    }
-    if (LUA_script) {
-      if (strcmp(LUA_script, s)) {
-        free(LUA_script);
-        LUA_script = s;
-        need_init = 1;
+      if (*opt_str == '"' || *opt_str == '\'') {
+        s = try_to_get_string();
+          gp_expand_tilde(&s);
       } else {
-        free(s);
-        need_init = 0;
+        s = gp_alloc(token_len(c_token)+strlen("gnuplot-.lua")+1, "LUA_script");
+        memcpy(s, "gnuplot-", 8);
+        memcpy(s+8, opt_str , token_len(c_token));
+        memcpy(s+8+token_len(c_token), ".lua\0", 5);
+        c_token++;
       }
+      if (LUA_script) {
+        if (strcmp(LUA_script, s)) {
+          free(LUA_script);
+          LUA_script = s;
+          need_init = 1;
+        } else {
+          free(s);
+          need_init = 0;
+        }
+      } else {
+        LUA_script = s;
+      }
+      opt_str = gp_input_line + token[c_token].start_index;
     } else {
-      LUA_script = s;
+      LUA_close();
+      int_error(NO_CARET, "No Lua driver name or file name given!");
     }
-    opt_str = gp_input_line + token[c_token].start_index;
-    /* FIXME: added by Ethan, but i think "c_token = num_tokens;" below does virtually the same here
-    while (!END_OF_COMMAND)
-	c_token++;
-    */
-  } else {
-    LUA_close();
-    int_error(NO_CARET, "No Lua driver name or file name given!");
-  }
 
-  /* init lua when opening the terminal or on script change */
+    /* init lua when opening the terminal or on script change */
     if(!LUA_init_lua()) {
       return;
     }
   }
 
   /* since options are tokenized again in the script we always "finish" this here */
-  c_token = num_tokens;
+  while (!END_OF_COMMAND)
+    c_token++;
 
   if(LUA_init_luaterm_function("options")) {
     /* isolate the "set term ...;" part of the command line */
@@ -762,8 +761,9 @@ TERM_PUBLIC void
 LUA_init()
 {
   fseek(gpoutfile, 0, SEEK_SET);
-  ftruncate(fileno(gpoutfile),0);
-  
+  /* ignore compiler warnings here, because `gpoutfile' is already open */
+  if (ftruncate(fileno(gpoutfile), 0));
+
   LUA_linetype(-1);
   if(LUA_init_luaterm_function("init")) {
     LUA_call_report(lua_pcall(L, 0, 1, tb));
@@ -1031,8 +1031,7 @@ LUA_set_color (t_colorspec *colorspec)
 {
 
   double gray = colorspec->value;
-  rgb_color color;
-
+  rgb_color color = {0.,0.,0.};
 
   if(LUA_init_luaterm_function("set_color")) {
     if (colorspec->type == TC_FRAC) {
@@ -1149,21 +1148,23 @@ LUA_path (int path)
 TERM_PUBLIC void
 LUA_image (unsigned m, unsigned n, coordval *image, gpiPoint *corner, t_imagecolor color_mode) {
   if(LUA_init_luaterm_function("image")) {
-    int i, is_rgb;
+    int i;
     rgb_color rgb1;
-    
+    coordval alpha;
+
     lua_pushinteger(L, m);
     lua_pushinteger(L, n);
 
-    is_rgb = (color_mode == IC_RGB) ? 1 : 0;
     lua_newtable(L); /* pixel table */
     for (i = 0; i < m*n; i++) {
-      if (is_rgb) {
+      if (color_mode == IC_PALETTE) {
+        /* FIXME: Is this correct? Needs a testcase. Would be nice to map it correctly to RGB. */
+        rgb1maxcolors_from_gray(*image++, &rgb1);
+      } else { /* IC_RGB and IC_RGBA*/
         rgb1.r = *image++;
         rgb1.g = *image++;
         rgb1.b = *image++;
-      } else {
-        rgb1maxcolors_from_gray(*image++, &rgb1);
+        if (color_mode == IC_RGBA) alpha = (*image++)/255.;
       }
       lua_newtable(L); /* pixel color */
       lua_pushnumber(L, rgb1.r);
@@ -1172,22 +1173,31 @@ LUA_image (unsigned m, unsigned n, coordval *image, gpiPoint *corner, t_imagecol
       lua_rawseti(L, -2, 2);
       lua_pushnumber(L, rgb1.b);
       lua_rawseti(L, -2, 3);
+      if (color_mode == IC_RGBA) {
+        lua_pushnumber(L, alpha);
+        lua_rawseti(L, -2, 4);
+      }
       lua_rawseti(L, -2, i+1); /* add "pixel" */
     }
-    
+
     lua_newtable(L); /* "corner" table */
     for (i = 0; i < 4; i++) {
       lua_newtable(L);
-      lua_pushinteger(L, corner[i].x);
+      lua_pushinteger(L, (int)corner[i].x);
       lua_rawseti(L, -2, 1);
-      lua_pushinteger(L, corner[i].y);
+      lua_pushinteger(L, (int)corner[i].y);
       lua_rawseti(L, -2, 2);
       lua_rawseti(L, -2 , i+1); /* add "subtable" */
     }
-    if (is_rgb)
-      lua_pushstring(L, "RGB");
-    else
-      lua_pushstring(L, "GRAY");
+    switch (color_mode) {
+      case IC_PALETTE:
+      case IC_RGB:
+        lua_pushstring(L, "RGB");
+        break;
+      case IC_RGBA:
+        lua_pushstring(L, "RGBA");
+        break;
+    }
     LUA_call_report(lua_pcall(L, 5, 1, tb));
     lua_term_result = (int)lua_tointeger(L, -1);
     lua_pop(L, 1);
