@@ -269,7 +269,7 @@ LUA_GP_term_out(lua_State *L) {
   char *line, *last;
   int pagelines = 0;  
   const char *msg = "";
-
+  
   int n = lua_gettop(L);  /* Number of arguments */
   switch (n) {
     case 1:
@@ -738,6 +738,7 @@ LUA_options()
   int tc_off = c_token+1; /* token counter offset */
   int need_init = 1;
 
+
   /* 'set term tikz' is short for 'set term lua tikz' */
   c_token--; /* see how we got here */
   if (!equals(c_token, "tikz")) {
@@ -772,12 +773,11 @@ LUA_options()
         LUA_script = s;
         need_init = 1;
       } else {
-        LUA_script = s;
+        free(s);
+        need_init = 0;
       }
-      opt_str = gp_input_line + token[c_token].start_index;
     } else {
-      LUA_close();
-      int_error(NO_CARET, "No Lua driver name or file name given!");
+      LUA_script = s;
     }
     opt_str = gp_input_line + token[c_token].start_index;
   } else {
@@ -1252,7 +1252,7 @@ LUA_image (unsigned m, unsigned n, coordval *image, gpiPoint *corner, t_imagecol
       }
       lua_rawseti(L, -2, i+1); /* add "pixel" */
     }
-
+    
     lua_newtable(L); /* "corner" table */
     for (i = 0; i < 4; i++) {
       lua_newtable(L);

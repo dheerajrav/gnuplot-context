@@ -622,57 +622,6 @@ f:write([[
 %%  It is associated with the 'gnuplot.lua' script, and usually generated
 %%  automatically. So take care whenever you make any changes!
 %%
-%%  It is associated with the 'gnuplot.lua' script, and usually generated
-%%  automatically. So take care whenever you make any changes!
-%%
-
-% check for the correct TikZ version
-\def\gpchecktikzversion#1.#2\relax{%
-\ifnum#1<2%
-  \PackageError{gnuplot-lua-tikz}{PGF/TikZ version >= 2.0 is required, but version \pgfversion\space was found}{}%
-\fi}
-\expandafter\gpchecktikzversion\pgfversion\relax
-
-% FIXME: is there a more elegant way to determine the output format?
-
-\def\pgfsysdriver@a{pgfsys-dvi.def}       % ps
-\def\pgfsysdriver@b{pgfsys-dvipdfm.def}   % pdf
-\def\pgfsysdriver@c{pgfsys-dvipdfmx.def}  % pdf
-\def\pgfsysdriver@d{pgfsys-dvips.def}     % ps
-\def\pgfsysdriver@e{pgfsys-pdftex.def}    % pdf
-\def\pgfsysdriver@f{pgfsys-tex4ht.def}    % html
-\def\pgfsysdriver@g{pgfsys-textures.def}  % ps
-\def\pgfsysdriver@h{pgfsys-vtex.def}      % ps
-\def\pgfsysdriver@i{pgfsys-xetex.def}     % pdf
-
-\newif\ifgppdfout\gppdfoutfalse
-\newif\ifgppsout\gppsoutfalse
-
-\ifx\pgfsysdriver\pgfsysdriver@a
-  \gppsouttrue
-\else\ifx\pgfsysdriver\pgfsysdriver@b
-  \gppdfouttrue
-\else\ifx\pgfsysdriver\pgfsysdriver@c
-  \gppdfouttrue
-\else\ifx\pgfsysdriver\pgfsysdriver@d
-  \gppsouttrue
-\else\ifx\pgfsysdriver\pgfsysdriver@e
-  \gppdfouttrue
-\else\ifx\pgfsysdriver\pgfsysdriver@f
-  % tex4ht
-\else\ifx\pgfsysdriver\pgfsysdriver@g
-  \gppsouttrue
-\else\ifx\pgfsysdriver\pgfsysdriver@h
-  \gppsouttrue
-\else\ifx\pgfsysdriver\pgfsysdriver@i
-  \gppdfouttrue
-\fi\fi\fi\fi\fi\fi\fi\fi\fi
-
-% uncomment the following lines to make font values "appendable"
-% and if you are really sure about that ;-)
-% \pgfkeyslet{/tikz/font/.@cmd}{\undefined}
-% \tikzset{font/.initial={}}
-% \def\tikz@textfont{\pgfkeysvalueof{/tikz/font}}
 
 % check for the correct TikZ version
 \def\gpchecktikzversion#1.#2\relax{%
@@ -1769,7 +1718,6 @@ term.options = function(opt_str, initial, t_count)
   end
   
   local print_help = false
-  local do_clip = false
 
   while true do
     get_next_token()
