@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: wpause.c,v 1.17 2010/12/14 23:02:23 broeker Exp $"); }
+static char *RCSid() { return RCSid("$Id: wpause.c,v 1.20 2011/05/05 19:10:06 markisch Exp $"); }
 #endif
 
 /* GNUPLOT - win/wpause.c */
@@ -57,8 +57,8 @@ static char *RCSid() { return RCSid("$Id: wpause.c,v 1.17 2010/12/14 23:02:23 br
 #include "wcommon.h"
 
 /* Pause Window */
-LRESULT CALLBACK WINEXPORT WndPauseProc(HWND, UINT, WPARAM, LPARAM);
-LRESULT CALLBACK WINEXPORT PauseButtonProc(HWND, UINT, WPARAM, LPARAM);
+LRESULT CALLBACK WndPauseProc(HWND, UINT, WPARAM, LPARAM);
+LRESULT CALLBACK PauseButtonProc(HWND, UINT, WPARAM, LPARAM);
 
 /* We need to hide "OK" and "Cancel" buttons on the pause dialog during
  * "pause mouse".
@@ -118,7 +118,7 @@ CreatePauseClass(LPPW lppw)
 	wndclass.style = 0;
 	wndclass.lpfnWndProc = (WNDPROC)WndPauseProc;
 	wndclass.cbClsExtra = 0;
-	wndclass.cbWndExtra = sizeof(void FAR *);
+	wndclass.cbWndExtra = sizeof(void *);
 	wndclass.hInstance = lppw->hInstance;
 	wndclass.hIcon = NULL;
 	wndclass.hCursor = LoadCursor(NULL, IDC_ARROW);
@@ -151,29 +151,15 @@ PauseBox(LPPW lppw)
 		lppw->Origin.y = (rect.bottom + rect.top) / 2;
 
 	hdc = GetDC(NULL);
-	SelectObject(hdc, GetStockObject(SYSTEM_FIXED_FONT));
+	SelectObject(hdc, GetStockObject(SYSTEM_FONT));
 	GetTextMetrics(hdc, &tm);
 	width  = max(24,4+_fstrlen(lppw->Message)) * tm.tmAveCharWidth;
 	width = min(width, rect.right-rect.left);
 	height = 28 * (tm.tmHeight + tm.tmExternalLeading) / 4;
 	ReleaseDC(NULL,hdc);
 
-#ifndef WIN32
-	lppw->lpfnPauseButtonProc =
-#ifdef __DLL__
-		(WNDPROC)GetProcAddress(hdllInstance, "PauseButtonProc");
-#else
-		(WNDPROC)MakeProcInstance((FARPROC)PauseButtonProc ,hdllInstance);
-#endif
-#endif
 	lppw->hWndPause = CreateWindowEx(
-        WS_EX_DLGMODALFRAME | WS_EX_TOPMOST
-#ifdef WS_EX_APPWINDOW
-        /* HBB 20001217: put the pause window into the taskbar, and make
-         * float on top of everything. This is cleaner than adding a window
-         * menu to it, as the 3.5 code did it: */
-        | WS_EX_APPWINDOW
-#endif
+        WS_EX_DLGMODALFRAME | WS_EX_TOPMOST | WS_EX_APPWINDOW
         , szPauseClass, current_pause_title,
 /* HBB 981202: WS_POPUPWINDOW would have WS_SYSMENU in it, but we don't
  * want, nor need, a System menu in our Pause windows. Actually, it was
@@ -212,16 +198,11 @@ PauseBox(LPPW lppw)
 	}
 
 	DestroyWindow(lppw->hWndPause);
-#ifndef WIN32
-#ifndef __DLL__
-	FreeProcInstance((FARPROC)lppw->lpfnPauseButtonProc);
-#endif
-#endif
 
 	return(lppw->bPauseCancel);
 }
 
-LRESULT CALLBACK WINEXPORT
+LRESULT CALLBACK 
 WndPauseProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	HDC hdc;
@@ -259,7 +240,7 @@ WndPauseProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case WM_PAINT:
 			{
 			hdc = BeginPaint(hwnd, &ps);
-			SelectObject(hdc, GetStockObject(SYSTEM_FIXED_FONT));
+			SelectObject(hdc, GetStockObject(SYSTEM_FONT));
 			SetTextAlign(hdc, TA_CENTER);
 			GetClientRect(hwnd, &rect);
 			SetBkMode(hdc,TRANSPARENT);
@@ -274,11 +255,11 @@ WndPauseProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			if (!paused_for_mouse) /* don't show buttons during pausing for mouse or key */
 			    ws_opts |= WS_VISIBLE;
 			/* HBB 981202 HMENU sysmenu = GetSystemMenu(hwnd, FALSE); */
-			lppw = ((CREATESTRUCT FAR *)lParam)->lpCreateParams;
+			lppw = ((CREATESTRUCT *)lParam)->lpCreateParams;
 			SetWindowLong(hwnd, 0, (LONG)lppw);
 			lppw->hWndPause = hwnd;
 			hdc = GetDC(hwnd);
-			SelectObject(hdc, GetStockObject(SYSTEM_FIXED_FONT));
+			SelectObject(hdc, GetStockObject(SYSTEM_FONT));
 			GetTextMetrics(hdc, &tm);
 			cxChar = tm.tmAveCharWidth;
 			cyChar = tm.tmHeight + tm.tmExternalLeading;
@@ -298,17 +279,9 @@ WndPauseProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 					hwnd, (HMENU)IDCANCEL,
 					((LPCREATESTRUCT) lParam)->hInstance, NULL);
 			lppw->lpfnOK = (WNDPROC) GetWindowLong(lppw->hOK, GWL_WNDPROC);
-#ifdef WIN32
 			SetWindowLong(lppw->hOK, GWL_WNDPROC, (LONG)PauseButtonProc);
-#else
-			SetWindowLong(lppw->hOK, GWL_WNDPROC, (LONG)lppw->lpfnPauseButtonProc);
-#endif
 			lppw->lpfnCancel = (WNDPROC) GetWindowLong(lppw->hCancel, GWL_WNDPROC);
-#ifdef WIN32
 			SetWindowLong(lppw->hCancel, GWL_WNDPROC, (LONG)PauseButtonProc);
-#else
-			SetWindowLong(lppw->hCancel, GWL_WNDPROC, (LONG)lppw->lpfnPauseButtonProc);
-#endif
 			if (GetParent(hwnd))
 				EnableWindow(GetParent(hwnd),FALSE);
 #if 0 /* HBB 981203 */
@@ -335,15 +308,11 @@ WndPauseProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 }
 
 
-LRESULT CALLBACK WINEXPORT
+LRESULT CALLBACK
 PauseButtonProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	LPPW lppw;
-#ifdef WIN32
 	LONG n = GetWindowLong(hwnd, GWL_ID);
-#else
-	WORD n = GetWindowWord(hwnd, GWW_ID);
-#endif
 	lppw = (LPPW)GetWindowLong(GetParent(hwnd), 0);
 	switch(message) {
 		case WM_KEYDOWN:

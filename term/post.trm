@@ -1,5 +1,5 @@
 /* Hello, Emacs: this is -*-C-*- !
- * $Id: post.trm,v 1.257 2010/10/06 05:44:57 sfeam Exp $
+ * $Id: post.trm,v 1.261 2011/04/16 06:05:54 sfeam Exp $
  */
 
 /* GNUPLOT - post.trm */
@@ -1790,10 +1790,9 @@ PS_init()
 TERM_PUBLIC void
 PS_graphics()
 {
-    static char GPFAR psg1[] = "0 setgray\nnewpath\n";
     struct termentry *t = term;
     ps_page++;
-    if (ps_params->psformat != PSTERM_EPS)
+    /* if (ps_params->psformat != PSTERM_EPS) */
 	fprintf(gppsfile,"%%%%Page: %d %d\n",ps_page,ps_page);
 
     /* If we are about to use enhanced text mode for the first time in a plot that */
@@ -1816,7 +1815,7 @@ doclip\n\
 	    (ps_params->psformat == PSTERM_EPS ? 0.5 : 1.0)/PS_SC);
     if (ps_params->psformat == PSTERM_LANDSCAPE)
 	fprintf(gppsfile,"90 rotate\n0 %d translate\n", -(int)(term->ymax));
-    fprintf(gppsfile, psg1);
+    fprintf(gppsfile, "0 setgray\nnewpath\n");
     if (ps_common_uses_fonts)
 	fprintf(gppsfile, "(%s) findfont %d scalefont setfont\n",
 		ps_params->font, (t->v_char));
@@ -2436,6 +2435,23 @@ ENHPS_WRITEC(int c)
 		ENHps_opened_string = FALSE;
 	    }
 	}
+
+    /* shige jan 2011 */
+    } else if (encoding == S_ENC_SJIS) {
+	static TBOOLEAN in_sjis = FALSE;
+
+	fputc(c, gppsfile);
+	if (in_sjis || (c & 0x80)) {  
+	    /* shige: This may remain original string instead octal bytes. */
+	    if (in_sjis) {
+		in_sjis = 0;
+		if ((unsigned)(c) == '\\')
+		    fputc('\\', gppsfile);
+	    } else {
+		in_sjis = TRUE;
+	    }
+	}
+	
     } else
 
     /* Single byte character */
@@ -3811,7 +3827,7 @@ START_HELP(00psglobal)
 " postscript output:  The color component functions are sampled at <samples>",\
 " points and all points are removed from this gradient which can be removed",\
 " without changing the resulting colors by more than <maxdeviation>. For",\
-" almost every useful palette you may savely leave the defaults of",\
+" almost every useful palette you may safely leave the defaults of",\
 " <samples>=2000 and <maxdeviation>=0.003 untouched.",\
 "",\
 " The default size for postscript output is 10 inches x 7 inches. The default",\

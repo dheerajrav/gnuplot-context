@@ -1,5 +1,5 @@
 # Hello, emacs: this is a -*- Makefile -*-
-# $Id: Makefile,v 1.1 2010/12/14 23:28:46 broeker Exp $
+# $Id: Makefile,v 1.8 2011/04/17 19:03:48 broeker Exp $
 #
 # GNUPLOT Makefile OpenWatcom 1.3 on Win32
 
@@ -16,15 +16,25 @@
 #  MS namesake replacement tools generate their command lines)
 #
 
-#TARGET=wgnuplot.exe
-#TARGET=wgnuplot_pipes.exe
-TARGET=gnuplot.exe
+# enable exactly one of these:
+VARIANT = PLAIN
+#VARIANT = PIPES
+#VARIANT = CONSOLE
 
 TOP = ..\..
+
+# activate one of these to choose which of the help file formats you want:
+#   old-fashioned WinHelp ...
+# HELP_EXT=hlp
+#   ... or HTML help
+HELP_EXT=chm
 
 # Programs: 
 # The Microsoft Help compiler:
 HCW = "c:\program files\help workshop\hcw.exe"
+# ... and the HTML help compiler
+HHC_DIR = c:\Program Files\HTML Help Workshop
+HHC = "$(HHC_DIR)\hhc.exe"
 
 # OpenWatcom programs:
 WCL = wcl386
@@ -49,15 +59,16 @@ WRC = wrc
 # wgnuplot.exe
 GNUPLOT_PS_DIR = share/PostScript
 
-# macros for makefile.all
+# paths for external libs added here... 
+LDLIBS = 
+
+# Macros for makefile.all
 O=obj
 T=$(TOP)\term\
 D=$(TOP)\docs\
 M=$(TOP)\demo\
 S=$(TOP)\src
 W=$(S)\win
-
-.c: $(S)
 
 BINARYFILES=$(M)binary1 $(M)binary2 $(M)binary3
 
@@ -69,22 +80,27 @@ CPPFLAGS =  -DHAVE_CONFIG_H -D_Windows -DHAVE_CONFIG_H -DUSE_MOUSE -DEAM_OBJECTS
 # library-dependent ones may have to be added, like:
 # -DHAVE_LIBPNG -DHAVE_LIBPDF 
 
-DEFAULT_TARGETS = $(TARGET) $(BINARYFILES)
+HELPFILE = wgnuplot.$(HELP_EXT)
 
-!ifeqi TARGET wgnuplot.exe
-DEFAULT_TARGETS += wgnuplot.mnu pgnuplot.exe
-HELPFILE = wgnuplot.hlp
-!endif
-!ifeqi TARGET wgnuplot_pipes.exe
-DEFAULT_TARGETS += wgnuplot.mnu pgnuplot.exe
-HELPFILE = wgnuplot.hlp
-CPPFLAGS += -DPIPES=1
-!endif
-!ifeqi TARGET gnuplot.exe
-HELPFILE = gnuplot.gih
-CPPFLAGS += -DPIPES=1 -DWGP_CONSOLE
-!endif
+DEFAULT_TARGETS = $(BINARYFILES) $(HELPFILE)
 
+TARGETS_PLAIN=wgnuplot.exe wgnuplot.mnu pgnuplot.exe
+EXTRA_CPPFLAGS_PLAIN = 
+
+TARGETS_PIPES=wgnuplot_pipes.exe wgnuplot.mnu pgnuplot.exe
+EXTRA_CPPFLAGS_PIPES = -DPIPES=1
+
+TARGETS_CONSOLE=gnuplot.exe
+EXTRA_CPPFLAGS_CONSOLE = -DPIPES=1 -DWGP_CONSOLE
+
+ALL_TARGETS = $(DEFAULT_TARGETS) $(TARGETS_PLAIN) $(TARGETS_PIPES) $(TARGETS_CONSOLE)
+
+DEFAULT_TARGETS += $(TARGETS_$(VARIANT))
+
+!ifeq HELP_EXT chm
+CPPFLAGS += -DWITH_HTML_HELP
+LDLIBS += LIBRARY htmlhelp.lib
+!endif
 
 # compiler flags, determined from MS ones by OW's "cl /showwopts"
 
@@ -105,11 +121,9 @@ CPPFLAGS += -DPIPES=1 -DWGP_CONSOLE
 # -j  : char is signed
 # -aa : allow non-const initializers for locals
 # -d2 : debug information
-WCFLAGS = -zlf -ei -zq -I$(S);$(W) -zm -bm -5r -sg -orilt -j -aa -d2 $(CPPFLAGS)
+WCFLAGS = -zlf -ei -zq -I$(S);$(W) -zm -bm -5r -sg -orilt -j -aa -d2 $(CPPFLAGS) $(OPTS)
 # removed: -za99
 
-# paths for external libs added here... 
-LDLIBS = 
 # ...and here.
 # see other terminal defines in term.h
 TERMFLAGS = -DGNUPLOT_PS_DIR="$(GNUPLOT_PS_DIR)" -I$(T)
@@ -120,15 +134,36 @@ TERMFLAGS = -DGNUPLOT_PS_DIR="$(GNUPLOT_PS_DIR)" -I$(T)
 
 default: $(DEFAULT_TARGETS) .SYMBOLIC
 
-OBJS = $(COREOBJS) version.obj
+all: $(ALL_TARGETS) .SYMBOLIC
 
-WINOBJS = winmain.obj wgnuplib.obj wgraph.obj wprinter.obj wtext.obj &
-        wpause.obj wmenu.obj gpexecute.obj
+WINOBJS = winmain.$(O) wgnuplib.$(O) wgraph.$(O) wprinter.$(O) wtext.$(O) &
+        wpause.$(O) wmenu.$(O) gpexecute.$(O) screenbuf.$(O)
 
-WIN_EXTRA_INPUTS = $(WINOBJS) wgnuplot.res texticon.ico grpicon.ico
+OBJS = $(COREOBJS) version.$(O) $(WINOBJS)
+
+O=cobj
+CONSOLE_OBJS = $+ $(OBJS) $-
+O=pobj
+PIPE_OBJS = $+ $(OBJS) $-
+O=obj
+
+WIN_EXTRA_INPUTS = wgnuplot.res texticon.ico grpicon.ico
+
+# extensions:
+.EXTENSIONS:
+.EXTENSIONS: .exe .cobj .pobj .obj .asm .pas .c .cpp .for
+
+.c: $(S);$(W)
+
 # default rule
 .c.obj: .AUTODEPEND
         $(WCC) $(WCFLAGS) $[@
+
+.c.cobj: .AUTODEPEND
+		$(WCC) $(EXTRA_CPPFLAGS_CONSOLE) $(WCFLAGS) $[@ -fo=$^@
+
+.c.pobj: .AUTODEPEND
+		$(WCC) $(EXTRA_CPPFLAGS_PIPES) $(WCFLAGS) $[@ -fo=$^@
 
 # file-specific rules
 wgnuplot.exe: $(OBJS) $(WIN_EXTRA_INPUTS)
@@ -139,10 +174,10 @@ DEBUG ALL
 OPTION quiet
 FILE {
  $(OBJS)
- $(WINOBJS)
 }
 LIBRARY kernel32.lib,user32.lib,gdi32.lib,winspool.lib,comdlg32.lib
-LIBRARY advapi32.lib,shell32.lib
+LIBRARY comctl32.lib,advapi32.lib,shell32.lib
+LIBRARY msimg32.lib
 OPTION map
 OPTION SYMFILE
 NAME $^&
@@ -153,18 +188,18 @@ REFERENCE _wstart_
 OPTION START=_wstart_
 <<
 
-wgnuplot_pipes.exe: $(OBJS) $(WIN_EXTRA_INPUTS)
+wgnuplot_pipes.exe: $(PIPE_OBJS) $(WIN_EXTRA_INPUTS)
         $(WLD) @<<linkopt1.oww $(LDLIBS)
 RUNTIME windows=4.0
 SYSTEM nt_win
 DEBUG ALL
 OPTION quiet
 FILE {
- $(OBJS)
- $(WINOBJS)
+ $(PIPE_OBJS)
 }
 LIBRARY kernel32.lib,user32.lib,gdi32.lib,winspool.lib,comdlg32.lib
 LIBRARY advapi32.lib,shell32.lib
+LIBRARY msimg32.lib
 OPTION map
 OPTION SYMFILE
 NAME $^&
@@ -175,18 +210,18 @@ REFERENCE _wstart_
 OPTION START=_wstart_
 <<
 
-gnuplot.exe: $(OBJS) $(WIN_EXTRA_INPUTS) 
+gnuplot.exe: $(CONSOLE_OBJS) $(WIN_EXTRA_INPUTS) 
         $(WLD) @<<linkopt1.oww $(LDLIBS)
 RUNTIME console=4.0
 SYSTEM nt
 DEBUG ALL
 OPTION quiet
 FILE {
- $(OBJS)
- $(WINOBJS)
+ $(CONSOLE_OBJS)
 }
 LIBRARY kernel32.lib,user32.lib,gdi32.lib,winspool.lib,comdlg32.lib
 LIBRARY advapi32.lib,shell32.lib
+LIBRARY msimg32.lib
 OPTION map
 OPTION SYMFILE
 NAME gnuplot.exe
@@ -205,34 +240,17 @@ wgnuplot.res :  $(W)\wgnuplot.rc $(W)\wgnuplib.rc &
 
 term.obj: $(S)\term.c $(CORETERM) .AUTODEPEND
         $(WCC) $(WCFLAGS) $(TERMFLAGS) $[@
-
-winmain.obj: $(W)\winmain.c .AUTODEPEND
-        $(WCC) $(WCFLAGS) $[@
-
-wgnuplib.obj: $(W)\wgnuplib.c .AUTODEPEND
-        $(WCC) $(WCFLAGS) $[@
-
-wmenu.obj: $(W)\wmenu.c .AUTODEPEND
-        $(WCC) $(WCFLAGS) $[@
-
-wtext.obj: $(W)\wtext.c .AUTODEPEND
-        $(WCC) $(WCFLAGS) $[@
-
-wpause.obj: $(W)\wpause.c .AUTODEPEND
-        $(WCC) $(WCFLAGS) $[@
-
-wprinter.obj: $(W)\wprinter.c .AUTODEPEND
-        $(WCC) $(WCFLAGS) $[@
-
-wgraph.obj: $(W)\wgraph.c .AUTODEPEND .AUTODEPEND
-        $(WCC) $(WCFLAGS) $[@
+term.cobj: $(S)\term.c $(CORETERM) .AUTODEPEND
+        $(WCC) $(EXTRA_CPPFLAGS_CONSOLE) $(WCFLAGS) $(TERMFLAGS) $[@ -fo=$^@
+term.pobj: $(S)\term.c $(CORETERM) .AUTODEPEND
+        $(WCC) $(EXTRA_CPPFLAGS_PIPES) $(WCFLAGS) $(TERMFLAGS) $[@ -fo=$^@
 
 wgnuplot.mnu: $(W)\wgnuplot.mnu
         copy $(W)\wgnuplot.mnu wgnuplot.mnu
 
-pgnuplot.exe: $(W)\pgnuplot.c version.obj .AUTODEPEND
+pgnuplot.exe: $(W)\pgnuplot.c version.$(O) .AUTODEPEND
         $(WCL) -5r -zq -d2 -fm $(W)\pgnuplot.c -fe=pgnuplot.exe -I$(S) &
-	  version.obj user32.lib
+	  version.$(O) user32.lib
 
 
 # extract icons from wgnuplot.rc
@@ -252,34 +270,54 @@ wgnuplot.hlp: doc2rtf.exe $(D)gnuplot.doc $(W)\wgnuplot.hpj
         if exist $(W)\wgnuplot.hlp copy $(W)\wgnuplot.hlp .
 
 doc2rtf.exe: $(D)doc2rtf.c $(D)termdoc.c $(D)xref.c .AUTODEPEND
-        $(WCL) $(WCFLAGS) -w1 -DWINDOWS_NO_GUI -I$(D);$(T) -fedoc2rtf.exe $(D)doc2rtf.c $(D)termdoc.c $(D)xref.c
+        $(WCL) $(WCFLAGS) -w1 -DWINDOWS_NO_GUI -I$(D);$(T) -fe$^@ $(D)doc2rtf.c $(D)termdoc.c $(D)xref.c
+
+WD=$(D)windows\
+HHP_PROJ=$(WD)wgnuplot.hhp
+HHP_CONTENT=$(WD)wgnuplot.hhc
+HHP_INPUT=$(WD)wgnuplot.html
+HHP_OUTPUT=$(WD)wgnuplot.chm   
+
+wgnuplot.chm: $(HHP_OUTPUT)
+        copy $(HHP_OUTPUT) .
+
+$(HHP_OUTPUT): $(HHP_PROJ) $(HHP_INPUT) $(HHP_CONTENT)
+        -$(HHC) $(HHP_PROJ)
+
+$(HHP_INPUT) $(HHP_CONTENT): doc2html.exe $(D)gnuplot.doc
+        doc2html $(D)gnuplot.doc $(WD)
+
+doc2html.exe: $(WD)doc2html.c $(D)termdoc.c $(D)xref.c version.$(O) .AUTODEPEND
+        $(WCL) $(WCFLAGS) -w1 -DWINDOWS_NO_GUI -I$(D);$(T) -fe$^@ $(WD)doc2html.c $(D)termdoc.c $(D)xref.c version.$(O)
 
 gnuplot.gih: doc2gih.exe $(D)gnuplot.doc
-	doc2gih $(D)gnuplot.doc $^@
+        doc2gih $(D)gnuplot.doc $^@
 
 doc2gih.exe: $(D)doc2gih.c $(D)termdoc.c $(D)xref.c .AUTODEPEND
-        $(WCL) $(WCFLAGS) -w1 -I$(D);$(T) -fe$^@ $(D)doc2gih.c $(D)termdoc.c $(D)xref.c
+        $(WCL) $(EXTRA_CPPFLAGS_CONSOLE) $(WCFLAGS) -w1 -I$(D);$(T) -fe$^@ $(D)doc2gih.c $(D)termdoc.c $(D)xref.c
 
 #make binary demo files
-bf_test.exe : bf_test.c dbinary.obj alloc.obj .AUTODEPEND
-        $(WCL) $(WCFLAGS) -w1 -DWINDOWS_NO_GUI -fe$^@ $(S)\bf_test.c dbinary.obj alloc.obj
+bf_test.exe : bf_test.c dbinary.$(O) alloc.$(O) .AUTODEPEND
+        $(WCL) $(WCFLAGS) -w1 -DWINDOWS_NO_GUI -fe$^@ $(S)\bf_test.c dbinary.$(O) alloc.$(O)
 
 $(BINARYFILES): bf_test.exe
         .\bf_test
         move binary? $(M).
-        
+
 # _Windows causes wtext.h to define fread() etc
-dbinary.obj: $(S)\binary.c
-        $(WCC) $(WCFLAGS) /U_Windows -w1 -fodbinary.obj $[@
+dbinary.$(O): $(S)\binary.c
+        $(WCC) $(WCFLAGS) /U_Windows -w1 -fodbinary.$(O) $[@
 
 # clean up temporary files
 clean: .SYMBOLIC
-        rm -f *.obj *.err *.ico
+        rm -f *.obj *.cobj *.pobj *.err *.ico
         rm -f wgnuplot.res $(W)\gnuplot.rtf $(W)\wgnuplot.hlp
-        rm -f bf_test.exe linkopt1.oww doc2rtf.exe geticon.exe
-        rm -f wgnuplot.map wgnuplot.sym pgnuplot.map wgnuplot.gid
-        
+        rm -f bf_test.exe linkopt1.oww doc2rtf.exe doc2html.exe geticon.exe
+		rm -f doc2gih.exe gnuplot.gih
+        rm -f *.map *.sym wgnuplot.gid        
 
 realclean: clean .SYMBOLIC
-        rm -f wgnuplot.exe wgnuplot.hlp wgnuplot.mnu pgnuplot.exe
+        rm -f wgnuplot.exe wgnuplot.mnu pgnuplot.exe gnuplot.exe wgnuplot_pipes.exe
+        rm -f $(HHP_CONTENT) $(HHP_INPUT) $(HHP_OUTPUT) $(WD)wgnuplot.log
+        rm -f wgnuplot.hlp wgnuplot.chm wgnuplot.chw
         rm -f $(D)binary[123] $(D)fit.log $(D)soundfit.par

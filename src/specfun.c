@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: specfun.c,v 1.44 2010/12/30 07:23:41 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: specfun.c,v 1.46 2011/05/16 18:43:41 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - specfun.c */
@@ -715,27 +715,23 @@ static double humlik(double x, double y)
     double a0, d0, d2, e0, e2, e4, h0, h2, h4, h6,
                  p0, p2, p4, p6, p8, z0, z2, z4, z6, z8;
     double mf[6], pf[6], mq[6], pq[6], xm[6], ym[6], xp[6], yp[6];
-    double old_y = -1.;
     bool rg1, rg2, rg3;
     double xlim0, xlim1, xlim2, xlim3, xlim4;
     double yq, yrrtpi;
     double abx, xq;
     double k;
 
-    if (y != old_y) {
-        old_y = y;
-        yq = y * y;
-        yrrtpi = y * rrtpi;
-        rg1 = true, rg2 = true, rg3 = true;
-        if (y < 70.55) {
-            xlim0 = sqrt(y * (40. - y * 3.6) + 15100.);
-            xlim1 = (y >= 8.425 ?  0. : sqrt(164. - y * (y * 1.8 + 4.3)));
-            xlim2 = 6.8 - y;
-            xlim3 = y * 2.4;
-            xlim4 = y * 18.1 + 1.65;
-            if (y <= 1e-6)
-                xlim2 = xlim1 = xlim0;
-        }
+    yq = y * y;
+    yrrtpi = y * rrtpi;
+    rg1 = true, rg2 = true, rg3 = true;
+    if (y < 70.55) {
+        xlim0 = sqrt(y * (40. - y * 3.6) + 15100.);
+        xlim1 = (y >= 8.425 ?  0. : sqrt(164. - y * (y * 1.8 + 4.3)));
+        xlim2 = 6.8 - y;
+        xlim3 = y * 2.4;
+        xlim4 = y * 18.1 + 1.65;
+        if (y <= 1e-6)
+            xlim2 = xlim1 = xlim0;
     }
 
     abx = fabs(x);

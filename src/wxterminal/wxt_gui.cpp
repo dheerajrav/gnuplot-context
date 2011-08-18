@@ -1,5 +1,5 @@
 /*
- * $Id: wxt_gui.cpp,v 1.79 2010/03/18 04:52:53 sfeam Exp $
+ * $Id: wxt_gui.cpp,v 1.87 2011/08/03 05:33:37 sfeam Exp $
  */
 
 /* GNUPLOT - wxt_gui.cpp */
@@ -116,6 +116,10 @@
 #include "bitmaps/png/config_png.h"
 #include "bitmaps/png/help_png.h"
 
+#ifdef __WXMAC__
+#include <ApplicationServices/ApplicationServices.h>
+#endif
+
 /* ---------------------------------------------------------------------------
  * event tables and other macros for wxWidgets
  * --------------------------------------------------------------------------*/
@@ -147,6 +151,7 @@ BEGIN_EVENT_TABLE( wxtFrame, wxFrame )
 END_EVENT_TABLE()
 
 BEGIN_EVENT_TABLE( wxtPanel, wxPanel )
+	EVT_LEAVE_WINDOW( wxtPanel::OnMouseLeave )
 	EVT_PAINT( wxtPanel::OnPaint )
 	EVT_ERASE_BACKGROUND( wxtPanel::OnEraseBackground )
 	EVT_SIZE( wxtPanel::OnSize )
@@ -212,6 +217,12 @@ IMPLEMENT_APP_NO_MAIN(wxtApp)
 
 bool wxtApp::OnInit()
 {
+#ifdef __WXMAC__
+	ProcessSerialNumber PSN;
+	GetCurrentProcess(&PSN);
+	TransformProcessType(&PSN, kProcessTransformToForegroundApplication);
+#endif
+
 	/* Usually wxWidgets apps create their main window here.
 	 * However, in the context of multiple plot windows, the same code is written in wxt_init().
 	 * So, to avoid duplication of the code, we do only what is strictly necessary.*/
@@ -311,7 +322,7 @@ void wxtApp::OnCreateWindow( wxCommandEvent& event )
 	wxt_window_t *window = (wxt_window_t*) event.GetClientData();
 
 	FPRINTF((stderr,"wxtApp::OnCreateWindow\n"));
-	window->frame = new wxtFrame( window->title, window->id, 50, 50, 640, 480 );
+	window->frame = new wxtFrame( window->title, window->id );
 	window->frame->Show(true);
 	FPRINTF((stderr,"new plot window opened\n"));
 	/* make the panel able to receive keyboard input */
@@ -343,9 +354,8 @@ void wxtApp::SendEvent( wxEvent &event)
  * ----------------------------------------------------------------------------*/
 
 /* frame constructor*/
-wxtFrame::wxtFrame( const wxString& title, wxWindowID id, int xpos, int ypos, int width, int height )
-	: wxFrame((wxFrame *)NULL, id, title, wxPoint(xpos,ypos),
-			wxSize(width,height), wxDEFAULT_FRAME_STYLE|wxWANTS_CHARS)
+wxtFrame::wxtFrame( const wxString& title, wxWindowID id )
+	: wxFrame((wxFrame *)NULL, id, title, wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE|wxWANTS_CHARS)
 {
 	FPRINTF((stderr,"wxtFrame constructor\n"));
 
@@ -795,6 +805,14 @@ void wxtPanel::OnEraseBackground( wxEraseEvent &WXUNUSED(event) )
 {
 }
 
+/* avoid leaving cross cursor when leaving window on Mac */
+void wxtPanel::OnMouseLeave( wxMouseEvent &WXUNUSED(event) )
+{
+#ifdef __WXMAC__
+	::wxSetCursor(wxNullCursor);
+#endif
+}
+
 /* when the window is resized */
 void wxtPanel::OnSize( wxSizeEvent& event )
 {
@@ -1131,7 +1149,8 @@ void wxtPanel::RaiseConsoleWindow()
 	window_env = getenv("WINDOWID");
 	if (window_env)
 		sscanf(window_env, "%lu", &windowid);
-	
+
+/* NOTE: This code uses DCOP, a KDE3 mechanism that no longer exists in KDE4 */
 	char *ptr = getenv("KONSOLE_DCOP_SESSION"); /* Try KDE's Konsole first. */
 	if (ptr) {
 		/* We are in KDE's Konsole, or in a terminal window detached from a Konsole.
@@ -1185,6 +1204,7 @@ void wxtPanel::RaiseConsoleWindow()
 		if (konsole_name) free(konsole_name);
 		if (cmd) free(cmd);
 	}
+/* NOTE: End of DCOP/KDE3 code (doesn't work in KDE4) */
 	/* now test for GNOME multitab console */
 	/* ... if somebody bothers to implement it ... */
 	/* we are not running in any known (implemented) multitab console */
@@ -1195,7 +1215,7 @@ void wxtPanel::RaiseConsoleWindow()
 	}
 #endif /* USE_GTK */
 
-#ifdef _Windows
+#if defined(_Windows) && !defined(WGP_CONSOLE)
 	/* Make sure the text window is visible: */
 	ShowWindow(textwin.hWndParent, SW_SHOW);
 	/* and activate it (--> Keyboard focus goes there */
@@ -1605,6 +1625,10 @@ void wxt_graphics()
 	/* FIXME: should this be in wxt_settings_apply() ? */
 	wxt_current_plot->rounded = wxt_rounded;
 
+	/* background as given by set term */
+	wxt_current_plot->background = wxt_rgb_background;
+	gp_cairo_set_background(wxt_rgb_background);
+
 	/* apply the queued rendering settings */
 	wxt_current_panel->wxt_settings_apply();
 
@@ -1904,7 +1928,7 @@ int wxt_set_font (const char *font)
 
 	if ( strlen(fontname) == 0 ) {
 		if ( strlen(wxt_set_fontname) == 0 )
-			strncpy(fontname, "Sans", sizeof(fontname));
+			strncpy(fontname, gp_cairo_default_font(), sizeof(fontname));
 		else
 			strncpy(fontname, wxt_set_fontname, sizeof(fontname));
 	}
@@ -3035,7 +3059,7 @@ bool wxt_exec_event(int type, int mx, int my, int par1, int par2, wxWindowID id)
 	event.par2 = par2;
 	event.winid = id;
 
-#ifdef _Windows
+#if defined(WXT_MONOTHREADED) || defined(_Windows)
 	wxt_process_one_event(&event);
 	return true;
 #else
@@ -3144,8 +3168,27 @@ int wxt_waitforinput()
 		return '\0';
 	}
 	else
-#endif /* _Windows */
 		return getch();
+
+#else /* !_Windows */
+	/* Generic hybrid GUI & console message loop */
+	static int yield = 0;
+	if(yield) return '\0';
+	while(wxTheApp) {
+		yield = 1;
+		wxTheApp->Yield();
+		yield = 0;
+
+		struct timeval tv;
+		fd_set read_fd;
+		tv.tv_sec = 0;
+		tv.tv_usec = 10000;
+		FD_ZERO(&read_fd);
+		FD_SET(0, &read_fd);
+		if(select(1, &read_fd, NULL, NULL, &tv) != -1 && FD_ISSET(0, &read_fd)) break;
+	}
+	return getchar();
+#endif
 }
 #endif /* WXT_MONOTHREADED || WXT_MULTITHREADED */
 
@@ -3239,7 +3282,9 @@ void wxt_atexit()
 	if (!interactive) {
 		interactive = TRUE;
 		/* be sure to show the text window */
+#ifndef WGP_CONSOLE
 		ShowWindow(textwin.hWndParent, textwin.nCmdShow);
+#endif
 		while (!com_line());
 	}
 #else /*_Windows*/

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: eval.c,v 1.89 2011/01/01 15:33:32 juhaszp Exp $"); }
+static char *RCSid() { return RCSid("$Id: eval.c,v 1.93 2011/08/01 05:14:23 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - eval.c */
@@ -89,6 +89,7 @@ const struct ft_entry GPFAR ft[] =
     {"pop",  f_pop},
     {"call",  f_call},
     {"calln",  f_calln},
+    {"sum", f_sum}, 
     {"lnot",  f_lnot},
     {"bnot",  f_bnot},
     {"uminus",  f_uminus},
@@ -111,7 +112,7 @@ const struct ft_entry GPFAR ft[] =
     {"power",  f_power},
     {"factorial",  f_factorial},
     {"bool",  f_bool},
-    {"dollars",  f_dollars},	/* for using extension */
+    {"dollars",  f_dollars},	/* for usespec */
     {"concatenate",  f_concatenate},	/* for string variables only */
     {"eqs",  f_eqs},			/* for string variables only */
     {"nes",  f_nes},			/* for string variables only */
@@ -121,6 +122,15 @@ const struct ft_entry GPFAR ft[] =
     {"jumpz",  f_jumpz},
     {"jumpnz",  f_jumpnz},
     {"jtern",  f_jtern},
+
+/* Placeholder for FS_START */
+    {"", NULL},
+
+/* legal in using spec only */
+    {"column",  f_column},
+    {"columnhead",  f_columnhead},
+    {"valid",  f_valid},
+    {"timecolumn",  f_timecolumn},
 
 /* standard functions: */
     {"real",  f_real},
@@ -175,10 +185,6 @@ const struct ft_entry GPFAR ft[] =
     {"airy",  f_airy},         /* janert, 20090905 */
     {"expint",  f_expint},     /* Jim Van Zandt, 20101010 */
 
-    {"column",  f_column},	/* for using */
-    {"valid",  f_valid},	/* for using */
-    {"timecolumn",  f_timecolumn},	/* for using */
-
     {"tm_sec",  f_tmsec},	/* for timeseries */
     {"tm_min",  f_tmmin},	/* for timeseries */
     {"tm_hour",  f_tmhour},	/* for timeseries */
@@ -210,11 +216,7 @@ const struct ft_entry GPFAR ft[] =
 
 /* Module-local variables: */
 
-#if defined(_Windows) && !defined(WIN32)
-static JMP_BUF far fpe_env;
-#else
 static JMP_BUF fpe_env;
-#endif
 
 /* Internal helper functions: */
 
@@ -640,6 +642,11 @@ free_at(struct at_type *at_ptr)
 	/* if union a->arg is used as a->arg.v_arg free potential string */
 	if ( a->index == PUSHC || a->index == DOLLARS )
 	    gpfree_string(&(a->arg.v_arg));
+	/* a summation contains its own action table wrapped in a private udf */
+	if (a->index == SUM) {
+	    free_at(a->arg.udf_arg->at);
+	    free(a->arg.udf_arg);
+	}
     }
     free(at_ptr);
 }
@@ -669,6 +676,20 @@ add_udv_by_name(char *key)
     return (*udv_ptr);
 }
 
+struct udvt_entry *
+get_udv_by_name(char *key)
+{
+    struct udvt_entry *udv = first_udv;
+
+    while (udv) {
+        if (!strcmp(key, udv->udv_name))
+            return udv;
+
+        udv = udv->next_udv;
+    }
+
+    return NULL;
+}
 
 static void update_plot_bounds __PROTO((void));
 static void fill_gpval_axis __PROTO((AXIS_INDEX axis));

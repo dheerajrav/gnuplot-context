@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: misc.c,v 1.128 2010/11/19 04:03:23 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: misc.c,v 1.135 2011/07/25 06:51:29 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - misc.c */
@@ -45,6 +45,7 @@ static char *RCSid() { return RCSid("$Id: misc.c,v 1.128 2010/11/19 04:03:23 sfe
 #include "util.h"
 #include "variable.h"
 #include "axis.h"
+#include "scanner.h"		/* so that scanner() can count curly braces */
 
 #if defined(HAVE_DIRENT_H)
 # include <sys/types.h>
@@ -53,7 +54,6 @@ static char *RCSid() { return RCSid("$Id: misc.c,v 1.128 2010/11/19 04:03:23 sfe
 # include <windows.h>
 #endif
 
-static void arrow_use_properties __PROTO((struct arrow_style_type *arrow, int tag));
 static char *recursivefullname __PROTO((const char *path, const char *filename, TBOOLEAN recursive));
 static void prepare_call __PROTO((void));
 static void expand_call_args __PROTO((void));
@@ -217,7 +217,7 @@ load_file(FILE *fp, char *name, TBOOLEAN can_do_args)
     do_load_arg_substitution = can_do_args;
 
     if (fp == (FILE *) NULL) {
-	os_error(c_token, "Cannot open %s file '%s'",
+	os_error(NO_CARET, "Cannot open %s file '%s'",
 		 can_do_args ? "call" : "load", name);
     } else if (fp == stdin) {
 	/* DBT 10-6-98  go interactive if "-" named as load file */
@@ -269,8 +269,39 @@ load_file(FILE *fp, char *name, TBOOLEAN can_do_args)
 			/* line continuation */
 			start = len;
 			left = gp_input_line_len - start;
-		    } else
+		    } else {
+			/* EAM May 2011 - handle multi-line bracketed clauses {...}.
+			 * Introduces a requirement for scanner.c and scanner.h
+			 * This code is redundant with part of do_line(),
+			 * but do_line() assumes continuation lines come from stdin.
+			 */
+#ifdef GP_MACROS
+			/* macros in a clause are problematic, as they are */
+			/* only expanded once even if the clause is replayed */
+			string_expand_macros();
+#endif
+			/* Strip off trailing comment and count curly braces */
+			num_tokens = scanner(&gp_input_line, &gp_input_line_len);
+			if (gp_input_line[token[num_tokens].start_index] == '#') {
+			    gp_input_line[token[num_tokens].start_index] = NUL;
+			    start = token[num_tokens].start_index;
+			    left = gp_input_line_len - start;
+			}
+			/* Read additional lines if necessary to complete a
+			 * bracketed clause {...}
+			 */
+			if (curly_brace_count < 0)
+			    int_error(NO_CARET, "Unexpected }");
+			if (curly_brace_count > 0) {
+			    strcat(gp_input_line,";");
+			    start = strlen(gp_input_line);
+			    left = gp_input_line_len - start;
+			    continue;
+			}
+			
 			more = FALSE;
+		    }
+
 		}
 	    }
 
@@ -321,6 +352,7 @@ lf_pop()
 	inline_num = lf->inline_num;
 	if_depth = lf->if_depth;
 	if_condition = lf->if_condition;
+	if_open_for_else = lf->if_open_for_else;
 
 	/* Restore saved input state and free the copy */
 	if (lf->tokens) {
@@ -374,6 +406,7 @@ lf_push(FILE *fp, char *name, char *cmdline)
     if (lf->depth > 1024)
 	int_error(NO_CARET, "Deep load/eval recursion detected");
     lf->if_depth = if_depth;
+    lf->if_open_for_else = if_open_for_else;
     lf->if_condition = if_condition;
     lf->c_token = c_token;
     lf->num_tokens = num_tokens;
@@ -760,11 +793,12 @@ need_fill_border(struct fill_style_type *fillstyle)
  * the current context [ie not when doing a  set linestyle command]
  * allow_point is whether we accept a point command
  */
-void
+int
 lp_parse(struct lp_style_type *lp, TBOOLEAN allow_ls, TBOOLEAN allow_point)
 {
     /* keep track of which options were set during this call */
     int set_lt = 0, set_pal = 0, set_lw = 0, set_pt = 0, set_ps = 0, set_pi = 0;
+    int new_lt = 0;
 
     /* EAM Mar 2010 - We don't want properties from a user-defined default
      * linetype to override properties explicitly set here.  So fill in a
@@ -803,13 +837,13 @@ lp_parse(struct lp_style_type *lp, TBOOLEAN allow_ls, TBOOLEAN allow_point)
 		    c_token++;
 		} else {
 		    /* These replace the base style */
-		    int lt = int_expression();
-		    lp->l_type = lt - 1;
+		    new_lt = int_expression();
+		    lp->l_type = new_lt - 1;
 		    /* user may prefer explicit line styles */
 		    if (prefer_line_styles && allow_ls)
-			lp_use_properties(lp, lt);
+			lp_use_properties(lp, new_lt);
 		    else
-			load_linetype(lp, lt);
+			load_linetype(lp, new_lt);
 		}
 	    } /* linetype, lt */
 
@@ -945,6 +979,8 @@ lp_parse(struct lp_style_type *lp, TBOOLEAN allow_ls, TBOOLEAN allow_point)
 	    lp->p_interval = newlp.p_interval;
 	if (newlp.l_type == LT_COLORFROMCOLUMN)
 	    lp->l_type = LT_COLORFROMCOLUMN;
+
+    return new_lt;
 }
 
 /* <fillstyle> = {empty | solid {<density>} | pattern {<n>}} {noborder | border {<lt>}} */
@@ -1080,20 +1116,10 @@ parse_colorspec(struct t_colorspec *tc, int options)
 	if (almost_equals(c_token, "var$iable")) {
 	    tc->value = -1.0;
 	    c_token++;
-	    return;
-	} else
+	} else {
 	    tc->value = 0.0;
-	if (!(color = try_to_get_string()))
-	    int_error(c_token, "expected a color name or a string of form \"#RRGGBB\"");
-	if ((rgbtriple = lookup_table_nth(pm3d_color_names_tbl, color)) >= 0)
-	    rgbtriple = pm3d_color_names_tbl[rgbtriple].value;
-	else
-	    sscanf(color,"#%x",&rgbtriple);
-	free(color);
-	if (rgbtriple < 0)
-	    int_error(c_token, "expected a known color name or a string of form \"#RRGGBB\"");
-	tc->type = TC_RGB;
-	tc->lt = rgbtriple;
+	    tc->lt = parse_color_name();
+	}
     } else if (almost_equals(c_token,"pal$ette")) {
 	c_token++;
 	if (equals(c_token,"z")) {
@@ -1132,13 +1158,37 @@ parse_colorspec(struct t_colorspec *tc, int options)
     }
 }
 
+long
+parse_color_name()
+{
+    char *string;
+    int index;
+    long color = -1;
+
+    if (almost_equals(c_token,"rgb$color"))
+	c_token++;
+    if ((string = try_to_get_string())) {
+	color = lookup_table_nth(pm3d_color_names_tbl, string);
+	if (color >= 0)
+	    color = pm3d_color_names_tbl[color].value;
+	else
+	    sscanf(string,"#%lx",&color);
+	free(string);
+    }
+
+    if (color == -1)
+	int_error(c_token, "not recognized as a color name or a string of form \"#RRGGBB\"");
+
+    return (unsigned int)(color);
+}
+
 /* arrow parsing...
  *
  * allow_as controls whether we are allowed to accept arrowstyle in
  * the current context [ie not when doing a  set style arrow command]
  */
 
-static void
+void
 arrow_use_properties(struct arrow_style_type *arrow, int tag)
 {
     /*  This function looks for an arrowstyle defined by 'tag' and
@@ -1156,7 +1206,8 @@ arrow_use_properties(struct arrow_style_type *arrow, int tag)
     }
 
     /* tag not found: */
-    int_error(NO_CARET,"arrowstyle not found", NO_CARET);
+    default_arrow_style(arrow);
+    int_warn(NO_CARET,"arrowstyle %d not found", tag);
 }
 
 void
@@ -1164,119 +1215,126 @@ arrow_parse(
     struct arrow_style_type *arrow,
     TBOOLEAN allow_as)
 {
+    int set_layer=0, set_line=0, set_head=0;
+    int set_headsize=0, set_headfilled=0;
+
+    /* Use predefined arrow style */
     if (allow_as && (almost_equals(c_token, "arrows$tyle") ||
 		     equals(c_token, "as"))) {
 	c_token++;
-	arrow_use_properties(arrow, int_expression());
-    } else {
-	/* avoid duplicating options */
-	int set_layer=0, set_line=0, set_head=0;
-	int set_headsize=0, set_headfilled=0;
+	if (almost_equals(c_token, "var$iable")) {
+	    arrow->tag = AS_VARIABLE;
+	    c_token++;
+	} else {
+	    arrow_use_properties(arrow, int_expression());
+	}
+	return;
+    }
 
-	while (!END_OF_COMMAND) {
-	    if (equals(c_token, "nohead")) {
-		if (set_head++)
-		    break;
-		c_token++;
-		arrow->head = NOHEAD;
-		continue;
-	    }
-	    if (equals(c_token, "head")) {
-		if (set_head++)
-		    break;
-		c_token++;
-		arrow->head = END_HEAD;
-		continue;
-	    }
-	    if (equals(c_token, "backhead")) {
-		if (set_head++)
-		    break;
-		c_token++;
-		arrow->head = BACKHEAD;
-		continue;
-	    }
-	    if (equals(c_token, "heads")) {
-		if (set_head++)
-		    break;
-		c_token++;
-		arrow->head = BACKHEAD | END_HEAD;
-		continue;
-	    }
-
-	    if (almost_equals(c_token, "fill$ed")) {
-		if (set_headfilled++)
-		    break;
-		c_token++;
-		arrow->head_filled = 2;
-		continue;
-	    }
-	    if (almost_equals(c_token, "empty")) {
-		if (set_headfilled++)
-		    break;
-		c_token++;
-		arrow->head_filled = 1;
-		continue;
-	    }
-	    if (almost_equals(c_token, "nofill$ed")) {
-		if (set_headfilled++)
-		    break;
-		c_token++;
-		arrow->head_filled = 0;
-		continue;
-	    }
-
-	    if (equals(c_token, "size")) {
-		struct position hsize;
-		if (set_headsize++)
-		    break;
-		hsize.scalex = hsize.scaley = hsize.scalez = first_axes;
-		/* only scalex used; scaley is angle of the head in [deg] */
-		c_token++;
-		if (END_OF_COMMAND)
-		    int_error(c_token, "head size expected");
-		get_position(&hsize);
-		arrow->head_length = hsize.x;
-		arrow->head_lengthunit = hsize.scalex;
-		arrow->head_angle = hsize.y;
-		arrow->head_backangle = hsize.z;
-		/* invalid backangle --> default of 90.0 degrees */
-		if (arrow->head_backangle <= arrow->head_angle)
-		    arrow->head_backangle = 90.0;
-		continue;
-	    }
-
-	    if (equals(c_token, "back")) {
-		if (set_layer++)
-		    break;
-		c_token++;
-		arrow->layer = 0;
-		continue;
-	    }
-	    if (equals(c_token, "front")) {
-		if (set_layer++)
-		    break;
-		c_token++;
-		arrow->layer = 1;
-		continue;
-	    }
-
-	    /* pick up a line spec - allow ls, but no point. */
-	    {
-		int stored_token = c_token;
-		lp_parse(&arrow->lp_properties, TRUE, FALSE);
-		if (stored_token == c_token || set_line++)
-		    break;
-		continue;
-	    }
-
-	    /* unknown option caught -> quit the while(1) loop */
-	    break;
+    /* No predefined arrow style; read properties from command line */
+    /* avoid duplicating options */
+    while (!END_OF_COMMAND) {
+	if (equals(c_token, "nohead")) {
+	    if (set_head++)
+		break;
+	    c_token++;
+	    arrow->head = NOHEAD;
+	    continue;
+	}
+	if (equals(c_token, "head")) {
+	    if (set_head++)
+		break;
+	    c_token++;
+	    arrow->head = END_HEAD;
+	    continue;
+	}
+	if (equals(c_token, "backhead")) {
+	    if (set_head++)
+		break;
+	    c_token++;
+	    arrow->head = BACKHEAD;
+	    continue;
+	}
+	if (equals(c_token, "heads")) {
+	    if (set_head++)
+		break;
+	    c_token++;
+	    arrow->head = BACKHEAD | END_HEAD;
+	    continue;
 	}
 
-	if (set_layer>1 || set_line>1 || set_head>1 || set_headsize>1 || set_headfilled>1)
-	    int_error(c_token, "duplicated arguments in style specification");
+	if (almost_equals(c_token, "fill$ed")) {
+	    if (set_headfilled++)
+		break;
+	    c_token++;
+	    arrow->head_filled = 2;
+	    continue;
+	}
+	if (almost_equals(c_token, "empty")) {
+	    if (set_headfilled++)
+		break;
+	    c_token++;
+	    arrow->head_filled = 1;
+	    continue;
+	}
+	if (almost_equals(c_token, "nofill$ed")) {
+	    if (set_headfilled++)
+		break;
+	    c_token++;
+	    arrow->head_filled = 0;
+	    continue;
+	}
 
+	if (equals(c_token, "size")) {
+	    struct position hsize;
+	    if (set_headsize++)
+		break;
+	    hsize.scalex = hsize.scaley = hsize.scalez = first_axes;
+	    /* only scalex used; scaley is angle of the head in [deg] */
+	    c_token++;
+	    if (END_OF_COMMAND)
+		int_error(c_token, "head size expected");
+	    get_position(&hsize);
+	    arrow->head_length = hsize.x;
+	    arrow->head_lengthunit = hsize.scalex;
+	    arrow->head_angle = hsize.y;
+	    arrow->head_backangle = hsize.z;
+	    /* invalid backangle --> default of 90.0 degrees */
+	    if (arrow->head_backangle <= arrow->head_angle)
+		arrow->head_backangle = 90.0;
+	    continue;
+	}
+
+	if (equals(c_token, "back")) {
+	    if (set_layer++)
+		break;
+	    c_token++;
+	    arrow->layer = 0;
+	    continue;
+	}
+	if (equals(c_token, "front")) {
+	    if (set_layer++)
+		break;
+	    c_token++;
+	    arrow->layer = 1;
+	    continue;
+	}
+
+	/* pick up a line spec - allow ls, but no point. */
+	{
+	    int stored_token = c_token;
+	    lp_parse(&arrow->lp_properties, TRUE, FALSE);
+	    if (stored_token == c_token || set_line++)
+		break;
+	    continue;
+	}
+
+	/* unknown option caught -> quit the while(1) loop */
+	break;
     }
+
+    if (set_layer>1 || set_line>1 || set_head>1 || set_headsize>1 || set_headfilled>1)
+	int_error(c_token, "duplicated arguments in style specification");
 }
 
 void

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: command.c,v 1.202 2010/11/18 23:59:59 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: command.c,v 1.217 2011/07/22 14:37:57 juhaszp Exp $"); }
 #endif
 
 /* GNUPLOT - command.c */
@@ -61,6 +61,12 @@ static char *RCSid() { return RCSid("$Id: command.c,v 1.202 2010/11/18 23:59:59 
  * gnupmdrv posts an event semaphore. Thus mousing works even when gnuplot
  * is used as a plotting device (commands passed via pipe).
  *
+ * May 2011 Ethan A Merritt
+ * Introduce block structure defined by { ... }, which may span multiple lines.
+ * In order to have the entire block available at one time we now count
+ * +/- curly brackets during input and keep extending the current input line
+ * until the net count is zero.  This is done in do_line() for interactive
+ * input, and load_file() for non-interactive input.
  */
 
 #include "command.h"
@@ -130,6 +136,9 @@ static int winsystem __PROTO((const char *));
 #   include <dir.h>		/* setdisk() */
 #  endif
 # endif				/* !MSC */
+# ifdef WITH_HTML_HELP
+#   include <htmlhelp.h>
+# endif
 # include "win/winmain.h"
 #endif /* _Windows */
 
@@ -144,13 +153,13 @@ static void command __PROTO((void));
 static int changedir __PROTO((char *path));
 static char* fgets_ipc __PROTO((char* dest, int len));
 static char* gp_get_string __PROTO((char *, size_t, const char *));
-static int read_line __PROTO((const char *prompt));
+static int read_line __PROTO((const char *prompt, int start));
 static void do_system __PROTO((const char *));
 static void test_palette_subcommand __PROTO((void));
 static void test_time_subcommand __PROTO((void));
+static int find_clause __PROTO((int *, int *));
 
 #ifdef GP_MACROS
-static int string_expand __PROTO((void));
 TBOOLEAN expand_macros = FALSE;
 #endif
 
@@ -185,6 +194,9 @@ int num_tokens, c_token;
 
 int if_depth = 0;
 TBOOLEAN if_condition = FALSE;
+TBOOLEAN if_open_for_else = FALSE;
+
+static int clause_depth = 0;
 
 static int command_exit_status = 0;
 
@@ -239,7 +251,7 @@ extend_token_table()
 void thread_read_line()
 {
    thread_rl_Running = 1;
-   thread_rl_RetCode = ( read_line(PROMPT) );
+   thread_rl_RetCode = ( read_line(PROMPT, 0) );
    thread_rl_Running = 0;
    DosPostEventSem(semInputReady);
 }
@@ -265,15 +277,11 @@ static char *input_line_SharedMem = NULL;
 	/* calls int_error() if it is not happy */
 	term_check_multiplot_okay(interactive);
 
-	if (read_line("multiplot> "))
+	if (read_line("multiplot> ", 0))
 	    return (1);
     } else {
 
-#ifndef USE_MOUSE
-	if (read_line(PROMPT))
-	    return (1);
-#else
-# ifdef OS2_IPC
+#if defined(OS2_IPC) && defined(USE_MOUSE)
 	ULONG u;
         if (thread_rl_Running == 0) {
 	    int res = _beginthread(thread_read_line,NULL,32768,NULL);
@@ -301,21 +309,17 @@ static char *input_line_SharedMem = NULL;
 		input_line_SharedMem[0] = 0; /* discard the whole command line */
 		return (0);
 	    }
-#  if 0
-	    fprintf(stderr,"shared mem received: |%s|\n",input_line_SharedMem);
-	    if (*input_line_SharedMem && input_line_SharedMem[strlen(input_line_SharedMem)-1] != '\n') fprintf(stderr,"\n");
-#  endif
 	    strcpy(gp_input_line, input_line_SharedMem);
 	    input_line_SharedMem[0] = 0;
 	    thread_rl_RetCode = 0;
 	}
 	if (thread_rl_RetCode)
 	    return (1);
-# else /* OS2_IPC */
-	if (read_line(PROMPT))
+
+#else	/* The normal case */
+	if (read_line(PROMPT, 0))
 	    return (1);
-# endif /* OS2_IPC */
-#endif /* USE_MOUSE */
+#endif	/* defined(OS2_IPC) && defined(USE_MOUSE) */
     }
 
     /* So we can flag any new output: if false at time of error,
@@ -336,13 +340,30 @@ static char *input_line_SharedMem = NULL;
 int
 do_line()
 {
-    /* Line continuation has already been handled
-     * by read_line() */
-    char *inlptr = gp_input_line;
+    /* Line continuation has already been handled by read_line() */
+    char *inlptr;
+
+#ifdef GP_MACROS
+    /* Expand any string variables in the current input line.
+     * Allow up to 3 levels of recursion */
+    if (expand_macros)
+    if (string_expand_macros() && string_expand_macros() 
+    &&  string_expand_macros() && string_expand_macros())
+	int_error(NO_CARET, "Too many levels of nested macros");
+#endif
 
     /* Skip leading whitespace */
+    inlptr = gp_input_line;
     while (isspace((unsigned char) *inlptr))
 	inlptr++;
+
+    /* Strip off trailing comment */
+    FPRINTF((stderr,"doline( \"%s\" )\n", gp_input_line));
+    if (strchr(inlptr, '#')) {
+        num_tokens = scanner(&gp_input_line, &gp_input_line_len);
+	if (gp_input_line[token[num_tokens].start_index] == '#')
+	    gp_input_line[token[num_tokens].start_index] = NUL;
+    }
 
     if (inlptr != gp_input_line) {
 	/* If there was leading whitespace, copy the actual
@@ -352,27 +373,37 @@ do_line()
 	/* Terminate resulting string */
 	gp_input_line[strlen(inlptr)] = NUL;
     }
-    FPRINTF((stderr, "Input line: \"%s\"\n", gp_input_line));
+    FPRINTF((stderr, "  echo: \"%s\"\n", gp_input_line));
 
-#ifdef GP_MACROS
-    /* Expand any string variables in the current input line.
-     * Allow up to 4 levels of recursion */
-    if (expand_macros)
-    if (string_expand() && string_expand() && string_expand() && string_expand() && string_expand())
-	int_error(NO_CARET, "Too many levels of nested macros");
-#endif
-
-    /* also used in load_file */
+    /* EAM May 2011 - This will not work in a bracketed clause. Should it? */
     if (is_system(gp_input_line[0])) {
 	do_system(gp_input_line + 1);
-	if (interactive)	/* 3.5 did it unconditionally */
-	    (void) fputs("!\n", stderr);	/* why do we need this ? */
 	return (0);
     }
 
-    if_depth = 0;
+#if 0
+    /* EAM May 2011 */
+    /* Resetting here prevents handling "else" on a separate line */
     if_condition = TRUE;
+#endif
+    if_depth = 0;
     num_tokens = scanner(&gp_input_line, &gp_input_line_len);
+
+    /* 
+     * Expand line if necessary to contain a complete bracketed clause {...}
+     * Insert a ';' after current line and append the next input line.
+     * NB: This may leave an "else" condition on the next line.
+     */
+    if (curly_brace_count < 0)
+	int_error(NO_CARET,"Unexpected }");
+    while (curly_brace_count > 0) {
+	strcat(gp_input_line,";");
+	read_line("more> ", strlen(gp_input_line));
+	num_tokens = scanner(&gp_input_line, &gp_input_line_len);
+	if (gp_input_line[token[num_tokens].start_index] == '#')
+	    gp_input_line[token[num_tokens].start_index] = NUL;
+    }
+
     c_token = 0;
     while (c_token < num_tokens) {
 	command();
@@ -381,9 +412,13 @@ do_line()
 	    return 1;
 	}
 	if (c_token < num_tokens) {	/* something after command */
-	    if (equals(c_token, ";"))
+	    if (equals(c_token, ";")) {
 		c_token++;
-	    else
+	    } else if (equals(c_token, "{")) {
+		begin_clause();
+	    } else if (equals(c_token, "}")) {
+		end_clause();
+	    } else
 		int_error(c_token, "';' expected");
 	}
     }
@@ -931,7 +966,7 @@ history_command()
 
 #else
     c_token++;
-    int_warn(NO_CARET, "You have to compile gnuplot with builtin readline or GNU readline to enable history support.");
+    int_warn(NO_CARET, "You have to compile gnuplot with builtin readline or GNU readline or BSD editline to enable history support.");
 #endif /* defined(READLINE) || defined(HAVE_LIBREADLINE) || defined(HAVE_LIBEDITLINE) */
 }
 
@@ -964,11 +999,61 @@ if_command()
 {
     double exprval;
 
-    if_depth++;
-
     if (!equals(++c_token, "("))	/* no expression */
 	int_error(c_token, "expecting (expression)");
     exprval = real_expression();
+
+    /*
+     * EAM May 2011
+     * New if {...} else {...} syntax can span multiple lines.
+     * Isolate the active clause and execute it recursively.
+     */
+    if (equals(c_token,"{")) {
+	/* Identify start and end position of the clause substring */
+	char *clause = NULL;
+	int if_start, if_end, else_start=0, else_end=0;
+	int clause_start, clause_end;
+
+	c_token = find_clause(&if_start, &if_end);
+
+	if (equals(c_token,"else")) {
+	    if (!equals(++c_token,"{"))
+		int_error(c_token,"expected {else-clause}");
+	    c_token = find_clause(&else_start, &else_end);
+	}
+
+	if (exprval != 0) {
+	    clause_start = if_start;
+	    clause_end = if_end;
+	    if_condition = TRUE;
+	} else {
+	    clause_start = else_start;
+	    clause_end = else_end;
+	    if_condition = FALSE;
+	}
+	if_open_for_else = (else_start) ? FALSE : TRUE;
+
+	clause_depth++;
+	if (if_condition || else_start != 0) {
+	    /* Make a clean copy without the opening and closing braces */
+	    clause = gp_alloc(clause_end - clause_start, "clause");
+	    memcpy(clause, &gp_input_line[clause_start+1], clause_end - clause_start);
+	    clause[clause_end - clause_start - 1] = '\0';
+	    FPRINTF((stderr,"%s CLAUSE: \"{%s}\"\n",
+		    (exprval != 0.0) ? "IF" : "ELSE", clause));
+	    do_string_and_free(clause);
+	}
+
+	c_token--; 	/* Let the parser see the closing curly brace */
+	return;
+    }
+
+    /*
+     * EAM May 2011
+     * Old if/else syntax (no curly braces) affects the rest of the current line.
+     * Deprecate?
+     */
+    if_depth++;
     if (exprval != 0.0) {
 	/* fake the condition of a ';' between commands */
 	int eolpos = token[num_tokens - 1].start_index + token[num_tokens - 1].length;
@@ -985,7 +1070,7 @@ if_command()
 	    while (!END_OF_COMMAND) {
 		++c_token;
 	    }
-	    if (++c_token < num_tokens && (equals(c_token, "else"))) {
+	    if (equals(++c_token, "else")) {
 		/* break if an "else" was found */
 		if_condition = FALSE;
 		--c_token; /* go back to ';' */
@@ -1001,6 +1086,37 @@ if_command()
 void
 else_command()
 {
+   /*
+    * EAM May 2011
+    * New if/else syntax permits else clause to appear on a new line
+    */
+    if (equals(c_token+1,"{")) {
+	int i, depth;
+	int clause_start, clause_end;
+	char *clause;
+
+	if (if_open_for_else)
+	    if_open_for_else = FALSE;
+	else
+	    int_error(c_token,"Invalid {else-clause}");
+
+	c_token = find_clause(&clause_start, &clause_end);
+
+	clause_depth++;
+	c_token--;	 /* Let the parser see the closing curly brace */
+	if (!if_condition) {
+	    clause = gp_alloc(clause_end - clause_start, "clause");
+	    memcpy(clause, &gp_input_line[clause_start+1], clause_end - clause_start);
+	    clause[clause_end - clause_start - 1] = '\0';
+	    do_string_and_free(clause);
+	}
+	return;
+    }
+
+
+   /* EAM May 2011
+    * The rest is only relevant to the old if/else syntax (no curly braces)
+    */
     if (if_depth <= 0) {
 	int_error(c_token, "else without if");
 	return;
@@ -1018,6 +1134,67 @@ else_command()
     }
 }
 
+/* process commands of the form 'do for [i=1:N] ...' */
+void
+do_command()
+{
+    t_iterator *do_iterator;
+    int do_start, do_end;
+    char *clause;
+
+    c_token++;
+    do_iterator = check_for_iteration();
+
+    if (!equals(c_token,"{"))
+	int_error(c_token,"expecting {do-clause}");
+    c_token = find_clause(&do_start, &do_end);
+
+    clause_depth++;
+    c_token--;	 /* Let the parser see the closing curly brace */
+
+    clause = gp_alloc(do_end - do_start, "clause");
+    memcpy(clause, &gp_input_line[do_start+1], do_end - do_start);
+    clause[do_end - do_start - 1] = '\0';
+
+    do {
+	do_string(clause);
+    } while (next_iteration(do_iterator));
+
+    free(clause);
+    do_iterator = cleanup_iteration(do_iterator);
+}
+
+/* process commands of the form 'while (foo) {...}' */
+void
+while_command()
+{
+    int do_start, do_end;
+    char *clause;
+    int save_token, end_token;
+    double exprval;
+
+    c_token++;
+    save_token = c_token;
+    exprval = real_expression();
+
+    if (!equals(c_token,"{"))
+	int_error(c_token,"expecting {while-clause}");
+    end_token = find_clause(&do_start, &do_end);
+
+    clause = gp_alloc(do_end - do_start, "clause");
+    memcpy(clause, &gp_input_line[do_start+1], do_end - do_start);
+    clause[do_end - do_start - 1] = '\0';
+    clause_depth++;
+
+    while (exprval != 0) {
+	do_string(clause);
+	c_token = save_token;
+	exprval = real_expression();
+    };
+
+    free(clause);
+    c_token = end_token;
+}
 
 /* process the 'load' command */
 void
@@ -1043,6 +1220,66 @@ void
 null_command()
 {
     return;
+}
+
+/* Clauses enclosed by curly brackets:
+ * do for [i = 1:N] { a; b; c; }
+ * if (<test>) {
+ *    line1;
+ *    line2;
+ * } else {
+ *    ...
+ * }
+ */
+
+/* Find the start and end character positions within gp_input_line
+ * bounding a clause delimited by {...}.
+ * Assumes that c_token indexes the opening left curly brace.
+ */
+int
+find_clause(int *clause_start, int *clause_end)
+{
+    int i, depth;
+
+    *clause_start = token[c_token].start_index;
+    for (i=++c_token, depth=1; i<num_tokens; i++) {
+	if (equals(i,"{"))
+	    depth++;
+	else if (equals(i,"}"))
+	    depth--;
+	if (depth == 0)
+	    break;
+    }
+    *clause_end = token[i].start_index;
+
+    return (i+1);
+}
+
+void
+begin_clause()
+{
+    clause_depth++;
+    c_token++;
+    return;
+}
+
+void
+end_clause()
+{
+    if (clause_depth == 0)
+	int_error(c_token, "unexpected }");
+    else
+	clause_depth--;
+    c_token++;
+    return;
+}
+
+void
+clause_reset_after_error()
+{
+    if (clause_depth)
+	FPRINTF((stderr,"CLAUSE RESET after error at depth %d\n",clause_depth));
+    clause_depth = 0;
 }
 
 
@@ -1620,6 +1857,16 @@ title 'R,G,B profiles of the current color palette';";
     TBOOLEAN save_is_3d_plot;
     FILE *f = tmpfile();
 
+#if defined(_MSC_VER) || defined(__MINGW32__)
+    /* On Vista/Windows 7 tmpfile() fails. */
+    if (!f) {
+	char  buf[PATH_MAX];
+	GetTempPath(sizeof(buf), buf);
+	strcat(buf, "gnuplot-pal.tmp");
+	f = fopen(buf, "w+");
+    }
+#endif
+
     c_token++;
     /* parse optional option */
     if (!END_OF_COMMAND) {
@@ -1754,6 +2001,8 @@ test_command()
 {
     int what;
     c_token++;
+    if (!term) /* unknown terminal */
+	int_error(c_token, "use 'set term' to set terminal type first");
     if (END_OF_COMMAND) {
 	test_term();
 	return;
@@ -1822,18 +2071,10 @@ static int
 changedir(char *path)
 {
 #if defined(MSDOS)
-# if defined(__ZTC__)
-    unsigned dummy;		/* it's a parameter needed for dos_setdrive */
-# endif
-
     /* first deal with drive letter */
 
     if (isalpha(path[0]) && (path[1] == ':')) {
 	int driveno = toupper(path[0]) - 'A';	/* 0=A, 1=B, ... */
-
-# if defined(__ZTC__)
-	(void) dos_setdrive(driveno + 1, &dummy);
-# endif
 
 # if (defined(MSDOS) && defined(__EMX__)) || defined(__MSC__)
 	(void) _chdrive(driveno + 1);
@@ -2023,9 +2264,9 @@ done(int status)
    length (yet) */
 
 static int
-read_line(const char *prompt)
+read_line(const char *prompt, int start)
 {
-    int more, start = 0;
+    int more;
     char expand_prompt[40];
 
     current_prompt = prompt;	/* HBB NEW 20040727 */
@@ -2131,17 +2372,57 @@ do_system(const char *cmd)
 void
 help_command()
 {
+    HWND parent;
 
+    c_token++;
+#ifdef WGP_CONSOLE
+    parent = GetDesktopWindow();
+#else
+    parent = textwin.hWndParent;
+#endif
+#ifdef WITH_HTML_HELP
+    /* open help file if necessary */
+    help_window = HtmlHelp(parent, winhelpname, HH_GET_WIN_HANDLE, (DWORD_PTR)NULL);
+    if (help_window == NULL) {
+        help_window = HtmlHelp(parent, winhelpname, HH_DISPLAY_TOPIC, (DWORD_PTR)NULL);
+        if (help_window == NULL) {
+            fprintf(stderr, "Error: Could not open help file \"%s\"\n", winhelpname);
+            return;
+        }
+    }
+    if (END_OF_COMMAND) {
+        /* show table of contents */
+        HtmlHelp(parent, winhelpname, HH_DISPLAY_TOC, (DWORD_PTR)NULL);
+    } else {
+        /* lookup topic in index */
+        HH_AKLINK link;
+        char buf[128];
+        int start = c_token;
+        while (!(END_OF_COMMAND))
+            c_token++;
+        capture(buf, start, c_token - 1, 128);
+        link.cbStruct =     sizeof(HH_AKLINK) ;
+        link.fReserved =    FALSE;
+        link.pszKeywords =  buf; 
+        link.pszUrl =       NULL; 
+        link.pszMsgText =   NULL; 
+        link.pszMsgTitle =  NULL; 
+        link.pszWindow =    NULL;
+        link.fIndexOnFail = TRUE;
+        HtmlHelp(parent, winhelpname, HH_KEYWORD_LOOKUP, (DWORD_PTR)&link);
+    }
+#else
     if (END_OF_COMMAND)
-	WinHelp(textwin.hWndParent, (LPSTR) winhelpname, HELP_INDEX, (DWORD) NULL);
+	WinHelp(parent, (LPSTR) winhelpname, HELP_INDEX, (DWORD) NULL);
     else {
 	char buf[128];
-	int start = ++c_token;
+	int start = c_token;
 	while (!(END_OF_COMMAND))
 	    c_token++;
 	capture(buf, start, c_token - 1, 128);
-	WinHelp(textwin.hWndParent, (LPSTR) winhelpname, HELP_PARTIALKEY, (DWORD) buf);
+	WinHelp(parent, (LPSTR) winhelpname, HELP_PARTIALKEY, (DWORD) buf);
     }
+#endif
 }
 #else  /* !_Windows */
 void
@@ -2299,7 +2580,7 @@ help_command()
 			strcat (prompt, ": ");
 		    } else
 			strcpy(prompt, "Help topic: ");
-		    read_line(prompt);
+		    read_line(prompt, 0);
 		    num_tokens = scanner(&gp_input_line, &gp_input_line_len);
 		    c_token = 0;
 		    more_help = !(END_OF_COMMAND);
@@ -2513,28 +2794,6 @@ doscgets(char *s)
 }
 #   endif			/* __TURBOC__ */
 
-#   ifdef __ZTC__
-void
-cputs(char *s)
-{
-    int i = 0;
-    while (s[i] != NUL)
-	bdos(0x02, s[i++], NULL);
-}
-
-char *
-cgets(char *s)
-{
-    bdosx(0x0A, s, NULL);
-
-    if (s[s[1] + 2] == '\r')
-	s[s[1] + 2] = 0;
-
-    /* return the input string */
-    return (&(s[2]));
-}
-#   endif			/* __ZTC__ */
-
 /* emulate a fgets like input function with DOS cgets */
 char *
 cgets_emu(char *str, int len)
@@ -2626,9 +2885,8 @@ gp_get_string(char * buffer, size_t len, const char * prompt)
 
 /* Non-VMS version */
 static int
-read_line(const char *prompt)
+read_line(const char *prompt, int start)
 {
-    int start = 0;
     TBOOLEAN more = FALSE;
     int last = 0;
 
@@ -2699,24 +2957,12 @@ winsystem(const char *s)
     LPCSTR p;
 
     /* get COMSPEC environment variable */
-#  ifdef WIN32
     char envbuf[81];
     GetEnvironmentVariable("COMSPEC", envbuf, 80);
     if (*envbuf == NUL)
 	comspec = "\\command.com";
     else
 	comspec = envbuf;
-#  else
-    p = GetDOSEnvironment();
-    comspec = "\\command.com";
-    while (*p) {
-	if (!strncmp(p, "COMSPEC=", 8)) {
-	    comspec = p + 8;
-	    break;
-	}
-	p += strlen(p) + 1;
-    }
-#  endif
     /* if the command is blank we must use command.com */
     p = s;
     while ((*p == ' ') || (*p == '\n') || (*p == '\r'))
@@ -2759,8 +3005,8 @@ call_kill_pending_Pause_dialog()
 
 #define COPY_CHAR gp_input_line[o++] = *c; \
                   after_backslash = FALSE;
-static int
-string_expand()
+int
+string_expand_macros()
 {
     TBOOLEAN in_squote = FALSE;
     TBOOLEAN in_dquote = FALSE;

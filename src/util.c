@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: util.c,v 1.92 2010/09/28 17:14:38 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: util.c,v 1.97 2011/06/19 22:10:37 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - util.c */
@@ -70,26 +70,6 @@ const char *current_prompt = NULL; /* to be set by read_line() */
 static void mant_exp __PROTO((double, double, TBOOLEAN, double *, int *, const char *));
 static void parse_sq __PROTO((char *));
 
-#if 0 /* UNUSED */
-/*
- * chr_in_str() compares the characters in the string of token number t_num
- * with c, and returns TRUE if a match was found.
- */
-int
-chr_in_str(int t_num, int c)
-{
-    int i;
-
-    if (!token[t_num].is_token)
-	return (FALSE);		/* must be a value--can't be equal */
-    for (i = 0; i < token[t_num].length; i++) {
-	if (input_line[token[t_num].start_index + i] == c)
-	    return (TRUE);
-    }
-    return FALSE;
-}
-#endif
-
 /*
  * equals() compares string value of token number t_num with str[], and
  *   returns TRUE if they are identical.
@@ -99,6 +79,8 @@ equals(int t_num, const char *str)
 {
     int i;
 
+    if (t_num >= num_tokens)	/* safer to test here than to trust all callers */
+	return (FALSE);
     if (!token[t_num].is_token)
 	return (FALSE);		/* must be a value--can't be equal */
     for (i = 0; i < token[t_num].length; i++) {
@@ -278,7 +260,7 @@ quote_str(char *str, int t_num, int max)
     if (gp_input_line[token[t_num].start_index] == '"')
 	parse_esc(str);
     else
-        parse_sq(str);
+	parse_sq(str);
 }
 
 
@@ -341,7 +323,7 @@ m_quote_capture(char **str, int start, int end)
     if (gp_input_line[token[start].start_index] == '"')
 	parse_esc(*str);
     else
-        parse_sq(*str);
+	parse_sq(*str);
 
 }
 
@@ -544,11 +526,9 @@ gprintf(
 {
     char temp[MAX_LINE_LEN + 1];
     char *t;
-    TBOOLEAN seen_mantissa = FALSE; /* memorize if mantissa has been
-                                       output, already */
+    TBOOLEAN seen_mantissa = FALSE; /* remember if mantissa was already output */
     double stored_power_base = 0;   /* base for the last mantissa output*/
-    int stored_power = 0;	/* power that matches the mantissa
-                                   output earlier */
+    int stored_power = 0;	/* power matching the mantissa output earlier */
     TBOOLEAN got_hash = FALSE;				   
 
     set_numeric_locale();
@@ -990,7 +970,7 @@ int_error(int t_num, const char str[], va_dcl)
     /* reprint line if screen has been written to */
 
     if (t_num == DATAFILE) {
-        df_showdata();
+	df_showdata();
     } else if (t_num != NO_CARET) { /* put caret under error */
 	if (!screen_ok)
 	    PRINT_MESSAGE_TO_STDERR;
@@ -1026,6 +1006,7 @@ int_error(int t_num, const char str[], va_dcl)
     /* the normal cleanup code. Reset any flags before bailing.   */
     df_reset_after_error();
     eval_reset_after_error();
+    clause_reset_after_error();
     scanning_range_in_progress = FALSE;
 
     /* Load error state variables */
@@ -1051,7 +1032,7 @@ int_warn(int t_num, const char str[], va_dcl)
     /* reprint line if screen has been written to */
 
     if (t_num == DATAFILE) {
-        df_showdata();
+	df_showdata();
     } else if (t_num != NO_CARET) { /* put caret under error */
 	if (!screen_ok)
 	    PRINT_MESSAGE_TO_STDERR;
@@ -1098,12 +1079,6 @@ graph_error(const char *fmt, va_dcl)
 
 #ifdef VA_START
     VA_START(args, fmt);
-#if 0
-    /* HBB 20001120: this seems not to work at all. Probably because a
-     * va_list argument, is, after all, something else than a varargs
-     * list (i.e. a '...') */
-    int_error(NO_CARET, fmt, args);
-#else
     /* HBB 20001120: instead, copy the core code from int_error() to
      * here: */
     PRINT_SPACES_UNDER_PROMPT;
@@ -1118,7 +1093,6 @@ graph_error(const char *fmt, va_dcl)
     fputs("\n\n", stderr);
 
     bail_to_command_line();
-#endif /* 1/0 */
     va_end(args);
 #else
     int_error(NO_CARET, fmt, a1, a2, a3, a4, a5, a6, a7, a8);
@@ -1182,9 +1156,9 @@ parse_sq(char *instr)
      */
 
     while (*s != NUL) {
-        if (*s == '\'' && *(s+1) == '\'')
-            s++;
-        *t++ = *s++;
+	if (*s == '\'' && *(s+1) == '\'')
+	    s++;
+	*t++ = *s++;
     }
     *t = NUL;
 }

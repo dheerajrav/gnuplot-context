@@ -1,5 +1,5 @@
 /*
- * $Id: term_api.h,v 1.91 2010/10/06 05:44:57 sfeam Exp $
+ * $Id: term_api.h,v 1.96 2011/05/09 22:55:26 sfeam Exp $
  */
 
 /* GNUPLOT - term_api.h */
@@ -108,6 +108,7 @@ typedef enum e_arrow_head {
 extern const char *arrow_head_names[4];
 
 typedef struct arrow_style_type {    /* contains all Arrow properties */
+    int tag;                         /* -1 (local), AS_VARIABLE, or style index */
     int layer;	                     /* 0 = back, 1 = front */
     struct lp_style_type lp_properties;
     /* head options */
@@ -130,7 +131,10 @@ typedef enum termlayer {
 	TERM_LAYER_END_GRID,
 	TERM_LAYER_END_TEXT,
 	TERM_LAYER_BEFORE_PLOT,
-	TERM_LAYER_AFTER_PLOT
+	TERM_LAYER_AFTER_PLOT,
+	TERM_LAYER_BEGIN_KEYSAMPLE,
+	TERM_LAYER_END_KEYSAMPLE,
+	TERM_LAYER_RESET_PLOTNO
 } t_termlayer;
 
 typedef struct fill_style_type {
@@ -272,7 +276,7 @@ enum set_encoding_id {
    S_ENC_DEFAULT, S_ENC_ISO8859_1, S_ENC_ISO8859_2, S_ENC_ISO8859_9, S_ENC_ISO8859_15,
    S_ENC_CP437, S_ENC_CP850, S_ENC_CP852, S_ENC_CP950, 
    S_ENC_CP1250, S_ENC_CP1251, S_ENC_CP1254, 
-   S_ENC_KOI8_R, S_ENC_KOI8_U,
+   S_ENC_KOI8_R, S_ENC_KOI8_U, S_ENC_SJIS,
    S_ENC_UTF8,
    S_ENC_INVALID
 };
@@ -384,9 +388,6 @@ void term_check_multiplot_okay __PROTO((TBOOLEAN));
 
 void write_multiline __PROTO((unsigned int, unsigned int, char *, JUSTIFY, VERT_JUSTIFY, int, const char *));
 int estimate_strlen __PROTO((char *));
-#if 0 /* UNUSED */
-int term_count __PROTO((void));
-#endif /* UNUSED */
 void list_terms __PROTO((void));
 char* get_terminals_names __PROTO((void));
 struct termentry *set_term __PROTO((void));

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: datafile.c,v 1.193 2010/11/07 11:54:23 juhaszp Exp $"); }
+static char *RCSid() { return RCSid("$Id: datafile.c,v 1.203 2011/07/25 06:51:29 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - datafile.c */
@@ -87,13 +87,16 @@ static char *RCSid() { return RCSid("$Id: datafile.c,v 1.193 2010/11/07 11:54:23
  *      reads a line, does all the 'index' and 'using' manipulation
  *      deposits values into vector[]
  *      returns
- *          number of columns parsed  [0=not blank line, but no valid data],
- *          DF_EOF for EOF
+ *          number of columns parsed  [0 = not a blank line, but no valid data],
+ *          DF_EOF - end of file
  *          DF_UNDEFINED - undefined result during eval of extended using spec
  *          DF_MISSING - requested column matched that of 'set missing <foo>'
- *          DF_FIRST_BLANK for first consecutive blank line
- *          DF_SECOND_BLANK for second consecutive blank line
- *            will return FIRST before SECOND
+ *          DF_FIRST_BLANK - first consecutive blank line
+ *          DF_SECOND_BLANK - second consecutive blank line
+ *          DF_FOUND_KEY_TITLE  - only relevant to first line of data
+ *          DF_KEY_TITLE_MISSING  and only for 'set key autotitle columnhead'
+ *          DF_STRINGDATA - not currently used by anyone
+ *          DF_COLUMN_HEADERS - first row used as headers rather than data
  *
  * if a using spec was given, lines not fulfilling spec are ignored.
  * we will always return exactly the number of items specified
@@ -163,12 +166,9 @@ static char *RCSid() { return RCSid("$Id: datafile.c,v 1.193 2010/11/07 11:54:23
 #define is_comment(c) ((c) && (strchr(df_commentschars, (c)) != NULL))
 
 /*{{{  static fns */
-#if 0                           /* not used */
-static int get_time_cols __PROTO((char *fmt));
-static void mod_def_usespec __PROTO((int specno, int jump));
-#endif
 static int check_missing __PROTO((char *s));
 
+static void expand_df_column __PROTO((int));
 static char *df_gets __PROTO((void));
 static int df_tokenise __PROTO((char *s));
 static float *df_read_matrix __PROTO((int *rows, int *columns));
@@ -294,7 +294,8 @@ typedef struct df_column_struct {
     enum {
 	DF_BAD, DF_GOOD
     } good;
-    char *position;
+    char *position;	/* points to start of this field in current line */
+    char *header;	/* points to copy of the header for this column */
 } df_column_struct;
 
 static df_column_struct *df_column = NULL;      /* we'll allocate space as needed */
@@ -304,20 +305,32 @@ static int fast_columns;        /* corey@cac optimization */
 
 char *df_tokens[MAXDATACOLS];           /* filled in by df_tokenise */
 static char *df_stringexpression[MAXDATACOLS] = {NULL,NULL,NULL,NULL,NULL,NULL,NULL};
-#define NO_COLUMN_HEADER (-99)  /* some value that can never be a real column */
-static int column_for_key_title = NO_COLUMN_HEADER;
-static char *df_key_title = NULL;     /* filled in from <col> in 1st row by df_tokenise */
 static struct curve_points *df_current_plot;	/* used to process histogram labels + key entries */
 
+/* These control the handling of fields in the first row of a data file.
+ * See also parse_1st_row_as_headers.
+ */
+#define NO_COLUMN_HEADER (-99)  /* some value that can never be a real column */
+static int column_for_key_title = NO_COLUMN_HEADER;
+static TBOOLEAN df_already_got_headers = FALSE;
+static char *df_key_title = NULL;     /* filled in from column header if requested */
 
-/* Binary *read* variables used by df_readbinary().  The difference between matrix
- * binary and general binary is that matrix binary requires an extra first column
- * and extra first row giving the sample coordinates.  Furthermore, note that if
- * ASCII matrix data is converted to floats (i.e., binary) then it really falls in
- * the general binary class, not the matrix binary class.
+
+/* Binary *read* variables used by df_readbinary().
+ * There is a confusing difference between the ascii and binary "matrix" keywords.
+ * Ascii matrix data by default is interpreted as having an implicit uniform grid
+ * of x and y coords that are not actually present in the data file.
+ * The equivalent binary data format is called "binary general".
+ * In both of these cases the internal flag df_nonuniform_matrix is FALSE;
+ * Binary matrix data contains explicit y values in the first row, and explicit x
+ * values in the first column. This is signalled by "binary matrix".
+ * In this case the internal flag df_nonuniform_matrix is TRUE.
+ *
+ * EAM May 2011 - Add a keyword "nonuniform matrix" to indicate ascii matrix data
+ * in the same format as "binary matrix", i.e. with explicit x and y coordinates.
  */
 TBOOLEAN df_read_binary;
-TBOOLEAN df_matrix_binary;
+TBOOLEAN df_nonuniform_matrix;
 int df_plot_mode;
 
 static int df_readascii __PROTO((double [], int));
@@ -638,30 +651,14 @@ df_tokenise(char *s)
     for (i = 0; i<MAXDATACOLS; i++)
 	df_tokens[i] = NULL;
 
-#if (0)	/* Mar 2009 */
-    /* This code was broken by moving the check for 'title columnheader' elsewhere.*/
-    /* Auto-titling of histograms is a bit tricky because the x coord did not come */
-    /* from an explicit input column. This means our previous guess of what column */
-    /* to take the title from was probably wrong.                                  */
-    if (key_title_auto_col && df_current_plot
-    &&  (df_current_plot->plot_style == HISTOGRAMS))
-	column_for_key_title = use_spec[0].column;
-#endif
-
 #define NOTSEP (*s != df_separator)
 
     df_no_cols = 0;
 
     while (*s) {
 	/* check store - double max cols or add 20, whichever is greater */
-	if (df_max_cols <= df_no_cols) {
-	    int new_max = df_max_cols + (df_max_cols < 20 ? 20 : df_max_cols);
-	    df_column = gp_realloc(df_column,
-				new_max * sizeof(df_column_struct),
-				"datafile column");
-	    while (df_max_cols < new_max)
-		df_column[df_max_cols++].datum = 0;
-	}
+	if (df_max_cols <= df_no_cols)
+	    expand_df_column((df_max_cols < 20) ? df_max_cols+20 : 2*df_max_cols);
 
 	/* have always skipped spaces at this point */
 	df_column[df_no_cols].position = s;
@@ -675,11 +672,6 @@ df_tokenise(char *s)
 		if (use_spec[i].expected_type == CT_STRING)
 		    df_column[df_no_cols].good = DF_GOOD;
 	    }
-	}
-	/* Particularly if it is supposed to be a key title */
-	if (df_no_cols == column_for_key_title-1) {
-	    free(df_key_title);
-	    df_key_title = gp_strdup(s);
 	}
 
 	/* CSV files must accept numbers inside quotes also,
@@ -794,8 +786,7 @@ df_tokenise(char *s)
 
 	++df_no_cols;
 
-	/* EAM - 19 Aug 2002 If we are in a quoted string, skip to end
-	 * of quote */
+	/* If we are in a quoted string, skip to end of quote */
 	if (in_string) {
 	    do
 		s++;
@@ -982,6 +973,7 @@ df_open(const char *cmd_filename, int max_using, struct curve_points *plot)
     df_datablock = NULL;
     df_num_bin_records = 0;
     df_matrix = FALSE;
+    df_nonuniform_matrix = FALSE;
 
     df_eof = 0;
 
@@ -989,6 +981,8 @@ df_open(const char *cmd_filename, int max_using, struct curve_points *plot)
     /* Perhaps it should be a parameter to df_readline? */
     df_current_plot = plot;
     column_for_key_title = NO_COLUMN_HEADER;
+    parse_1st_row_as_headers = FALSE;
+    df_already_got_headers = FALSE;
     /*}}} */
 
     assert(max_using <= MAXDATACOLS);
@@ -1044,6 +1038,16 @@ df_open(const char *cmd_filename, int max_using, struct curve_points *plot)
 		int_error(c_token, matrix_general_binary_conflict_msg);
 	    df_matrix_file = TRUE;
 	    set_matrix = TRUE;
+	    fast_columns = 0;
+	    continue;
+	}
+
+	/* May 2011 - "nonuniform matrix" indicates an ascii data file
+	 * with the same row/column layout as "binary matrix" */
+	if (almost_equals(c_token, "nonuni$form")) {
+	    c_token++;
+	    df_matrix_file = TRUE;
+	    df_nonuniform_matrix = TRUE;
 	    fast_columns = 0;
 	    continue;
 	}
@@ -1367,13 +1371,25 @@ static void
 plot_option_using(int max_using)
 {
     int no_cols = 0;  /* For general binary only. */
+    char *column_label;
 
     /* The filetype function may have set the using specs, so reset
      * them before processing tokens. */
     if (df_binary_file)
 	initialize_use_spec();
 
-    if (!END_OF_COMMAND && !isstring(++c_token)) {
+    /* Try to distinguish between 'using "A":"B"' and 'using "%lf %lf" */
+    if (!END_OF_COMMAND && isstring(++c_token)) {
+	int save_token = c_token;
+	df_format = try_to_get_string();
+	if (valid_format(df_format))
+	    return;
+	free(df_format);
+	df_format = NULL;
+	c_token = save_token;
+    }
+
+    if (!END_OF_COMMAND) {
 	do {                    /* must be at least one */
 	    if (df_no_use_specs >= max_using)
 		int_error(c_token, "Too many columns in using specification");
@@ -1397,8 +1413,8 @@ plot_option_using(int max_using)
 		/* Catch at least the simplest case of 'autotitle columnhead' using an expression */
 		use_spec[df_no_use_specs++].column = at_highest_column_used;
 
-	    /* FIXME EAM - It would be nice to handle these like any other */
-	    /* internal function via perm_at() but there are problems.     */
+	    /* It would be nice to handle these like any other      */
+	    /* internal function via perm_at() but it doesn't work. */
 	    } else if (almost_equals(c_token, "xtic$labels")) {
 		plot_ticlabel_using(CT_XTICLABEL);
 	    } else if (almost_equals(c_token, "x2tic$labels")) {
@@ -1413,6 +1429,13 @@ plot_option_using(int max_using)
 		plot_ticlabel_using(CT_CBTICLABEL);
 	    } else if (almost_equals(c_token, "key")) {
 		plot_ticlabel_using(CT_KEYLABEL);
+
+	    } else if ((column_label = try_to_get_string())) {
+		/* ...using "A"... Dummy up a call to column(column_label) */
+		use_spec[df_no_use_specs].at = create_call_column_at(column_label);
+		use_spec[df_no_use_specs++].column = NO_COLUMN_HEADER;
+		fast_columns = 0;
+
 	    } else {
 		int col = int_expression();
 		
@@ -1420,7 +1443,7 @@ plot_option_using(int max_using)
 		    int_error(c_token, "Column must be >= -2");
 		use_spec[df_no_use_specs++].column = col;
 
-		/* Supposed only happens for binary files, but don't bet on it */
+		/* Supposedly only happens for binary files, but don't bet on it */
 		if (col > no_cols)
 		    no_cols = col;
 	    }
@@ -1435,17 +1458,6 @@ plot_option_using(int max_using)
 	df_extend_binary_columns(no_cols);
     }
 
-    if (!END_OF_COMMAND && isstring(c_token)) {
-
-	if (df_binary_file)
-	    int_error(NO_CARET, "Expecting \"binary format='...'\" or \"binary filetype=...\"");
-
-	df_format = try_to_get_string();
-	if (!valid_format(df_format))
-	    int_error(c_token,
-		      "Please use between 1 and 7 conversions, of type double (%%lf)");
-
-    } /* if (!EOC) */
 }
 
 
@@ -1651,12 +1663,8 @@ df_readascii(double v[], int max)
 	    assert(MAXDATACOLS == 7);
 
 	    /* check we have room for at least 7 columns */
-	    if (df_max_cols < 7) {
-		df_max_cols = 7;
-		df_column = gp_realloc(df_column,
-				       df_max_cols * sizeof(df_column_struct),
-				       "datafile columns");
-	    }
+	    if (df_max_cols < 7)
+		expand_df_column(7);
 
 	    df_no_cols = sscanf(line, df_format,
 				&df_column[0].datum,
@@ -1679,23 +1687,35 @@ df_readascii(double v[], int max)
 	} else
 	    df_tokenise(s);
 
-	/* If we are supposed to read plot or key titles from the
-	 * first line of the data then do that and nothing else.  */
-	if (column_for_key_title != NO_COLUMN_HEADER) {
-	    char *temp_string = df_key_title;
-	    df_datum--;
-	    if (!df_key_title) {
-		FPRINTF((stderr,
-			 "df_readline: missing column head for key title\n"));
-		return(DF_KEY_TITLE_MISSING);
+	/* Always save the contents of the first row in case it is needed for
+	 * later access via column("header").  However, unless we know for certain that
+	 * it contains headers only, e.g. via parse_1st_row_as_headers or 
+	 * (column_for_key_title > 0), also treat it as a data row.
+	 */
+	if (df_datum == 0 && !df_already_got_headers) {
+	    int i,j;
+	    for (j=0; j<df_no_cols; j++) {
+		free(df_column[j].header);
+		df_column[j].header = df_parse_string_field(df_column[j].position);
+		FPRINTF((stderr,"Col %d: \"%s\"\n",j,df_column[j].header));
 	    }
-	    df_key_title = df_parse_string_field(df_key_title);
-	    free(temp_string);
-	    FPRINTF((stderr,
-		     "df_readline: Found key title in col %d %s\n",
-		     column_for_key_title, df_key_title));
-	    column_for_key_title = NO_COLUMN_HEADER;
-	    return(DF_FOUND_KEY_TITLE);
+	    df_already_got_headers = TRUE;
+	    if (column_for_key_title > 0) {
+		df_key_title = gp_strdup(df_column[column_for_key_title-1].header);
+		if (!df_key_title) {
+		    FPRINTF((stderr,
+			 "df_readline: missing column head for key title\n"));
+		    return(DF_KEY_TITLE_MISSING);
+		}
+		df_datum--;
+		column_for_key_title = NO_COLUMN_HEADER;
+		parse_1st_row_as_headers = FALSE;
+		return DF_FOUND_KEY_TITLE;
+	    } else if (parse_1st_row_as_headers) {
+		df_datum--;
+		parse_1st_row_as_headers = FALSE;
+		return DF_COLUMN_HEADERS;
+	    }
 	}
 
 	/*{{{  copy column[] to v[] via use[] */
@@ -2030,6 +2050,13 @@ df_determine_matrix_info(FILE *fin)
 	while (1) {
 	    if ((matrix = df_read_matrix(&nr, &nc)) != NULL) {
 		int index = df_num_bin_records;
+
+		/* Ascii matrix with explicit y in first row, x in first column */
+		if (df_nonuniform_matrix) {
+		    nc--;
+		    nr--;
+		}
+
 		/* *** Careful!  Could error out in next step.  "matrix" should
 		 * be static and test next time. ***
 		 */
@@ -2086,11 +2113,33 @@ f_column(union argument *arg)
 
     (void) arg;                 /* avoid -Wunused warning */
     (void) pop(&a);
-    column = (int) real(&a);
 
     if (!evaluate_inside_using)
 	int_error(c_token-1, "column() called from invalid context");
-    
+
+    if (a.type == STRING) {
+	int j;
+	char *name = a.v.string_val;
+	column = DF_COLUMN_HEADERS;
+	for (j=0; j<df_no_cols; j++) {
+	    if (df_column[j].header) {
+		int offset = (*df_column[j].header == '"') ? 1 : 0;
+		if (0 == strncmp(name, df_column[j].header + offset, 
+				strlen(name))) {
+		    column = j+1;
+		    if (!df_key_title) /* EAM DEBUG - on the off chance we want it */
+			df_key_title = gp_strdup(df_column[j].header);
+		    break;
+		}
+	    }
+	}
+	if (column == DF_COLUMN_HEADERS)
+	    int_error(NO_CARET,"could not find column with header \"%s\"\n",
+			a.v.string_val);
+	gpfree_string(&a);
+    } else
+	column = (int) real(&a);
+
     if (column == -2)
 	push(Ginteger(&a, df_current_index));
     else if (column == -1)
@@ -2149,6 +2198,22 @@ f_stringcolumn(union argument *arg)
 	free(temp_string);
     }
 }
+
+/*{{{  void f_columnhead() */
+void
+f_columnhead(union argument *arg)
+{
+    struct value a;
+
+    if (!evaluate_inside_using)
+	int_error(c_token-1, "columnhead() called from invalid context");
+
+    (void) arg;                 /* avoid -Wunused warning */
+    (void) pop(&a);
+    column_for_key_title = (int) real(&a);
+    push(Gstring(&a, "@COLUMNHEAD@"));
+}
+
 
 /*{{{  void f_valid() */
 void
@@ -2223,47 +2288,6 @@ f_timecolumn(union argument *arg)
 
 /*}}} */
 
-#if 0                           /* not used */
-/*{{{  static int get_time_cols(fmt) */
-/* count columns in timefmt */
-static int
-get_time_cols(char *fmt)
-{
-    int cnt, i;
-    char *p;
-
-    p = fmt;
-    cnt = 0;
-    while (isspace((unsigned char) *p))
-	p++;
-    if (!strlen(p))
-	int_error(NO_CARET, "Empty time-data format");
-    cnt++;
-    for (i = 0; i < strlen(p) - 1; i++) {
-	if (isspace((unsigned char) p[i])
-	    && !isspace((unsigned char) p[i + 1]))
-	    cnt++;
-    }
-    return (cnt);
-}
-/*}}} */
-
-/*{{{  static void mod_def_usespec(specno,jump) */
-/* modify default use_spec, applies for no user spec and time datacolumns */
-static void
-mod_def_usespec(
-    int specno,                 /* which spec in ?:?:? */
-    int jump)                   /* no of columns in timefmt (time data) */
-{
-    int i;
-
-    for (i = specno + 1; i < MAXDATACOLS; ++i)
-	use_spec[i].column += jump;     /* add no of columns in time to the rest */
-    df_no_use_specs = 0;
-}
-
-/*}}} */
-#endif /* not used */
 
 /*{{{  static int check_missing(s) */
 static int
@@ -2289,6 +2313,9 @@ static TBOOLEAN
 valid_format(const char *format)
 {
     int formats_found = 0;
+
+    if (!format)
+	return FALSE;
 
     for (;;) {
 	if (!(format = strchr(format, '%')))    /* look for format spec  */
@@ -2336,6 +2363,9 @@ expect_string(const char column)
 void
 df_set_key_title(struct curve_points *plot)
 {
+    if (!df_key_title)
+	return;
+
     if (plot->plot_style == HISTOGRAMS
     &&  histogram_opts.type == HT_STACKED_IN_TOWERS) {
 	/* In this case it makes no sense to treat key titles in the usual */
@@ -2349,8 +2379,17 @@ df_set_key_title(struct curve_points *plot)
     }
 
     /* What if there was already a title specified? */
-    if (plot->title && !plot->title_is_filename)
-	return;
+    if (plot->title && !plot->title_is_filename) {
+	char *placeholder = strstr(plot->title, "@COLUMNHEAD@");
+	char *newtitle = NULL;
+	if (!placeholder)
+	    return;
+	newtitle = gp_alloc(strlen(plot->title) + strlen(df_key_title),"plot title");
+	*placeholder = '\0';
+	sprintf(newtitle, "%s%s%s", plot->title, df_key_title, placeholder+12);
+	free(df_key_title);
+	df_key_title = newtitle;
+    }
     if (plot->title_is_suppressed)
 	return;
     if (plot->title)
@@ -2366,9 +2405,8 @@ df_set_key_title(struct curve_points *plot)
  * Called from eval_plots(), eval_3dplots() while parsing the plot title option
  */
 void
-df_set_key_title_columnhead(enum PLOT_TYPE plot_type)
+df_set_key_title_columnhead(struct curve_points *plot)
 {
-    FPRINTF((stderr,"df_set_key_title_columnhead: column_for_key_title was %d, ",column_for_key_title));
     c_token++;
     if (equals(c_token,"(")) {
 	c_token++;
@@ -2379,12 +2417,14 @@ df_set_key_title_columnhead(enum PLOT_TYPE plot_type)
     } else {
 	if (df_no_use_specs == 1)
 	    column_for_key_title = use_spec[0].column;
-	else if (plot_type == DATA3D)
+	else if (plot->plot_type == DATA3D)
 	    column_for_key_title = use_spec[2].column;
 	else
 	    column_for_key_title = use_spec[1].column;
     }
-    FPRINTF((stderr," setting to %d\n",column_for_key_title));
+    /* This results from  plot 'foo' using (column("name")) title columnhead */
+    if (column_for_key_title == NO_COLUMN_HEADER)
+	plot->title = gp_strdup("@COLUMNHEAD@");
 }
 
 static char *
@@ -2683,13 +2723,12 @@ df_insert_scanned_use_spec(int uspec)
 /* Not the most elegant way of defining the default columns, but I prefer
  * this to switch and conditional statements when there are so many styles.
  */
-#define LAST_PLOT_STYLE 29
 typedef struct df_bin_default_columns {
     PLOT_STYLE plot_style;
     short excluding_gen_coords; /* Number of columns of information excluding generated coordinates. */
     short dimen_in_2d;          /* Number of additional columns required (in 2D plot) if coordinates not generated. */
 } df_bin_default_columns;
-df_bin_default_columns default_style_cols[LAST_PLOT_STYLE + 1] = {
+df_bin_default_columns default_style_cols[] = {
     {LINES, 1, 1},
     {POINTSTYLE, 1, 1},
     {IMPULSES, 1, 1},
@@ -2703,6 +2742,7 @@ df_bin_default_columns default_style_cols[LAST_PLOT_STYLE + 1] = {
     {BOXERROR, 3, 1},
     {STEPS, 1, 1},
     {FSTEPS, 1, 1},
+    {FILLSTEPS, 1, 1},
     {HISTEPS, 1, 1},
     {VECTOR, 2, 2},
     {CANDLESTICKS, 4, 1},
@@ -2742,13 +2782,11 @@ adjust_binary_use_spec()
     unsigned int ps_index;
     int c_token_copy;
 
-    /* This may appear strange, but ASCII matrix is not the same
-     * format as gnuplot matrix binary.  So, although the ASCII
-     * *file* may be matrix, it's data structure is similar to
-     * an M x N general binary file, i.e., no extra row and column
-     * for sample coordinates.
+    /* The default binary matrix format is nonuniform, i.e. 
+     * it has an extra row and column for sample coordinates.
      */
-    df_matrix_binary = (df_matrix_file && df_binary_file);
+    if (df_matrix_file && df_binary_file)
+	df_nonuniform_matrix = TRUE;
 
     c_token_copy = c_token;
  
@@ -2838,10 +2876,6 @@ adjust_binary_use_spec()
 		int_error(NO_CARET, "Plot style does not conform to three column data in this graph mode");
 	}
 
-    }
-
-    /* Adjust for ASCII matrix format.  The first two "columns" come from indices. */
-    if (df_matrix_file && !df_binary_file) {
     }
 
     if (df_num_bin_records && df_bin_record[0].scan_generate_coord && !df_matrix_file) {
@@ -2973,7 +3007,7 @@ plot_option_binary(TBOOLEAN set_matrix, TBOOLEAN set_default)
 			    binary_input_function = df_bin_filetype_table[i].value;
 		}
 		if (binary_input_function == auto_filetype_function)
-		    int_warn(NO_CARET, "Unrecognized filetype; try \"show datafile binary filetypes\"");
+		    int_error(NO_CARET, "Unrecognized filetype; try \"show datafile binary filetypes\"");
 	    }
 
 	    /* Unless only querying settings, call the routine to prep binary data parameters. */
@@ -3371,11 +3405,8 @@ clear_binary_records(df_records_type records_type)
 }
 
 
-/* EAM DEBUG - replacement for earlier ugly code
- *             Syntax is now:   array=(xdim,ydim):(xdim,ydim):CONST:(xdim) etc
- *
- * For previously documented but broken "Inf", use -1
- * Bug in original: need to reset # of dimensions each time
+/* 
+ * Syntax is:   array=(xdim,ydim):(xdim,ydim):CONST:(xdim) etc
  */
 static void
 plot_option_array(void)
@@ -4135,12 +4166,8 @@ df_readbinary(double v[], int max)
 	return DF_EOF;
 
     /* Check if we have room for at least df_no_bin_cols columns */
-    if (df_max_cols < df_no_bin_cols) {
-	df_column = gp_realloc(df_column,
-			       df_no_bin_cols * sizeof(df_column_struct),
-			       "datafile columns");
-	df_max_cols = df_no_bin_cols;
-    }
+    if (df_max_cols < df_no_bin_cols)
+	expand_df_column(df_no_bin_cols);
 
     /* In binary mode, the number of user specs was increased by the
      * number of dimensions in the underlying uniformly sampled grid
@@ -4416,7 +4443,7 @@ df_readbinary(double v[], int max)
 	} /* for(i) */
 
 	if (df_matrix_file) {
-	    if (df_matrix_binary) {
+	    if (df_nonuniform_matrix) {
 		/* Store just first column? */
 		if (!df_M_count && !saved_first_matrix_column) {
 		    first_matrix_column = df_column[i].datum;
@@ -4458,9 +4485,9 @@ df_readbinary(double v[], int max)
 		 * overwritten. */
 		for (j = df_no_bin_cols-1; j >= 0; j--) {
 		    if (j == 0)
-			df_column[j].datum = df_matrix_binary ? scanned_matrix_row[df_M_count] : df_M_count;
+			df_column[j].datum = df_nonuniform_matrix ? scanned_matrix_row[df_M_count] : df_M_count;
 		    else if (j == 1)
-			df_column[j].datum = df_matrix_binary ? first_matrix_column : df_N_count;
+			df_column[j].datum = df_nonuniform_matrix ? first_matrix_column : df_N_count;
 		    else
 			df_column[j].datum = df_column[i].datum;
 		    df_column[j].good = DF_GOOD;
@@ -4651,6 +4678,49 @@ df_readbinary(double v[], int max)
 	if (!line_okay)
 	    continue;
 
+	for (i=df_no_use_specs; i<df_no_use_specs+df_no_tic_specs; i++) {
+	    if (use_spec[i].expected_type >= CT_XTICLABEL
+	    &&  use_spec[i].at != NULL) {
+		struct value a;
+		int axis, axcol;
+		evaluate_inside_using = TRUE;
+		evaluate_at(use_spec[i].at, &a);
+		evaluate_inside_using = FALSE;
+		switch (use_spec[i].expected_type) {
+		    default:
+		    case CT_XTICLABEL:
+			axis = FIRST_X_AXIS;
+			axcol = 0;
+			break;
+		    case CT_X2TICLABEL:
+			axis = SECOND_X_AXIS;
+			axcol = 0;
+			break;
+		    case CT_YTICLABEL:
+			axis = FIRST_Y_AXIS;
+			axcol = 1;
+			break;
+		    case CT_Y2TICLABEL:
+			axis = SECOND_Y_AXIS;
+			axcol = 1;
+			break;
+		    case CT_ZTICLABEL:
+			axis = FIRST_Z_AXIS;
+			axcol = 2;
+			break;
+		    case CT_CBTICLABEL:
+			/* EAM FIXME - Which column to set for cbtic? */
+			axis = COLOR_AXIS;
+			axcol = 2;
+			break;
+		}
+		if (a.type == STRING) {
+		    add_tic_user(axis, a.v.string_val, v[axcol], -1);
+		    gpfree_string(&a);
+		}
+	    }
+	}
+
 	/* output == df_no_use_specs if using was specified -
 	 * actually, smaller of df_no_use_specs and max */
 	assert(df_no_use_specs == 0
@@ -4753,4 +4823,17 @@ df_generate_pseudodata()
     }
 
     return line;
+}
+
+/* Allocate space for more data columns as needed */
+void
+expand_df_column(int new_max)
+{
+    df_column = gp_realloc(df_column,
+			new_max * sizeof(df_column_struct),
+			"datafile column");
+    for (; df_max_cols < new_max; df_max_cols++) {
+	df_column[df_max_cols].datum = 0;
+	df_column[df_max_cols].header = NULL;
+    }
 }

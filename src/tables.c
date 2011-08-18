@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: tables.c,v 1.105 2010/12/05 00:01:02 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: tables.c,v 1.107 2011/06/19 22:10:37 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - tables.c */
@@ -58,6 +58,7 @@ const struct gen_ftable command_ftbl[] =
     { "ca$ll", call_command },
     { "cd", changedir_command },
     { "cl$ear", clear_command },
+    { "do", do_command },
     { "eval$uate", eval_command },
     { "ex$it", exit_command },
     { "f$it", fit_command },
@@ -89,6 +90,9 @@ const struct gen_ftable command_ftbl[] =
     { "und$efine", undefine_command },
     { "uns$et", unset_command },
     { "up$date", update_command },
+    { "while", while_command },
+    { "{", begin_clause },
+    { "}", end_clause },
     { ";", null_command },
     /* last key must be NULL */
     { NULL, invalid_command }
@@ -659,6 +663,7 @@ const struct gen_table plotstyle_tbl[] =
     { "boxer$rorbars", BOXERROR },
     { "boxx$yerrorbars", BOXXYERROR },
     { "st$eps", STEPS },
+    { "fillst$eps", FILLSTEPS },
     { "fs$teps", FSTEPS },
     { "his$teps", HISTEPS },
     { "vec$tors", VECTOR },

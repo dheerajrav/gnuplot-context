@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: plot.c,v 1.120 2010/10/01 23:10:46 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: plot.c,v 1.127 2011/05/22 19:08:13 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - plot.c */
@@ -332,11 +332,13 @@ main(int argc, char **argv)
 #endif
 
 #if defined(HAVE_LIBREADLINE) || defined(HAVE_LIBEDITLINE)
-    using_history();
     /* T.Walter 1999-06-24: 'rl_readline_name' must be this fix name.
-     * It is used to parse a 'gnuplot' specific section in '~/.inputrc' */
+     * It is used to parse a 'gnuplot' specific section in '~/.inputrc' 
+     * or gnuplot specific commands in '.editrc' (when using editline
+     * instead of readline) */
     rl_readline_name = "Gnuplot";
     rl_terminal_name = getenv("TERM");
+    using_history();
 #endif
 #if defined(HAVE_LIBREADLINE) && !defined(MISSING_RL_TILDE_EXPANSION)
     rl_complete_with_tilde_expansion = 1;
@@ -433,7 +435,7 @@ main(int argc, char **argv)
      * can be registered to be executed before the terminal is reset. */
     GP_ATEXIT(term_reset);
 
-# if ((defined(__MSC__) && defined(_Windows)) || defined(__WIN32__)) && ! defined(WGP_CONSOLE)
+# if defined(_Windows) && ! defined(WGP_CONSOLE)
     interactive = TRUE;
 # else
     interactive = isatty(fileno(stdin));
@@ -488,6 +490,26 @@ main(int argc, char **argv)
 	show_version(stderr);
     else
 	show_version(NULL); /* Only load GPVAL_COMPILE_OPTIONS */
+
+#ifdef WGP_CONSOLE
+#ifdef CONSOLE_SWITCH_CP
+    if (cp_changed && interactive) {
+	fprintf(stderr,
+	    "\ngnuplot changed the codepage of this console from %i to %i to\n" \
+	    "match the graph window. Some characters might only display correctly\n" \
+	    "if you change the font to a non-raster type.\n", 
+	    cp_input, GetConsoleCP());
+    }
+#else
+    if ((GetConsoleCP() != GetACP()) && interactive) {
+	fprintf(stderr,
+	    "\nWarning: The codepage of the graph window (%i) and that of the\n" \
+	    "console (%i) differ. Use `set encoding` or `!chcp` if extended\n" \
+	    "characters don't display correctly.\n", 
+	    GetACP(), GetConsoleCP());
+    }
+#endif
+#endif
 
     update_gpval_variables(3);  /* update GPVAL_ variables available to user */
 
@@ -615,7 +637,6 @@ main(int argc, char **argv)
 		do_string(*argv);
 
 	    } else {
-		c_token = NO_CARET;	/* in case of file not found */
 		load_file(loadpath_fopen(*argv, "r"), gp_strdup(*argv), FALSE);
 	    }
 	}
@@ -904,7 +925,7 @@ RexxInterface(PRXSTRING rxCmd, PUSHORT pusErr, PRXSTRING rxRc)
     memcpy(command_line_env, keepenv, sizeof(JMP_BUF));
     return 0;
 }
-#endif
+#endif /* OS2 */
 
 #ifdef GNUPLOT_HISTORY
 # if defined(HAVE_LIBREADLINE) || defined(HAVE_LIBEDITLINE)

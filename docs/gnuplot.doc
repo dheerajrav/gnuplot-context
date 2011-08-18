@@ -1,44 +1,34 @@
-C RCS $Id: gnuplot.doc,v 1.646 2011/01/03 14:30:31 juhaszp Exp $
+C RCS $Id: gnuplot.doc,v 1.684 2011/08/05 17:36:31 sfeam Exp $
 C
 C Copyright (C) 1986 - 1993, 1998, 1999, 2000, 2001, 2004   Thomas Williams, Colin Kelley et al.
 C
-^ <h2> An Interactive Plotting Program </h2><p>
-^ <h2>  Thomas Williams & Colin Kelley</h2><p>
-^ <h2>  Version 4.4 organized by Ethan A Merritt and others</h2><p>
-^ <h2>Major contributors (alphabetic order):</h2>
-^<ul><h3>
-^<li>  Hans-Bernhard Broeker
-^<li>  John Campbell
-^<li>  Robert Cunningham
-^<li>  David Denholm
-^<li>  Gershon Elber
-^<li>  Roger Fearick
-^<li>  Carsten Grammes
-^<li>  Lucas Hart
-^<li>  Lars Hecking
-^<li>  Thomas Koenig
-^<li>  David Kotz
-^<li>  Ed Kubaitis
-^<li>  Russell Lang
-^<li>  Alexander Lehmann
-^<li>  Alexander Mai
-^<li>  Ethan A Merritt
-^<li>  Petr Mikulik
-^<li>  Carsten Steger
-^<li>  Tom Tkacik
-^<li>  Jos Van der Woude
-^<li>  Alex Woo
-^<li>  James R. Van Zandt
-^<li>  Johannes Zellner
-^</h3></ul> <p>
-^<h2>  Copyright (C) 1986 - 1993, 1998 - 2004   Thomas Williams, Colin Kelley<p>
-^   Mailing list for comments: gnuplot-info@lists.sourceforge.net <p>
-^   Mailing list for bug reports: gnuplot-bugs@lists.sourceforge.net <p>
-^</h2><p>
-^<h3> This manual was originally prepared by Dick Crawford</h3><p>
-^<h3> Last revised: March 2009</h3><p>
-^<hr>
 1 gnuplot
+?gnuplot
+^<h2 align="center"> An Interactive Plotting Program </h2>
+^<p align="center">  Thomas Williams & Colin Kelley</p>
+^<p align="center">  Version 4.4 organized by Ethan A Merritt and others</p>
+^<p align="center">Major contributors (alphabetic order):<br>
+^<br>
+^  Hans-Bernhard Broeker, John Campbell,<br>
+^  Robert Cunningham,  David Denholm,<br>
+^  Gershon Elber, Roger Fearick,<br>
+^  Carsten Grammes, Lucas Hart,<br>
+^  Lars Hecking, Péter Juhász,<br>
+^  Thomas Koenig, David Kotz,<br>
+^  Ed Kubaitis, Russell Lang,<br>
+^  Timothée Lecomte, Alexander Lehmann,<br>
+^  Alexander Mai, Bastian Märkisch,<br>
+^  Ethan A Merritt, Petr Mikulík,<br>
+^  Carsten Steger, Shigeharu Takeno,<br>
+^  Tom Tkacik, Jos Van der Woude,<br>
+^  James R. Van Zandt, Alex Woo, Johannes Zellner<br>
+^</p>
+^<p align="center">  Copyright (C) 1986 - 1993, 1998 - 2004   Thomas Williams, Colin Kelley<br>
+^     Copyright (C) 2004 - 2011 various authors</p>
+^<p align="center">   Mailing list for comments: <tt>gnuplot-info@lists.sourceforge.net</tt><br>
+^      Mailing list for bug reports: <tt>gnuplot-bugs@lists.sourceforge.net</tt><br>
+^      Web access (preferred): <tt>http://sourceforge.net/projects/gnuplot</tt></p>
+^<p align="center"> This manual was originally prepared by Dick Crawford</p>
 2 Copyright
 ?copyright
 ?license
@@ -102,10 +92,11 @@ C
 
  Gnuplot supports many different types of output: interactive screen terminals
  (with mouse and hotkey input), direct output to pen plotters or modern
- printers, and output to many file formats (eps, fig, jpeg, LaTeX, metafont,
- pbm, pdf, png, postscript, svg, ...). Gnuplot is easily extensible to include
- new output modes. Recent additions include interactive terminals based on
- aquaterm (OSX), wxWidgets (multiple platforms), and Qt. 
+ printers, and output to many file formats (eps, emf, fig, jpeg, LaTeX, pdf, png,
+ postscript, ...). Gnuplot is easily extensible to include new output modes.
+ Recent additions include interactive terminals based on wxWidgets (usable
+ on multiple platforms), and Qt.  Mouseable plots embedded in web pages
+ can be generated using the svg or HTML5 canvas terminal drivers.
 
  The command language of `gnuplot` is case sensitive, i.e. commands and
  function names written in lowercase are not the same as those written in
@@ -117,11 +108,6 @@ C
 
        load "filename"
        cd 'dir'
-
- Many `gnuplot` commands have multiple options. Version 4 is less sensitive
- to the order of these options than earlier versions, but some order-dependence
- remains. If you see error messages about unrecognized options, please try
- again using the exact order listed in the documentation.
 
  Commands may extend over several input lines by ending each line but the last
  with a backslash (\).  The backslash must be the _last_ character on each
@@ -178,7 +164,6 @@ C
 2 Seeking-assistance
 ?help-desk
 ?seeking-assistance
-^ <a name="Seeking-assistance"></a>
  The canonical gnuplot web page can be found at
 ^ <a href="http://www.gnuplot.info">
            http://www.gnuplot.info
@@ -210,72 +195,63 @@ C
  The list of those interested in development version of gnuplot is:
            gnuplot-beta@lists.sourceforge.net
 
- When posting a question, please include full details of the version of
- `gnuplot`, the machine, and operating system you are using.  A _small_ script
+ When posting a question, please include full details of the gnuplot version,
+ the terminal type, and the operating system you are using.  A _small_ script
  demonstrating the problem may be useful.  Function plots are preferable to
- datafile plots.  If email-ing to gnuplot-info, please state whether or not
- you are subscribed to the list, so that users who use news will know to email
- a reply to you.  There is a form for such postings on the website.
+ datafile plots.
 
-2 New features introduced in version 4.5
+2 New features
 ?new-features
- Gnuplot version 4.5 offers many new features introduced since the preceding
- official version 4.4. This section lists major additions and gives a partial
- list of changes and minor new features. For a more exhaustive list, see the
- NEWS file.
+ This section lists major additions since version 4.4.
+ For a more exhaustive list, see the NEWS file.
 
-3 Canvas size
-?canvas size
-?canvas
-?set term size
+3 New syntax
+Ffigure_newsyntax
+ This version of gnuplot introduces command iteration and block-structured
+ if/else/while/do constructs.  See `if`, `while`, and `do`.
+ Simple iteration is possible inside `plot` or `set` commands.
+ See `iteration`.  General iteration spanning multiple
+ commands is possible using a block construct as shown below.
+ For a related new feature, see the `summation` expression type.
+ Here is an example using several of these new syntax features:
+       set multiplot layout 2,2
+       fourier(k, x) = sin(3./2*k)/k * 2./3*cos(k*x)
+       do for [power = 0:3] {
+           TERMS = 10**power
+           set title sprintf("%g term Fourier series",TERMS)
+           plot 0.5 + sum [k=1:TERMS] fourier(k,x) notitle 
+       }
+       unset multiplot
+ 
+ It is now possible to select a column of data from a data file by
+ matching a label in the first row of the file. See `columnhead`.
+ For example
+       plot for [crop in "Oats Peas Beans"] 'data' using "Year":crop
 
- In earlier versions of gnuplot, some terminal types used the values from
- `set size` to control also the size of the output canvas; others did not.
- The use of 'set size' for this purpose was deprecated in version 4.2.
- In version 4.4 almost all terminals now behave as follows:
+3 User preferences for linetypes
+ You can now customize properties (color, linewidth, point type) of the
+ default sequence of linetypes used in plotting. See `set linetype`.
 
- `set term <terminal_type> size <XX>, <YY>` controls the size of the output
- file, or "canvas". Please see individual terminal documentation for allowed
- values of the size parameters.  By default, the plot will fill this canvas.
+3 New plot styles
+ See documentation for plot styles `boxplot`, `circles`, `ellipses`, and
+ `fillsteps`.
 
- `set size <XX>, <YY>` scales the plot itself relative to the size of the
- canvas.  Scale values less than 1 will cause the plot to not fill the entire
- canvas.  Scale values larger than 1 will cause only a portion of the plot to
- fit on the canvas.  Please be aware that setting scale values larger than 1
- may cause problems on some terminal types.
-
- The major exception to this convention is the PostScript driver, which
- by default continues to act as it has in earlier versions. Be warned that
- the next version of gnuplot may change the default behaviour of the
- PostScript driver as well.
-
- Example:
-
-       set size 0.5, 0.5
-       set term png size 600, 400
-       set output "figure.png"
-       plot "data" with lines
-
- These commands will produce an output file "figure.png" that is 600 pixels
- wide and 400 pixels tall. The plot will fill the lower left quarter of this
- canvas.  This is consistent with the way multiplot mode has always worked,
- however it is a change in the way the png driver worked for single plots in
- version 4.0.
-
-3 New plot elements
-=circles
-=ellipse
-=polygon
- The `set object` command can now be used to define fixed circles, ellipses, and
- polygons as well as rectangles. There are two corresponding new plot styles:
- `plot with circles` and `plot with ellipses`.  
- See `circle`, `ellipse` and `polygon`.
+3 Revised polar axes
+ Polar plot mode has been reworked to support additional plot styles.
+ The polar axes can now be drawn and labeled independent of the x and y
+ axes. See `set polar` and `set rrange`.
 
 3 New or revised terminal drivers
- Two new drivers based on the cairo and pango libraries are included,
- `pngcairo` and `pdfcairo`.  These are alternatives to the older libgd-based
- png driver and the older PDFLib-based pdf driver.  The figures in the pdf
- version of this manual were prepared using the pdfcairo terminal driver.
+ The `qt` driver implements an interactive terminal on top of the Qt
+ graphics layer.  It can function either as a window in a full-featured
+ desktop enviroment or as a full-screen application on a Qt-based 
+ embedded device.  The `qt` terminal is new and may still have some
+ rough edges.
+
+ Two terminal types support web-based interactive display. The HTML5 `canvas`
+ terminal was introduced in version 4.4. The `svg` terminal has been extensively
+ revised to include support for mousing and better incorporation of svg plots
+ from gnuplot into larger svg/xml documents.
 
  The `canvas` terminal driver produces javascript output that draws onto the
  HTML canvas element of a web page.  It can produce either a complete web page
@@ -298,10 +274,19 @@ C
 =kdensity
 =cumulative
  New smoothing algorithms have been added for both 2- and 3-dimensional plots.
- `smooth kdensity` and `smooth cumul` can be used with `plot` to draw 
- smooth histograms and cumulative distribution functions, resp. For use
- with `splot` several new smoothing kernels have been added to `dgrid3d`.
+ `smooth kdensity` and `smooth cumulative` can be used with `plot` to draw 
+ smooth histograms and cumulative distribution functions.  Several new smoothing
+ kernels have been added to `dgrid3d` for use with `splot`.
  See `smooth` `dgrid3d`.
+
+3 New time/date handling
+=time
+ Gnuplot now tracks time to millisecond precision. Time formats have been
+ modified to match this. The new built-in function time() returns the current
+ time of day according to the system clock.
+ Example: print the current time to msec precision
+      print strftime("%H:%M:%.3S %d-%b-%Y",time(0.0))
+      18:15:04.253 16-Apr-2011
 
 2 Backwards compatibility
 ?backwards compatibility
@@ -367,6 +352,41 @@ C
  To set user-defined variables a and s prior to executing commands from a file:
        gnuplot -e "a=2; s='file.png'" input.gpl
 
+2 Canvas size
+?canvas size
+?canvas
+?set term size
+
+ In earlier versions of gnuplot, some terminal types used the values from
+ `set size` to control also the size of the output canvas; others did not.
+ The use of 'set size' for this purpose was deprecated in version 4.2.
+ Since version 4.4 almost all terminals now behave as follows:
+
+ `set term <terminal_type> size <XX>, <YY>` controls the size of the output
+ file, or "canvas". Please see individual terminal documentation for allowed
+ values of the size parameters.  By default, the plot will fill this canvas.
+
+ `set size <XX>, <YY>` scales the plot itself relative to the size of the
+ canvas.  Scale values less than 1 will cause the plot to not fill the entire
+ canvas.  Scale values larger than 1 will cause only a portion of the plot to
+ fit on the canvas.  Please be aware that setting scale values larger than 1
+ may cause problems on some terminal types.
+
+ The major exception to this convention is the PostScript driver, which
+ by default continues to act as it has in earlier versions. Be warned that
+ the next version of gnuplot may change the default behaviour of the
+ PostScript driver as well.
+
+ Example:
+
+       set size 0.5, 0.5
+       set term png size 600, 400
+       set output "figure.png"
+       plot "data" with lines
+
+ These commands will produce an output file "figure.png" that is 600 pixels
+ wide and 400 pixels tall. The plot will fill the lower left quarter of this
+ canvas.  This is consistent with the way multiplot mode has always worked.
 
 2 Command-line-editing
 ?line-editing
@@ -377,8 +397,9 @@ C
  built-in equivalent.  This choice is a configuration option at the time
  gnuplot is built.
 
- The editing commands of the built-in version are given below. The gnu
- readline and BSD libedit libraries have their own documentation.
+ The editing commands of the built-in version are given below. Please note that
+ the action of the DEL key is system-dependent. The gnu readline and BSD libedit
+ libraries have their own documentation.
 
 @start table - first is interactive cleartext form
        `Line-editing`:
@@ -387,12 +408,13 @@ C
        ^F    moves forward a single character.
        ^A    moves to the beginning of the line.
        ^E    moves to the end of the line.
-       ^H    and DEL delete the previous character.
-       ^D    deletes the current character.
+       ^H    deletes the previous character.
+       DEL   deletes the current character.
+       ^D    deletes current character, sends EOF if the line is empty.
        ^K    deletes from current position to the end of line.
        ^L,^R redraws line in case it gets trashed.
        ^U    deletes the entire line.
-       ^W    deletes from the current word to the end of line.
+       ^W    deletes previous word.
 
        `History`:
 
@@ -406,12 +428,13 @@ C
 #\verb~^F~ & move forward a single character.\\
 #\verb~^A~ & move to the beginning of the line.\\
 #\verb~^E~ & move to the end of the line.\\
-#\verb~^H, DEL~ & delete the previous character.\\
-#\verb~^D~ & delete the current character.\\
+#\verb~^H~ & delete the previous character.\\
+#\verb~DEL~ & delete the current character.\\
+#\verb~^D~ & delete current character. EOF if line is empty.\\
 #\verb~^K~ & delete from current position to the end of line.\\
 #\verb~^L, ^R~ & redraw line in case it gets trashed.\\
 #\verb~^U~ & delete the entire line. \\
-#\verb~^W~ & delete from the current word to the end of line. \\ \hline
+#\verb~^W~ & delete previous word. \\ \hline
 # & \multicolumn{1}{|c|}{History} \\ \cline{2-2}
 #\verb~^P~ & move back through history.\\
 #\verb~^N~ & move forward through history.\\
@@ -423,17 +446,47 @@ C
 %^F@move forward a single character.
 %^A@move to the beginning of the line.
 %^E@move to the end of the line.
-%^H, DEL@delete the previous character.
-%^D@delete the current character.
+%^H@delete the previous character.
+%DEL@delete the current character.
+%^D@delete current character. EOF if line is empty.
 %^K@delete from current position to the end of line.
 %^L, ^R@redraw line in case it gets trashed.
 %^U@delete the entire line.
-%^W@delete from the current word to the end of line.
+%^W@delete previous word.
 %_
 %@History
 %^P@move back through history.
 %^N@move forward through history.
 @end table
+
+^<table align="center" border="1" rules="groups" frame="hsides" cellpadding="3">
+^<colgroup>
+^  <col align="center">
+^  <col align="left">
+^</colgroup>
+^<thead>
+^<tr>    <th>Character</th>    <th>Function</th></tr>
+^</thead>
+^<tbody>
+^<tr>    <td></td>                <th>Line Editing</th></tr>
+^<tr>    <td><tt>^B</tt></td>    <td>move back a single character.</td></tr>
+^<tr>    <td><tt>^F</tt></td>    <td>move forward a single character.</td></tr>
+^<tr>    <td><tt>^A</tt></td>    <td>move to the beginning of the line.</td></tr>
+^<tr>    <td><tt>^E</tt></td>    <td>move to the end of the line.</td></tr>
+^<tr>    <td><tt>^H</tt></td>    <td>delete the previous character.</td></tr>
+^<tr>    <td><tt>DEL</tt></td>    <td>delete the current character.</td></tr>
+^<tr>    <td><tt>^D</tt></td>    <td>delete current character. EOF if line is empty</td></tr>
+^<tr>    <td><tt>^K</tt></td>    <td>delete from current position to the end of line.</td></tr>
+^<tr>    <td><tt>^L, ^R</tt></td>    <td>redraw line in case it gets trashed.</td></tr>
+^<tr>    <td><tt>^U</tt></td>    <td>delete the entire line.</td></tr>
+^<tr>    <td><tt>^W</tt></td>    <td>delete previous word.</td></tr>
+^</tbody>
+^<tbody>
+^<tr>    <th></th>                <th>History</th></tr>
+^<tr>    <td><tt>^P</tt></td>    <td>move back through history.</td></tr>
+^<tr>    <td><tt>^N</tt></td>    <td>move forward through history.</td></tr>
+^</tbody>
+^</table>
 2 Comments
 ?comments
  Comments are supported as follows: a `#` may appear in most places in a line
@@ -521,6 +574,10 @@ C
 
    plot 'datafile' using 1:(f($2)/$4) with lines title columnhead(2)
 
+ Another example:
+
+   plot for [i=2:6] 'datafile' using i title "Results for ".columnhead(i)
+
  See `set style labels`, `using xticlabels`, `plot title`, `using`.
 2 Enhanced text mode
 ?enhanced text
@@ -564,6 +621,24 @@ C
 % ~ $ ~a{.8-}$overprints '-' on 'a', raised by .8
 %   $   $times the current fontsize
 @end table
+
+^<table align="center" border="1" rules="groups" frame="hsides" cellpadding="3">
+^<colgroup>
+^  <col align="center">
+^  <col align="center">
+^  <col align="left">
+^</colgroup>
+^<thead>
+^<tr>    <th>Control</th>    <th>Examples</th>    <th>Explanation</th></tr>
+^</thead>
+^<tbody>
+^<tr>    <td><tt> ^ </tt></td>    <td><tt>a^x</tt></td>            <td>superscript</td></tr>
+^<tr>    <td><tt> _ </tt></td>    <td><tt>a_x</tt></td>            <td>subscript</td></tr>
+^<tr>    <td><tt> @ </tt></td>    <td><tt> @x</tt> or <tt>a@^b_{cd}</tt></td>    <td>phantom box (occupies no width)</td></tr>
+^<tr>    <td><tt> &amp;</tt></td>    <td><tt> &amp;{space}</tt></td>    <td>inserts space of specified length</td></tr>
+^<tr>    <td><tt> ~ </tt></td>    <td><tt> ~a{.8-}</tt></td>        <td>overprints '-' on 'a', raised by .8<br>times the current fontsize</td></tr>
+^</tbody>
+^</table>
 
  Braces can be used to place multiple-character text where a single character
  is expected (e.g., 2^{10}).  To change the font and/or size, use the full form:
@@ -627,7 +702,7 @@ C
  If GNUTERM is defined, it is used as the name of the terminal type to be
  used.  This overrides any terminal type sensed by `gnuplot` on start-up, but
  is itself overridden by the .gnuplot (or equivalent) start-up file
- (see `start-up`) and, of course, by later explicit changes.
+ (see `startup`) and, of course, by later explicit changes.
 
  GNUHELP may be defined to be the pathname of the HELP file (gnuplot.gih).
 
@@ -639,7 +714,7 @@ C
  On Unix, HOME is used as the name of a directory to search for a .gnuplot
  file if none is found in the current directory.  On MS-DOS, Windows and OS/2,
  GNUPLOT is used.  On Windows, the NT-specific variable USERPROFILE is also
- tried. VMS, SYS$LOGIN: is used. Type `help start-up`.
+ tried. VMS, SYS$LOGIN: is used. Type `help startup`.
 
  On Unix, PAGER is used as an output filter for help messages.
 
@@ -723,13 +798,135 @@ C
 ?functions
  The functions in `gnuplot` are the same as the corresponding functions in
  the Unix math library, except that all functions accept integer, real, and
- complex arguments, unless otherwise noted.
+ complex arguments unless otherwise noted.
+ Functions that accept or return angles (e.g. sin(x), cos(x), arg(z))
+ treat angle values as radians, but this may be changed to degrees using the
+ command `set angles`.
 
- For those functions that accept or return angles that may be given in either
- degrees or radians (sin(x), cos(x), tan(x), asin(x), acos(x), atan(x),
- atan2(x) and arg(z)), the unit may be selected by `set angles`, which
- defaults to radians.
+^<table align="center" border="1" rules="groups" frame="hsides" cellpadding="3" width="90%">
+^<colgroup>
+^  <col align="center">
+^  <col align="center">
+^  <col align="left">
+^</colgroup>
+^<thead>
+^<tr>   <th colspan="3"> Math library functions </th></tr>
+^<tr>    <th>Function</th>    <th>Arguments</th>    <th>Returns</th></tr>
+^</thead>
+^<tbody>
+^<tr>    <td>abs(x)</td>    <td>any</td>    <td>|<i>x</i>|, absolute value of <i>x</i>; same type</td></tr>
+^<tr>    <td>abs(x)</td>    <td>complex</td>    <td>length of <i>x</i>, &radic;( Re(<i>x</i>)<sup>2</sup> + Im(<i>x</i>)<sup>2</sup> )</td></tr>
+^<tr>    <td>acos(x)</td>    <td>any</td>    <td>cos<sup>-1</sup> <i>x</i> (inverse cosine)</td></tr>
+^<tr>    <td>acosh(x)</td>    <td>any</td>    <td>cosh<sup>-1</sup> <i>x</i> (inverse hyperbolic cosine) in radians</td></tr>
+^<tr>    <td>airy(x)</td>    <td>any</td>    <td>Airy function Ai(<i>x</i>)</td></tr>
+^<tr>    <td>arg(x)</td>    <td>complex</td>    <td>the phase of <i>x</i></td></tr>
+^<tr>    <td>asin(x)</td>    <td>any</td>    <td>sin<sup>-1</sup> <i>x</i> (inverse sin)</td></tr>
+^<tr>    <td>asinh(x)</td>    <td>any</td>    <td>sinh<sup>-1</sup> <i>x</i> (inverse hyperbolic sin) in radians</td></tr>
+^<tr>    <td>atan(x)</td>    <td>any</td>    <td>tan<sup>-1</sup> <i>x</i> (inverse tangent)</td></tr>
+^<tr>    <td>atan2(y,x)</td>    <td>int or real</td>    <td>tan<sup>-1</sup>(<i>y/x</i>) (inverse tangent)</td></tr>
+^<tr>    <td>atanh(x)</td>    <td>any</td>    <td>tanh<sup>-1</sup> <i>x</i> (inverse hyperbolic tangent) in radians</td></tr>
+^<tr>    <td>EllipticK(k)</td>    <td>real k in (-1:1)</td>    <td><i>K(k)</i> complete elliptic integral of the first kind</td></tr>
+^<tr>    <td>EllipticE(k)</td>    <td>real k in [-1:1]</td>    <td><i>E(k)</i> complete elliptic integral of the second kind</td></tr>
+^<tr>    <td>EllipticPi(n,k)</td>    <td> real n&lt;1, real k in (-1:1)</td>    <td> &Pi;(<i>n,k</i>) complete elliptic integral of the third kind</td></tr>
+^<tr>    <td>besj0(x)</td>    <td>int or real</td>    <td><i>j</i><sub>0</sub> Bessel function of <i>x</i>, in radians</td></tr>
+^<tr>    <td>besj1(x)</td>    <td>int or real</td>    <td><i>j</i><sub>1</sub> Bessel function of <i>x</i>, in radians</td></tr>
+^<tr>    <td>besy0(x)</td>    <td>int or real</td>    <td><i>y</i><sub>0</sub> Bessel function of <i>x</i>, in radians</td></tr>
+^<tr>    <td>besy1(x)</td>    <td>int or real</td>    <td><i>y</i><sub>1</sub> Bessel function of <i>x</i>, in radians</td></tr>
+^<tr>    <td>ceil(x)</td>    <td>any</td>    <td>&lceil;<i>x</i>&rceil;, smallest integer not less than <i>x</i> (real part)</td></tr>
+^<tr>    <td>cos(x)</td>    <td>radians</td>    <td>cos <i>x</i>, cosine of <i>x</i></td></tr>
+^<tr>    <td>cosh(x)</td>    <td>any</td>    <td>cosh <i>x</i>, hyperbolic cosine of <i>x</i> in radians</td></tr>
+^<tr>    <td>erf(x)</td>    <td>any</td>    <td>erf(Re(<i>x</i>)), error function of real(<i>x</i>)</td></tr>
+^<tr>    <td>erfc(x)</td>    <td>any</td>    <td>erfc(Re(<i>x</i>)), 1.0 - error function of real(<i>x</i>)</td></tr>
+^<tr>    <td>exp(x)</td>    <td>any</td>    <td><i>e<sup>x</sup></i>, exponential function of <i>x</i></td></tr>
+^<tr>    <td>expint(n,x)</td>    <td>any</td>    <td><i>E<sub>n</sub></i>(<i>x</i>), exponential integral function of <i>x</i></td></tr>
+^<tr>    <td>floor(x)</td>    <td>any</td>    <td>&lfloor;<i>x</i>&rfloor;, largest integer not greater than <i>x</i> (real part)</td></tr>
+^<tr>    <td>gamma(x)</td>    <td>any</td>    <td>&Gamma;(Re(<i>x</i>)), gamma function of real(<i>x</i>)</td></tr>
+^<tr>    <td>ibeta(p,q,x)</td>    <td>any</td>    <td>ibeta(Re(<i>p,q,x</i>)), ibeta function of real(<i>p</i>,<i>q</i>,<i>x</i>)</td></tr>
+^<tr>    <td>inverf(x)</td>    <td>any</td>    <td>inverse error function real(<i>x</i>)</td></tr>
+^<tr>    <td>igamma(a,x)</td>    <td>any</td>    <td>igamma(Re(<i>a,x</i>)), igamma function of real(<a>a</a>,<i>x</i>)</td></tr>
+^<tr>    <td>imag(x)</td>    <td>complex</td>    <td>Im(<i>x</i>), imaginary part of <i>x</i> as a real number</td></tr>
+^<tr>    <td>invnorm(x)</td>    <td>any</td>    <td>inverse normal distribution function real(<i>x</i>)</td></tr>
+^<tr>    <td>int(x)</td>    <td>real</td>    <td>integer part of <i>x</i>, truncated toward zero</td></tr>
+^<tr>    <td>lambertw(x)</td>    <td>real</td>    <td>Lambert W function</td></tr>
+^<tr>    <td>lgamma(x)</td>    <td>any</td>    <td>lgamma(Re(<i>x</i>)), lgamma function of real(<i>x</i>)</td></tr>
+^<tr>    <td>log(x)</td>    <td>any</td>    <td>ln <i>x</i>, natural logarithm (base <i>e</i>) of <i>x</i></td></tr>
+^<tr>    <td>log10(x)</td>    <td>any</td>    <td>log<sub>10</sub> <i>x</i>, logarithm (base 10) of <i>x</i></td></tr>
+^<tr>    <td>norm(x)</td>    <td>any</td>    <td>norm(<i>x</i>), normal distribution function of real(<i>x</i>)</td></tr>
+^<tr>    <td>rand(x)</td>    <td>int</td>    <td>pseudo random number in the interval [0:1]</td></tr>
+^<tr>    <td>real(x)</td>    <td>any</td>    <td>Re(<i>x</i>), real part of <i>x</i></td></tr>
+^<tr>    <td>sgn(x)</td>    <td>any</td>    <td>1 if <i>x</i> &gt; 0,  -1 if <i>x</i> &lt; 0,  0 if <i>x</i> = 0. &image;(<i>x</i>) ignored</td></tr>
+^<tr>    <td>sin(x)</td>    <td>any</td>    <td>sin <i>x</i>, sine of <i>x</i></td></tr>
+^<tr>    <td>sinh(x)</td>    <td>any</td>    <td>sinh <i>x</i>, hyperbolic sine of <i>x</i> in radians</td></tr>
+^<tr>    <td>sqrt(x)</td>    <td>any</td>    <td>&radic;<i>x</i>, square root of <i>x</i></td></tr>
+^<tr>    <td>tan(x)</td>    <td>any</td>    <td>tan <i>x</i>, tangent of <i>x</i></td></tr>
+^<tr>    <td>tanh(x)</td>    <td>any</td>    <td>tanh <i>x</i>, hyperbolic tangent of <i>x</i> in radians</td></tr>
+^<tr>    <td>voigt(x,y)</td>    <td>real</td>    <td>convolution of Gaussian and Lorentzian</td></tr>
+^</tbody>
+^</table>
 
+^<p>&nbsp;</p>
+
+^<table align="center" border="1" rules="groups" frame="hsides" cellpadding="3" width="90%">
+^<colgroup>
+^  <col align="center">
+^  <col align="center">
+^  <col align="left">
+^</colgroup>
+^<thead>
+^<tr>   <th colspan="3"> String functions </th></tr>
+^<tr>    <th>Function</th>    <th>Arguments</th>    <th>Returns</th></tr>
+^</thead>
+^<tbody>
+^<tr>    <td>gprintf("format",x,...)</td>    <td>any</td>    <td>string result from applying gnuplot's format parser</td></tr>
+^<tr>    <td>sprintf("format",x,...)</td>    <td>multiple</td>    <td>string result from C-language sprintf</td></tr>
+^<tr>    <td>strlen("string")</td>    <td>string</td>    <td>int length of string</td></tr>
+^<tr>    <td>strstrt("string","key")</td>    <td>strings</td>    <td>int index of first character of substring "key"</td></tr>
+^<tr>    <td>substr("string",beg,end)</td>    <td>multiple</td>    <td>string "string"[beg:end]</td></tr>
+^<tr>    <td>strftime("timeformat",t)</td>    <td>any</td>    <td>string result from applying gnuplot's time parser</td></tr>
+^<tr>    <td>strptime("timeformat",s)</td>    <td>string</td>    <td>seconds since year 2000 as given in string s</td></tr>
+^<tr>    <td>system("command")</td>    <td>string</td>    <td>string containing output stream of shell command</td></tr>
+^<tr>    <td>word("string",n)</td>    <td>string, int</td>    <td>returns the nth word in "string"</td></tr>
+^<tr>    <td>words("string")</td>    <td>string</td>    <td>returns the number of words in "string"</td></tr>
+^</tbody>
+^</table>
+
+^<p>&nbsp;</p>
+
+^<table align="center" border="1" rules="groups" frame="hsides" cellpadding="3" width="90%">
+^<colgroup>
+^  <col align="center">
+^  <col align="center">
+^  <col align="left">
+^</colgroup>
+^<thead>
+^<tr>   <th colspan="3"> other gnuplot functions </th></tr>
+^<tr>    <th>Function</th>    <th>Arguments</th>    <th>Returns</th></tr>
+^</thead>
+^<tbody>
+^<tr>    <td>column(x)</td>    <td>int or string</td>    <td> contents of column <i>x</i> during data input.</td></tr>
+^<tr>    <td>columnhead(x)</td>    <td>int</td>    <td> string containing first entry of column <i>x</i> in datafile.</td></tr>
+^<tr>    <td>defined(X)</td>    <td>variable name</td>    <td> [DEPRECATED] returns 1 if X is defined, 0 otherwise.</td></tr>
+^<tr>    <td>exists("X")</td>    <td>string</td>    <td> returns 1 if a variable named X is defined, 0 otherwise.</td></tr>
+^<tr>    <td>stringcolumn(x)</td>    <td>int</td>    <td> content column <i>x</i> as a string.</td></tr>
+^<tr>    <td>timecolumn(x)</td>    <td>int</td>    <td> timecolumn <i>x</i> during datafile manipulation.</td></tr>
+^<tr>    <td>tm_hour(x)</td>    <td>int</td>    <td>the hour</td></tr>
+^<tr>    <td>tm_mday(x)</td>    <td>int</td>    <td>the day of the month</td></tr>
+^<tr>    <td>tm_min(x)</td>    <td>int</td>    <td>the minute</td></tr>
+^<tr>    <td>tm_mon(x)</td>    <td>int</td>    <td>the month</td></tr>
+^<tr>    <td>tm_sec(x)</td>    <td>int</td>    <td>the second</td></tr>
+^<tr>    <td>tm_wday(x)</td>    <td>int</td>    <td>the day of the week</td></tr>
+^<tr>    <td>tm_yday(x)</td>    <td>int</td>    <td>the day of the year</td></tr>
+^<tr>    <td>tm_year(x)</td>    <td>int</td>    <td>the year</td></tr>
+^<tr>    <td>time(x)</td>    <td>any</td>    <td>the current system time</td></tr>
+^<tr>    <td>valid(x)</td>    <td>int</td>    <td> test validity of column(<i>x</i>) during datafile manip.</td></tr>
+^<tr>    <td>value("name")</td>    <td>string</td>    <td> returns the current value of the named variable.</td></tr>
+^</tbody>
+^</table>
+
+C For TeX and troff output a table replaces the help sections below.
+C For the HTML help we want both, table and sections, so the magic
+C marker below is used to signal this to doc2html:
+^<!-- INCLUDE_NEXT_TABLE -->
 @start table
 #\begin{tabular}{|ccl|} \hline
 #\multicolumn{3}{|c|}{Math library functions} \\ \hline \hline
@@ -1056,10 +1253,8 @@ C
 ?rand
 #rand(x) & int & pseudo random number in the interval [0:1] \\
 %rand(x)@int@pseudo random number in the interval [0:1]
- `rand(0)`  returns a pseudo random number in the interval [0:1]
- `rand(-1)` resets both seeds to a standard value.
- `rand(x)`  for integer 0 < x < 2^31-1 sets both internal seeds to x
- `rand({x,y})` for integer 0 < x,y < 2^31-1 sets seed1 to x and seed2 to y.
+ `rand(0)` returns a pseudo random number in the interval [0:1].
+ See `random` for more details.
 4 real
 ?expressions functions real
 ?functions real
@@ -1126,6 +1321,7 @@ C
  one part in 10^4.
 @end table
 
+^<!-- INCLUDE_NEXT_TABLE -->
 @start table
 #\begin{tabular}{|ccl|} \hline
 #\multicolumn{3}{|c|}{String functions} \\ \hline \hline
@@ -1136,8 +1332,8 @@ C
 4 gprintf
 ?expressions functions gprintf
 ?functions gprintf
-#gprintf("format",x) & any & string result from applying gnuplot's format parser \\
-%gprintf("format",x)@any@string result from applying gnuplot's format parser
+#gprintf("format",x,...) & any & string result from applying gnuplot's format parser \\
+%gprintf("format",x,...)@any@string result from applying gnuplot's format parser
  `gprintf("format",x)` applies gnuplot's own format specifiers to the single
  variable x and returns the resulting string. If you want standard C-language
  format specifiers, you must instead use `sprintf("format",x)`.
@@ -1204,7 +1400,7 @@ C
 ?functions system
 =system
 #system("command") & string & string containing output stream of shell command \\
-%system("command")@string@stdout containing output stream of shell command
+%system("command")@string@string containing output stream of shell command
  `system("command")` executes "command" using the standard shell and returns
  the resulting character stream from stdout as string variable.
  One optional trailing newline is ignored.
@@ -1228,9 +1424,10 @@ C
 #words("string") & string & returns the number of words in "string" \\
 %words("string")@string@returns the number of words in "string"
  `words("string")` returns the number of words in string. For example,
- `words(" a b c d")` returns the 4.
+ `words(" a b c d")` returns 4.
 @end table
 
+^<!-- INCLUDE_NEXT_TABLE -->
 @start table
 #\begin{tabular}{|ccl|} \hline
 #\multicolumn{3}{|c|}{other {\bf gnuplot} functions} \\ \hline \hline
@@ -1242,11 +1439,20 @@ C
 ?expressions functions column
 ?functions column
 ?column
-#column(x) & int & column $x$ during datafile manipulation. \\
-%column(x)@int@ column $x$ during datafile manipulation.
+#column(x) & int or string & column $x$ during datafile manipulation. \\
+%column(x)@int or string@ column $x$ during datafile manipulation.
  `column(x)` may be used only in expressions as part of `using` manipulations
  to fits or datafile plots.  It evaluates to the numerical value of the contents
  of column x. See `plot datafile using`.
+4 columnhead
+?expressions functions columnhead
+?functions columnhead
+?columnhead
+#columnhead(x) & int & string containing first entry of column $x$ in datafile. \\
+%columnhead(x)@int@ string containing first entry of column $x$ in datafile.
+ `columnhead(x)` may only be used in expressions as part of `using` manipulations
+ to fits or datafile plots.  It evaluates to a string containing the contents of
+ column x in the first line of data. See `plot datafile using`.
 4 defined
 ?expressions functions defined
 ?functions defined
@@ -1410,15 +1616,19 @@ C
 ?functions random
 ?random
 =rand
- The function rand() produces a sequence of pseudo-random numbers between
+ The function `rand()` produces a sequence of pseudo-random numbers between
  0 and 1 using an algorithm from P. L'Ecuyer and S. Cote, "Implementing a
  random number package with splitting facilities", ACM Transactions on
  Mathematical Software, 17:98-111 (1991).
-  `rand(0)`  returns a pseudo random number in the interval [0:1] generated
-             from the current value of two internal 32-bit seeds.
-  `rand(-1)` resets both seeds to a standard value.
-  `rand(x)`  for integer 0 < x < 2^31-1 sets both seeds to x.
-  `rand({x,y})` for 0 < x,y < 2^31-1 sets seed1 to x and seed2 to y.
+
+       rand(0)     returns a pseudo random number in the interval [0:1]
+                   generated from the current value of two internal
+                   32-bit seeds.
+       rand(-1)    resets both seeds to a standard value.
+       rand(x)     for integer 0 < x < 2^31-1 sets both internal seeds
+                   to x.
+       rand({x,y}) for integer 0 < x,y < 2^31-1 sets seed1 to x and 
+                   seed2 to y.
 4 value
 ?expressions functions value
 ?functions value
@@ -1491,6 +1701,26 @@ C ... and restart the table:
 %$@$3@* call arg/column during `using` manipulation
 %_
 @end table
+
+^<table align="center" border="1" rules="groups" frame="hsides" cellpadding="3">
+^<colgroup>
+^  <col align="center">
+^  <col align="center">
+^  <col align="left">
+^</colgroup>
+^<thead>
+^<tr>    <th>Symbol</th>    <th>Example</th>    <th>Explanation</th></tr>
+^</thead>
+^<tbody>
+^<tr>    <td><tt>-</tt></td>    <td><tt>-a</tt></td>    <td>unary minus</td></tr>
+^<tr>    <td><tt>+</tt></td>    <td><tt>+a</tt></td>    <td>unary plus (no-operation)</td></tr>
+^<tr>    <td><tt>~</tt></td>    <td><tt>~a</tt></td>    <td>* one's complement</td></tr>
+^<tr>    <td><tt>!</tt></td>    <td><tt>!a</tt></td>    <td>* logical negation</td></tr>
+^<tr>    <td><tt>!</tt></td>    <td><tt>a!</tt></td>    <td>* factorial</td></tr>
+^<tr>    <td><tt>$</tt></td>    <td><tt>$3</tt></td>    <td>* call arg/column during `using` manipulation</td></tr>
+^</tbody>
+^</table>
+
  (*) Starred explanations indicate that the operator requires an integer
  argument.
 
@@ -1584,6 +1814,42 @@ C ... and restart the table:
 %ne@A ne B@string inequality
 
 @end table
+
+^<table align="center" border="1" rules="groups" frame="hsides" cellpadding="3">
+^<colgroup>
+^  <col align="center">
+^  <col align="center">
+^  <col align="left">
+^</colgroup>
+^<thead>
+^<tr>    <th>Symbol</th>    <th>Example</th>    <th>Explanation</th></tr>
+^</thead>
+^<tbody>
+^<tr>    <td><tt>**</tt></td>    <td><tt>a**b</tt></td>    <td>exponentiation</td></tr>
+^<tr>    <td><tt>*</tt></td>    <td><tt>a*b</tt></td>    <td>multiplication</td></tr>
+^<tr>    <td><tt>/</tt></td>    <td><tt>a/b</tt></td>    <td>division</td></tr>
+^<tr>    <td><tt>%</tt></td>    <td><tt>a%b</tt></td>    <td>* modulo</td></tr>
+^<tr>    <td><tt>+</tt></td>    <td><tt>a+b</tt></td>    <td>addition</td></tr>
+^<tr>    <td><tt>-</tt></td>    <td><tt>a-b</tt></td>    <td>subtraction</td></tr>
+^<tr>    <td><tt>==</tt></td>    <td><tt>a==b</tt></td>    <td>equality</td></tr>
+^<tr>    <td><tt>!=</tt></td>    <td><tt>a!=b</tt></td>    <td>inequality</td></tr>
+^<tr>    <td><tt>&lt;</tt></td>    <td><tt>a&lt;b</tt></td>    <td>less than</td></tr>
+^<tr>    <td><tt>&lt;=</tt></td>    <td><tt>a&lt;=b</tt></td>    <td>less than or equal to</td></tr>
+^<tr>    <td><tt>&gt;</tt></td>    <td><tt>a&gt;b</tt></td>    <td>greater than</td></tr>
+^<tr>    <td><tt>&gt;=</tt></td>    <td><tt>a&gt;=b</tt></td>    <td>greater than or equal to</td></tr>
+^<tr>    <td><tt>&amp;</tt></td>    <td><tt>a&amp;b</tt></td>    <td>* bitwise AND</td></tr>
+^<tr>    <td><tt>^</tt></td>    <td><tt>a^b</tt></td>    <td>* bitwise exclusive OR</td></tr>
+^<tr>    <td><tt>|</tt></td>    <td><tt>a|b</tt></td>    <td>* bitwise inclusive OR</td></tr>
+^<tr>    <td><tt>&amp;&amp;</tt></td>    <td><tt>a&amp;&amp;b</tt></td>    <td>* logical AND</td></tr>
+^<tr>    <td><tt>||</tt></td>    <td><tt>a||b</tt></td>    <td>* logical OR</td></tr>
+^<tr>    <td><tt>=</tt></td>    <td><tt>a = b</tt></td>    <td>assignment</td></tr>
+^<tr>    <td><tt>,</tt></td>    <td><tt>(a,b)</tt></td>    <td>serial evaluation</td></tr>
+^<tr>    <td><tt>.</tt></td>    <td><tt>a.b</tt></td>    <td>string concatenation</td></tr>
+^<tr>    <td><tt>eq</tt></td>    <td><tt>A eq B</tt></td>    <td>string equality</td></tr>
+^<tr>    <td><tt>ne</tt></td>    <td><tt>A ne B</tt></td>    <td>string inequality</td></tr>
+^</tbody>
+^</table>
+
  (*) Starred explanations indicate that the operator requires integer
  arguments.
  Capital letters A and B indicate that the operator requires string arguments.
@@ -1613,6 +1879,21 @@ C ... and restart the table:
 %?:@a?b:c@* ternary operation
 
 @end table
+
+^<table align="center" border="1" rules="groups" frame="hsides" cellpadding="3">
+^<colgroup>
+^  <col align="center">
+^  <col align="center">
+^  <col align="left">
+^</colgroup>
+^<thead>
+^<tr>    <th>Symbol</th>    <th>Example</th>    <th>Explanation</th></tr>
+^</thead>
+^<tbody>
+^<tr>    <td><tt>?:</tt></td>    <td><tt>a?b:c</tt></td>    <td>* ternary operation</td></tr>
+^</tbody>
+^</table>
+
  The ternary operator behaves as it does in C.  The first argument (a), which
  must be an integer, is evaluated.  If it is true (non-zero), the second
  argument (b) is evaluated and returned; otherwise the third argument (c) is
@@ -1627,7 +1908,7 @@ C ... and restart the table:
  and undefined elsewhere:
        f(x) = 0<=x && x<1 ? sin(x) : 1<=x && x<2 ? 1/x : 1/0
        plot f(x)
-^ <img align=bottom src="http://www.gnuplot.info/doc/ternary.gif" alt="[ternary.gif]" width=640 height=480>
+C^ <img align=bottom src="http://www.gnuplot.info/doc/ternary.gif" alt="[ternary.gif]" width=640 height=480>
  Note that `gnuplot` quietly ignores undefined values, so the final branch of
  the function (1/0) will produce no plottable points.  Note also that f(x)
  will be plotted as a continuous function across the discontinuity if a line
@@ -1640,7 +1921,26 @@ C ... and restart the table:
        plot 'file' using 1:( $4<0 ? 1/0 : ($2+$3)/2 )
 
  For an explanation of the `using` syntax, please see `plot datafile using`.
-
+3 Summation
+?expressions operators summation
+?operators summation
+?summation
+ A summation expression has the form
+       sum [<var> = <start> : <end>] <expression>
+ <var> is treated as an integer variable that takes on successive integral
+ values from <start> to <end>.  For each of these, the current value of
+ <expression> is added to a running total whose final value becomes the value
+ of the summation expression.
+ Examples:
+       print sum [i=1:10] i
+           55.
+       # Equivalent to plot 'data' using 1:($2+$3+$4+$5+$6+...)
+       plot 'data' using 1 : (sum [col=2:MAXCOL] column(col))
+ It is not necessary that <expression> contain the variable <var>.
+ Although <start> and <end> can be specified as variables or expressions,
+ their value cannot be changed dynamically as a side-effect of carrying
+ out the summation. If <end> is less than <start> then the value of the
+ summation is zero.
 3 Gnuplot-defined variables
 ?gnuplot-defined variables
  Gnuplot maintains a number of read-only variables that reflect the current
@@ -1700,7 +2000,7 @@ C ... and restart the table:
        file = "mydata.inp"
        file(n) = sprintf("run_%d.dat",n)
 
-^ <img align=bottom src="http://www.gnuplot.info/doc/userdefined.gif" alt="[userdefined.gif]" width=640 height=480>
+C^ <img align=bottom src="http://www.gnuplot.info/doc/userdefined.gif" alt="[userdefined.gif]" width=640 height=480>
  The final two examples illustrate a user-defined string variable and a
  user-defined string function.
 
@@ -1984,7 +2284,7 @@ C ... and restart the table:
 ?textcolor variable
 ?tc variable
  `lc variable` tells the program to use the value read from one column of the
- input data as a linestyle index, and use the color belonging to that linestyle.
+ input data as a linetype index, and use the color belonging to that linetype.
  This requires a corresponding additional column in the `using` specifier.
  Text colors can be set similarly using `tc variable`.
 
@@ -2131,7 +2431,7 @@ C ... and restart the table:
 
     "Close"
 
- See also help for `mouse` and `if`.
+ See also help for `mouse`.
 4 bind space
 ?commands bind space
 ?bind space
@@ -2212,8 +2512,8 @@ C ... and restart the table:
 2 Start-up
 ?startup
 ?start
+?start-up
 ?.gnuplot
-^ <a name="start-up"></a>
  When `gnuplot` is run, it looks for an initialization file to load.
  This file is called `.gnuplot` on Unix-like systems, and `GNUPLOT.INI`
  on other systems.  If this file is not found in the current directory,
@@ -2340,6 +2640,18 @@ C ... and restart the table:
  Macro expansion does not occur inside either single or double quotes.
  However macro expansion does occur inside backquotes.
 
+ Macro expansion is handled as the very first thing the interpreter does when
+ looking at a new line of commands and is only done once. Therefore, code like
+ the following will execute correctly:
+
+      A = "c=1"
+      @A
+
+ but this line will not, since the macro is defined on the same line
+ and will not be expanded in time
+
+      A = "c=1"; @A   # will not expand to c=1
+
  For execution of complete commands the `evaluate` command may also be handy.
 3 String variables, macros, and command line substitution
 ?mixing_macros_backquotes
@@ -2462,8 +2774,6 @@ C ... and restart the table:
  command line.  See `substitution`.
 2 Time/Date data
 ?time/date
-^ <a name="Time/Date data"></a>
-^ <a name="Time/date"></a>
  `gnuplot` supports the use of time and/or date information as input data.
  This feature is activated by the commands `set xdata time`, `set ydata time`,
  etc.
@@ -2994,6 +3304,13 @@ Ffigure_fsteps
 ^ <a href="http://www.gnuplot.info/demo/steps.html">
  steps demo.
 ^ </a>
+2 fillsteps
+?commands set style fillsteps
+?set style fillsteps
+?style fillsteps
+?fillsteps
+ The `fillsteps` style is exactly like `steps` except that the area between
+ the curve and y=0 is filled in the current fill style.  See `steps`.
 2 histeps
 ?commands set style histeps
 ?set style histeps
@@ -3183,7 +3500,20 @@ Ffigure_histcols
  If the fillstyle is set to `pattern`, then the pattern used for filling will
  be incremented automatically.
 
- The `at <x-coord>` option only applies to column-stacked histograms.
+Ffigure_newhist
+ The `at <x-coord>` option sets the x coordinate position of the following 
+ histogram to <x-coord>. For example
+
+        set style histogram cluster
+        set style data histogram
+        set style fill solid 1.0 border -1
+        set xtic 1 offset character 0,0.3
+        plot newhistogram "Set A", \
+             'file.dat' u 1 t 1, '' u 2 t 2, \
+             newhistogram "Set B" at 8, \
+             'file.dat' u 2 t 2, '' u 2 t 2
+
+ will position the second histogram to start at x=8.
 3 automated iteration over multiple columns
 ?automated
 ?histograms automated
@@ -3287,9 +3617,9 @@ Ffigure_impulses
  point (2D) or from z=0 to the z value of each point (3D).  Note that the y or z
  values may be negative.  Data from additional columns can be used to control
  the color of each impulse.  To use this style effectively in 3D plots, it is
- useful to use thick lines (linewidth > 1).  This approximates a 3D bar chart.
+ useful to choose thick lines (linewidth > 1). This approximates a 3D bar chart.
 
-      1 column:   y        # implicit x coordinate from row number (2D)
+      1 column:   y
       2 columns:  x  y     # line from [x,0] to [x,y]  (2D)
       3 columns:  x  y  z  # line from [x,y,0] to [x,y,z] (3D)
 
@@ -3369,7 +3699,7 @@ Ffigure_linespoints
  required if 3D plots.  See `style lines`.  Additional input columns may be used
  to provide information such as variable point size or line color.
 
- The `pointinterval` (short form `pi`) property of the line style can be used to
+ The `pointinterval` (short form `pi`) property of the linetype can be used to
  control whether or not every point in the plot is given a symbol.  For example,
  'with lp pi 3' will draw line segments through every data point, but will only
  place a symbol on every 3rd point.  A negative value for `pointinterval` will
@@ -3387,8 +3717,18 @@ Ffigure_points
  The `points` style displays a small symbol at each point.  The command `set
  pointsize` may be used to change the default size of the points.
  1 or 2 columns of basic input data are required in 2D plots; 1 or 3 columns are
- required if 3D plots.  See `style lines`.  Additional input columns may be used
- to provide information such as variable point size or point color.
+ required in 3D plots.  See `style lines`.  Additional input columns may be used
+ to provide information such as variable point size or variable point color.
+
+2 polar
+Ffigure_polar
+ Polar plots are not really a separate plot style but are listed here for
+ completeness.  The option `set polar` tells gnuplot to interpret input
+ 2D coordinates as <angle>,<radius> rather than <x>,<y>.
+ Many, but not all, 2D plotting styles work in polar mode.
+ The figure shows a combination of plot styles `lines` and `filledcurves`.
+ See `set polar`, `set rrange`, `set size square`.
+
 2 steps
 ?commands set style steps
 ?set style steps
@@ -3401,7 +3741,8 @@ Ffigure_steps
  second from (x2,y1) to (x2,y2).  The input column requires are the same as for
  plot styles `lines` and `points`.  The difference between `fsteps` and `steps`
  is that `fsteps` traces first the change in y and then the change in x.
- `steps` traces first the change in x and then the change in y.
+ `steps` traces first the change in x and then the change in y.  To fill the
+ area between the curve and the baseline at y=0, use `fillsteps`.
  See also
 ^ <a href="http://www.gnuplot.info/demo/steps.html">
  steps demo.
@@ -3437,7 +3778,18 @@ Ffigure_steps
  (see `linecolor` and `rgbcolor variable`).
 
  splot with vectors is supported only for `set mapping cartesian`.
- The keywords "with vectors" may be followed by arrow style specifications.
+
+ The keywords "with vectors" may be followed by an in-line arrow style
+ specifications, a reference to a predefined arrow style, or a request to read
+ the index of the desired arrow style for each vector from a separate column.
+ Note: If you choose "arrowstyle variable" it will fill in all arrow properties
+ at the time the corresponding vector is drawn; you cannot mix this keyword with
+ other line or arrow style qualifiers in the plot command.
+
+      plot ... with vectors filled heads
+      plot ... with vectors arrowstyle 3
+      plot ... using 1:2:3:4:5 with vectors arrowstyle variable
+
  See `arrowstyle` for more details.
 
  Example:
@@ -3617,18 +3969,21 @@ Ffigure_surface+contours
  The `splot` command can also calculate and draw contour lines corresponding
  to constant Z values. These contour lines may be drawn onto the surface
  itself, or projected onto the XY plane. See `set contour`.
-
-
-
-
-
-
+  
+  
+  
+  
+  
+  
+3 2D projection (set view map)
+?2D projection (set view map)
+?projection
 Ffigure_mapcontours
  An important special case of the `splot` command is to map the Z coordinate
  onto a 2D surface by projecting the plot along the Z axis.  See `set view map`.
  This plot mode can be used to generate contour plots and heat maps.
-
-
+  
+  
 1 Commands
 ?commands
  This section lists the commands acceptable to `gnuplot` in alphabetical
@@ -3724,6 +4079,25 @@ Ffigure_mapcontours
 
  Please see `set multiplot`, `set size`, and `set origin` for details of these
  commands.
+2 Do
+?commands do
+?do
+ Syntax:
+       do for <iteration-spec> {
+            <commands>
+            <commands>
+       }
+ Execute a sequence of commands multiple times.  The commands must be enclosed
+ in curly brackets, and the opening "{" must be on the same line as the `do`
+ keyword.  For examples of iteration specifiers, see `iteration`.
+ Example:
+       set multiplot layout 2,2
+       do for [name in "A B C D"] {
+           filename = name . ".dat"
+           set title sprintf("Condition %s",name)
+           plot filename title name
+       }
+       unset multiplot
 2 evaluate
 ?commands evaluate
 ?evaluate
@@ -4043,16 +4417,15 @@ Ffigure_mapcontours
  generally over-optimistic and should not be used for determining confidence
  levels, but are useful for qualitative purposes.
 
- The final solution also produces a correlation matrix, which gives an
- indication of the correlation of parameters in the region of the solution;
- if one parameter is changed, increasing chisquare, does changing another
- compensate?  The main diagonal elements, autocorrelation, are all 1; if
- all parameters were independent, all other elements would be nearly 0.  Two
- variables which completely compensate each other would have an off-diagonal
- element of unit magnitude, with a sign depending on whether the relation is
- proportional or inversely proportional.  The smaller the magnitudes of the
- off-diagonal elements, the closer the estimates of the standard deviation
- of each parameter would be to the asymptotic standard error.
+ The final solution also produces a correlation matrix indicating correlation of
+ parameters in the region of the solution; The main diagonal elements,
+ autocorrelation, are always 1; if all parameters were independent, the
+ off-diagonal elements would be nearly 0.  Two variables which completely
+ compensate each other would have an off-diagonal element of unit magnitude,
+ with a sign depending on whether the relation is proportional or inversely
+ proportional.  The smaller the magnitudes of the off-diagonal elements, the
+ closer the estimates of the standard deviation of each parameter would be to
+ the asymptotic standard error.
 4 practical guidelines
 ?commands fit error practical_guidelines
 ?fit error practical_guidelines
@@ -4326,16 +4699,34 @@ Ffigure_mapcontours
 2 if
 ?commands if
 ?if
- The `if` command allows commands to be executed conditionally.
-
- Syntax:
+ New syntax:
+       if (<condition>) { <commands>;
+              <commands>
+              <commands>
+       } else {
+              <commands>
+       }
+ Old syntax:
        if (<condition>) <command-line> [; else if (<condition>) ...; else ...]
 
- <condition> will be evaluated.  If it is true (non-zero), then the command(s)
- of the <command-line> will be executed.  If <condition> is false (zero), then
- the entire <command-line> is ignored until the next occurrence of `else`.
- Note that use of `;` to allow multiple commands on the same line will
- _not_ end the conditionalized commands.
+ This version of gnuplot supports block-structured if/else statements. If the
+ keyword `if` or `else` is immediately followed by an opening "{", then 
+ conditional execution applies to all statements, possibly on multiple input
+ lines, until a matching "}" terminates the block.  If commands may be nested.
+
+ The old single-line if/else syntax is still supported, but should not be
+ mixed with the new block-structured syntax.  See `if-old`.
+3 if-old
+?if if-old
+?if-old
+ Through gnuplot version 4.4, the scope of the if/else commands was limited to
+ a single input line. This has been replaced by allowing a multi-line clause to
+ be enclosed in curly brackets, but the old syntax is still honored.  If no
+ opening "{" follows the `if` keyword, then the command(s) in <command-line>
+ will be executed if <condition> is true (non-zero) or skipped if <condition> is
+ false (zero). Either case will consume commands on the input line until the
+ end of the line or an occurrence of `else`.  Note that use of `;` to allow
+ multiple commands on the same line will _not_ end the conditionalized commands.
 
  Examples:
        pi=3
@@ -4352,15 +4743,16 @@ Ffigure_mapcontours
        v=v+1; if (v%2) print "2" ; else if (v%3) print "3"; else print "fred"
  (repeat the last line repeatedly!)
 
- See `reread` for an example of how `if` and `reread` can be used together to
- perform a loop.
+ See `reread` for an example of using if and reread together to perform a loop.
 2 iteration
 ?iteration
+?iterate
  The `plot`, `splot`, `set` and `unset` commands may optionally contain an
  iteration clause.  This has the effect of executing the basic command 
  multiple times, each time re-evaluating any expressions that make use of the
- iteration control variable.  Two forms of iteration clause are currently
- supported:
+ iteration control variable.  Iteration of arbitrary command sequences can be
+ requested using the `do` command.
+ Two forms of iteration clause are currently supported:
 
        for [intvar = start:end{:increment}]
        for [stringvar in "A B C D"]
@@ -4372,7 +4764,11 @@ Ffigure_mapcontours
        set for [i = 1:10] style line i lc rgb "blue"
        unset for [tag = 100:200] label tag
 
- See additional documentation for `plot iteration`.
+ Nested iteration is supported:
+
+       set for [i=1:9] for [j=1:9] label i*10+j sprintf("%d",i*10+j) at i,j
+
+ See additional documentation for `plot iteration`, `do`.
 
 2 load
 ?commands load
@@ -4529,118 +4925,27 @@ Ffigure_mapcontours
  `x1y2` to those on the bottom and right; and `x2y1` to those on the top and
  left.  Ranges specified on the `plot` command apply only to the first set of
  axes (bottom left).
-3 data
-?commands plot datafile
-?plot datafile
-?data-file
-?datafile
-?data
-?file
-?volatile
-?plot datafile volatile
- Discrete data contained in a file can be displayed by specifying the name of
- the data file (enclosed in single or double quotes) on the `plot` command line.
-
- Syntax:
-       plot '<file_name>' {binary <binary list>}
-                          {matrix}
-                          {index <index list> | index "<name>"}
-                          {every <every list>}
-                          {thru <thru expression>}
-                          {using <using list>}
-                          {smooth <option>}
-                          {volatile} {noautoscale}
-
- The modifiers `binary`, `index`, `every`, `thru`, `using`, and `smooth` are
- discussed separately.  In brief, `binary` allows data entry from a binary
- file (default is ASCII), `index` selects which data sets in a multi-data-set
- file are to be plotted, `every` specifies which points within a single data
- set are to be plotted, `using` determines how the columns within a single
- record are to be interpreted (`thru` is a special case of `using`), and
- `smooth` allows for simple interpolation and approximation.  (`splot` has a
- similar syntax, but does not support the `smooth` and `thru` options.)
-
- The `volatile` keyword indicates that the contents of the data file may be
- different if the file is re-read.  This tells the program to use `refresh`
- rather than `replot` commands whenever possible.  See `refresh`.
-
- The `noautoscale` keyword means that the points making up this plot will be
- ignored when automatically determining axis range limits.
-
-
- ASCII DATA FILES:
-
- Data files should contain at least one data point per record (`using`
- can select one data point from the record). Records beginning with `#`
- (and also with `!` on VMS) will be treated as comments and ignored.
- Each data point represents an (x,y) pair. For `plot`s with error bars or
- error bars with lines (see `set style errorbars` or `set style errorlines`),
- each data point is (x,y,ydelta), (x,y,ylow,yhigh),
- (x,y,xdelta), (x,y,xlow,xhigh), or (x,y,xlow,xhigh,ylow,yhigh).
-
- In all cases, the numbers of each record of a data file must be separated
- by white space (one or more blanks or tabs) unless a format specifier is
- provided by the `using` option. This white space divides each record into
- columns. However, whitespace inside a pair of double quotes is ignored when
- counting columns, so the following datafile line has three columns:
-       1.0 "second column" 3.0
-
- Data may be written in exponential format with the exponent preceded by the
- letter e or E.  The fortran exponential specifiers d, D, q, and Q may also
- be used if the command `set datafile fortran` is in effect.
-
- Only one column (the y value) need be provided.  If x is omitted, `gnuplot`
- provides integer values starting at 0.
-
- In datafiles, blank records (records with no characters other than blanks and
- a newline and/or carriage return) are significant.
-
- Single blank records designate discontinuities in a `plot`; no line will join
- points separated by a blank records (if they are plotted with a line style).
-
- Two blank records in a row indicate a break between separate data sets.
- See `index`.
-
- If autoscaling has been enabled (`set autoscale`), the axes are automatically
- extended to include all datapoints, with a whole number of tic marks if tics
- are being drawn.  This has two consequences: i) For `splot`, the corner of
- the surface may not coincide with the corner of the base.  In this case, no
- vertical line is drawn.  ii) When plotting data with the same x range on a
- dual-axis graph, the x coordinates may not coincide if the x2tics are not
- being drawn.  This is because the x axis has been autoextended to a whole
- number of tics, but the x2 axis has not.  The following example illustrates
- the problem:
-
-       reset; plot '-', '-' axes x2y1
-       1 1
-       19 19
-       e
-       1 1
-       19 19
-       e
-
- To avoid this, you can use the `fixmin`/`fixmax` feature of the
- `set autoscale` command, which turns off the automatic extension of the
- axis range upto the next tic mark.
-
- Label coordinates and text can also be read from a data file (see `labels`).
-
-
+3 binary
+?binary
+?data binary
+?datafile binary
+?plot data binary
  BINARY DATA FILES:
 
- Gnuplot can read binary data files.  However, adequate information about
- details of the file format must be given on the command line or extracted
- from the file itself for a supported binary `filetype`.  In particular,
- there are two structures for binary files, a matrix binary format and a
- general binary format.
+ Some earlier versions of `gnuplot` automatically detected binary data files.
+ It is now necessary to provide the keyword `binary` after the filename.
+ Adequate details of the file format must be given on the command line or
+ extracted from the file itself for a supported binary `filetype`.
+ In particular, there are two structures for binary files,  binary matrix
+ format and binary general format.
 
- The matrix binary format contains a two dimensional array of 32 bit IEEE
+ The `binary matrix` format contains a two dimensional array of 32 bit IEEE
  float values with an additional column and row of coordinate values.  As
- with ASCII matrix, in the `using` list, repetition of the coordinate row
- constitutes column 1, repetition of the coordinate column constitutes
+ with ASCII matrix, in the `using` list, enumeration of the coordinate row
+ constitutes column 1, enumeration of the coordinate column constitutes
  column 2, and the array of values constitutes column 3.
 
- The general binary format contains an arbitrary number of columns for which
+ The `binary general` format contains an arbitrary number of columns for which
  information must be specified at the command line.  For example, `array`,
  `record`, `format` and `using` can indicate the size, format and dimension
  of data.  There are a variety of useful commands for skipping file headers
@@ -4657,37 +4962,29 @@ Ffigure_mapcontours
  The general rule is that common command-line specified parameters override
  file-extracted parameters which override default parameters.
 
- Matrix binary is the default binary format when no keywords specific to
- general binary are given, i.e., `array`, `record`, `format`, `filetype`.
+ `Binary matrix` is the default binary format when no keywords specific to
+ `binary general` are given, i.e., `array`, `record`, `format`, `filetype`.
 
  General binary data can be entered at the command line via the special file
  name '-'.  However, this is intended for use through a pipe where programs
  can exchange binary data, not for keyboards.  There is no "end of record"
  character for binary data.  Gnuplot continues reading from a pipe until it
  has read the number of points declared in the `array` qualifier.
-
- See `datafile binary` for more details.
-4 binary
-?commands plot datafile binary
-?plot datafile binary
-?splot datafile binary
-?plot binary
-?splot binary
-?data-file binary
-?datafile binary
-?binary
- The `binary` keyword allows a data file to be binary as opposed to ASCII.
- There are two formats for binary--matrix binary and general binary.  Matrix
- binary is a fixed format in which data appears in a 2D array with an extra
- row and column for coordinate values.  General binary is a flexible format
- for which details about the file must be given at the command line.
-
  See `binary matrix` or `binary general` for more details.
-4 binary general
-?commands plot datafile binary general
-?commands splot datafile binary general
+
+ The `index` keyword is not supported, since the file format allows only one
+ surface per file.  The `every` and `using` filters are supported.  `using`
+ operates as if the data were read in the above triplet form.
+^ <a href="http://www.gnuplot.info/demo/binary.html">
+ Binary File Splot Demo.
+^ </a>
+4 general
+?commands plot binary general
+?commands splot binary general
 ?plot binary general
 ?splot binary general
+?datafile binary general
+?data binary general
 ?binary general
  General binary data in which format information is not necessarily part of
  the file can be read by giving further details about the file format at the
@@ -4837,8 +5134,6 @@ Ffigure_mapcontours
  can be found at
 
    http://www.edfplus.info/specs
-
- See also `binary`.
 5 png
 ?binary filetype png
 ?binary filetype gif
@@ -4853,8 +5148,6 @@ Ffigure_mapcontours
  Or the file type will be recognized automatically from the extension if you
  have previously requested
        set datafile binary filetype=auto
-
- See also `binary`.
 4 keywords
 ?binary keywords
  The following keywords apply only when generating coordinates from binary 
@@ -4957,40 +5250,95 @@ Ffigure_mapcontours
  data of the file is inherently not three-dimensional, logical rules are used to
  place the data in three-space.  (E.g., usually setting the z-dimension value to
  zero and placing 2D data in the x-y plane.)
-5 binary examples
-?binary_examples
-?binary examples
-?binary general examples
-=skip
- Examples:
+3 data
+?commands plot datafile
+?plot datafile
+?data-file
+?datafile
+?data
+?file
+ Discrete data contained in a file can be displayed by specifying the name of
+ the data file (enclosed in single or double quotes) on the `plot` command line.
 
-       # Selects two float values (second one implicit) with a float value
-       # discarded between them for an indefinite length of 1D data.
-       plot '<file_name>' binary format="%float%*float" using 1:2 with lines
+ Syntax:
+       plot '<file_name>' {binary <binary list>}
+                          {{nonuniform} matrix}
+                          {index <index list> | index "<name>"}
+                          {every <every list>}
+                          {thru <thru expression>}
+                          {using <using list>}
+                          {smooth <option>}
+                          {volatile} {noautoscale}
 
-       # The data file header contains all details necessary for creating
-       # coordinates from an EDF file.
-       plot '<file_name>' binary filetype=edf with image
-       plot '<file_name>.edf' binary filetype=auto with image
+ The modifiers `binary`, `index`, `every`, `thru`, `using`, and `smooth` are
+ discussed separately.  In brief, `binary` allows data entry from a binary
+ file (default is ASCII), `index` selects which data sets in a multi-data-set
+ file are to be plotted, `every` specifies which points within a single data
+ set are to be plotted, `using` determines how the columns within a single
+ record are to be interpreted (`thru` is a special case of `using`), and
+ `smooth` allows for simple interpolation and approximation.  (`splot` has a
+ similar syntax, but does not support the `smooth` and `thru` options.)
 
-       # Selects three unsigned characters for components of a raw RGB image
-       # and flips the y-dimension so that typical image orientation (start
-       # at top left corner) translates to the Cartesian plane.  Pixel
-       # spacing is given and there are two images in the file.  One of them
-       # is translated via origin.
-       plot '<file_name>' binary array=(512,1024):(1024,512) format='%uchar' \
-            dx=2:1 dy=1:2 origin=(0,0):(1024,1024) flipy u 1:2:3 w rgbimage
+ The `noautoscale` keyword means that the points making up this plot will be
+ ignored when automatically determining axis range limits.
 
-       # Four separate records in which the coordinates are part of the
-       # data file.  The file was created with a endianess different from
-       # the system on which gnuplot is running.
-       splot '<file_name>' binary record=30:30:29:26 endian=swap u 1:2:3
+ ASCII DATA FILES:
 
-       # Same input file, but this time we skip the 1st and 3rd records
-       splot '<file_name>' binary record=30:26 skip=360:348 endian=swap u 1:2:3
+ Data files should contain at least one data point per record (`using`
+ can select one data point from the record). Records beginning with `#`
+ (and also with `!` on VMS) will be treated as comments and ignored.
+ Each data point represents an (x,y) pair. For `plot`s with error bars or
+ error bars with lines (see `set style errorbars` or `set style errorlines`),
+ each data point is (x,y,ydelta), (x,y,ylow,yhigh),
+ (x,y,xdelta), (x,y,xlow,xhigh), or (x,y,xlow,xhigh,ylow,yhigh).
 
+ In all cases, the numbers of each record of a data file must be separated
+ by white space (one or more blanks or tabs) unless a format specifier is
+ provided by the `using` option. This white space divides each record into
+ columns. However, whitespace inside a pair of double quotes is ignored when
+ counting columns, so the following datafile line has three columns:
+       1.0 "second column" 3.0
 
- See also `binary matrix`.
+ Data may be written in exponential format with the exponent preceded by the
+ letter e or E.  The fortran exponential specifiers d, D, q, and Q may also
+ be used if the command `set datafile fortran` is in effect.
+
+ Only one column (the y value) need be provided.  If x is omitted, `gnuplot`
+ provides integer values starting at 0.
+
+ In datafiles, blank records (records with no characters other than blanks and
+ a newline and/or carriage return) are significant.
+
+ Single blank records designate discontinuities in a `plot`; no line will join
+ points separated by a blank records (if they are plotted with a line style).
+
+ Two blank records in a row indicate a break between separate data sets.
+ See `index`.
+
+ If autoscaling has been enabled (`set autoscale`), the axes are automatically
+ extended to include all datapoints, with a whole number of tic marks if tics
+ are being drawn.  This has two consequences: i) For `splot`, the corner of
+ the surface may not coincide with the corner of the base.  In this case, no
+ vertical line is drawn.  ii) When plotting data with the same x range on a
+ dual-axis graph, the x coordinates may not coincide if the x2tics are not
+ being drawn.  This is because the x axis has been autoextended to a whole
+ number of tics, but the x2 axis has not.  The following example illustrates
+ the problem:
+
+       reset; plot '-', '-' axes x2y1
+       1 1
+       19 19
+       e
+       1 1
+       19 19
+       e
+
+ To avoid this, you can use the `fixmin`/`fixmax` feature of the
+ `set autoscale` command, which turns off the automatic extension of the
+ axis range up to the next tic mark.
+
+ Label coordinates and text can also be read from a data file (see `labels`).
+
 4 every
 ?commands plot datafile every
 ?plot datafile every
@@ -5066,7 +5414,37 @@ Ffigure_mapcontours
           1980   24
           1985   10
 
-^ <img align=bottom src="http://www.gnuplot.info/doc/population.gif" alt="[population.gif]" width=640 height=480>
+C^ <img align=bottom src="http://www.gnuplot.info/doc/population.gif" alt="[population.gif]" width=640 height=480>
+=skip
+ Binary examples:
+
+       # Selects two float values (second one implicit) with a float value
+       # discarded between them for an indefinite length of 1D data.
+       plot '<file_name>' binary format="%float%*float" using 1:2 with lines
+
+       # The data file header contains all details necessary for creating
+       # coordinates from an EDF file.
+       plot '<file_name>' binary filetype=edf with image
+       plot '<file_name>.edf' binary filetype=auto with image
+
+       # Selects three unsigned characters for components of a raw RGB image
+       # and flips the y-dimension so that typical image orientation (start
+       # at top left corner) translates to the Cartesian plane.  Pixel
+       # spacing is given and there are two images in the file.  One of them
+       # is translated via origin.
+       plot '<file_name>' binary array=(512,1024):(1024,512) format='%uchar' \
+            dx=2:1 dy=1:2 origin=(0,0):(1024,1024) flipy u 1:2:3 w rgbimage
+
+       # Four separate records in which the coordinates are part of the
+       # data file.  The file was created with a endianess different from
+       # the system on which gnuplot is running.
+       splot '<file_name>' binary record=30:30:29:26 endian=swap u 1:2:3
+
+       # Same input file, but this time we skip the 1st and 3rd records
+       splot '<file_name>' binary record=30:26 skip=360:348 endian=swap u 1:2:3
+
+
+ See also `binary matrix`.
 4 index
 ?commands plot datafile index
 ?plot datafile index
@@ -5115,10 +5493,10 @@ Ffigure_mapcontours
  data set.  To avoid problems it may be useful to choose a naming scheme like
  '== Population ==' or '[Population]'.
 
-^ See also web page
+^ <p>See also web page
 ^ <a href="http://www.gnuplot.info/demo/multimsh.html">
 ^ splot with indices demo.
-^ </a>
+^ </a></p>
 4 smooth
 ?commands plot datafile smooth
 ?plot datafile smooth
@@ -5132,7 +5510,8 @@ Ffigure_mapcontours
  externally or by using `fit` with an appropriate model.
 
  Syntax:
-       smooth {unique | frequency | cumulative | cnormal | kdensity | csplines | acsplines | bezier | sbezier}
+       smooth {unique | frequency | cumulative | cnormal | kdensity 
+                      | csplines | acsplines | bezier | sbezier}
 
  `unique`, `frequency`, `cumulative` and `cnormal` plot the data after
  making them monotonic.  Each of the other routines uses the data to
@@ -5447,24 +5826,43 @@ Ffigure_mapcontours
 ?data-file using
 ?datafile using
 ?using
- The most common datafile modifier is `using`.
+ The most common datafile modifier is `using`.  It tells the program which
+ columns of data in the input file are to be plotted.
 
  Syntax:
-       plot 'file' using {<entry> {:<entry> {:<entry> ...}}} {'format'}
+       plot 'file' using <entry> {:<entry> {:<entry> ...}} {'format'}
 
- If a format is specified, each datafile record is read using the C library's
- 'scanf' function, with the specified format string.  Otherwise the record is
- read and broken into columns. By default the separation between columns is
- whitespace (spaces and/or tabs), but see `datafile separator`.
+ If a format is specified, it is used to read in each datafile record using the
+ C library 'scanf' function.  Otherwise the record is interpreted as consisting
+ of columns (fields) of data separated by whitespace (spaces and/or tabs),
+ but see `datafile separator`.
 
  Each <entry> may be a simple column number that selects the value from one
- field of the input fit, an expression enclosed in parentheses, or empty.
+ field of the input file, a string that matches a column label in the first 
+ line of a data set, an expression enclosed in parentheses, or a special
+ function not enclosed in parentheses such as xticlabels(2).
 
  If the entry is an expression in parentheses, then the function column(N) may
  be used to indicate the value in column N. That is, column(1) refers to the
  first item read, column(2) to the second, and so on.  The special symbols
  $1, $2, ... are shorthand for column(1), column(2) ...  The function `valid(N)`
  tests whether the value in the Nth column is a valid number.
+=column
+=columnhead
+ If each column of data in the input file contains a label in the first row
+ rather than a data value, this label can be used to identify the column on
+ input and/or in the plot legend. The column() function can be used to select
+ an input column by label rather than by column number.  For example,
+ if the data file contains
+       Height    Weight    Age
+       val1      val1      val1
+       ...       ...       ...
+ then the following plot commands are all equivalent
+       plot 'datafile' using 3:1, '' using 3:2
+       plot 'datafile' using (column("Age")):(column(1)), \
+                    '' using (column("Age")):(column(2))
+       plot 'datafile' using "Age":"Height", '' using "Age":"Weight"
+ To use the column labels in the plot legend, use `set key autotitle columnhead`.
 
  In addition to the actual columns 1...N in the input data file, gnuplot
  presents data from several "pseudo-columns" that hold bookkeeping information.
@@ -5474,7 +5872,7 @@ Ffigure_mapcontours
  An empty <entry> will default to its order in the list of entries.
  For example, `using ::4` is interpreted as `using 1:2:4`.
 
- If the `using` list has but a single entry, that <entry> will be used for y
+ If the `using` list has only a single entry, that <entry> will be used for y
  and the data point number (pseudo-column $0) is used for x; for example,
  "`plot 'file' using 1`" is identical to "`plot 'file' using 0:1`".
  If the `using` list has two entries, these will be used for x and y.
@@ -5552,10 +5950,6 @@ Ffigure_mapcontours
 
  However, if you want to leave text in your data files, it is safer to put the
  comment character (#) in the first column of the text lines.
-^ See also the web page
-^ <a href="http://www.gnuplot.info/demo/using.html">
- Feeble using demos.
-^ </a>
 5 pseudocolumns
 ?pseudocolumns
 ?commands plot datafile using pseudocolumns
@@ -5622,6 +6016,12 @@ Ffigure_mapcontours
 ?using zticlabels
 ?plot using zticlabels
  See `plot using xticlabels`.
+4 volatile
+?datafile volatile
+?plot datafile volatile
+ The `volatile` keyword indicates that the data previously read from the input
+ stream or file may not be available for re-reading.  This tells the program to
+ use `refresh` rather than `replot` commands whenever possible.  See `refresh`.
 3 errorbars
 ?commands plot errorbars
 ?commands splot errorbars
@@ -5884,24 +6284,19 @@ Ffigure_mapcontours
 ?plot title
 ?splot title
 ?columnheader
- A line title for each function and data set appears in the key, accompanied
- by a sample of the line and/or symbol used to represent it.  It can be
- changed by using the `title` option.
+ By default each plot is listed in the key by the corresponding function or file
+ name. You can give an explicit plot title instead using the `title` option.
 
  Syntax:
        title <text> | notitle [<ignored text>]
        title columnheader | title columnheader(N)
 
- where <text> must either be a quoted string or a string variable.
- The quotes will not be shown in the key.  A special character may be given as
- a backslash followed by its octal value ("\345").  The tab character "\t" is
- understood.  Note that backslash processing occurs only for strings enclosed
- in double quotes---use single quotes to prevent such processing.  The newline
- character "\n" is not processed in key entries in either type of string.
+ where <text> is a quoted string or an expression that evaluates to a string.
+ The quotes will not be shown in the key.
 
  There is also an option that will interpret the first entry in a column of
  input data (i.e. the column header) as a text field, and use it as the key
- title.  See `datastrings`.  This can be made the default by speicifying
+ title.  See `datastrings`.  This can be made the default by specifying
  `set key autotitle columnhead`.
 
  The line title and sample can be omitted from the key by using the keyword
@@ -6104,7 +6499,7 @@ Ffigure_mapcontours
 
  Note that if you wish to store the current directory into a string variable
  or use it in string expressions, then you can use variable GPVAL_PWD, see
- `show variables all`. This overcomes shell call by means of "`pwd`". 
+ `show variables all`.
 2 quit
 ?commands quit
 ?quit
@@ -6192,7 +6587,7 @@ Ffigure_mapcontours
  point before further commands are read from it.  This essentially implements
  an endless loop of the commands from the beginning of the command file to
  the `reread` command.  (But this is not necessarily a disaster---`reread` can
- be very useful when used in conjunction with `if`.  See `if` for details.)
+ be very useful when used in conjunction with `if`.)
  The `reread` command has no effect if input from standard input.
 
  Examples:
@@ -6251,8 +6646,8 @@ Ffigure_mapcontours
  `reset bind` restores all hotkey bindings to their default state.
 2 save
 ?commands save
+?save set
 ?save
-^ <a name="save set"></a>
  The `save` command saves user-defined functions, variables, the `set
  term` status, all `set` options, or all of these, plus the last `plot`
  (`splot`) command to the specified file.
@@ -6735,6 +7130,31 @@ Ffigure_mapcontours
 %1024@no effect@top left front
 %2048@no effect@top right front
 @end table
+
+^<table align="center" border="1" rules="groups" frame="hsides" cellpadding="3">
+^<colgroup>
+^  <col align="right">
+^  <col align="center">
+^  <col align="center">
+^</colgroup>
+^<thead>
+^<tr>    <th>Bit</th>    <th>plot</th>    <th>splot</th></tr>
+^</thead>
+^<tbody>
+^<tr>    <td>1</td>    <td>bottom</td>    <td>bottom left front</td></tr>
+^<tr>    <td>2</td>    <td>left</td>    <td>bottom left back</td></tr>
+^<tr>    <td>4</td>    <td>top</td>    <td>bottom right front</td></tr>
+^<tr>    <td>8</td>    <td>right</td>    <td>bottom right back</td></tr>
+^<tr>    <td>16</td>    <td>no effect</td>    <td>left vertical</td></tr>
+^<tr>    <td>32</td>    <td>no effect</td>    <td>back vertical</td></tr>
+^<tr>    <td>64</td>    <td>no effect</td>    <td>right vertical</td></tr>
+^<tr>    <td>128</td>    <td>no effect</td>    <td>front vertical</td></tr>
+^<tr>    <td>256</td>    <td>no effect</td>    <td>top left back</td></tr>
+^<tr>    <td>512</td>    <td>no effect</td>    <td>top right back</td></tr>
+^<tr>    <td>1024</td>    <td>no effect</td>    <td>top left front</td></tr>
+^<tr>    <td>2048</td>    <td>no effect</td>    <td>top right front</td></tr>
+^</tbody>
+^</table>
 
  Various bits or combinations of bits may be added together in the command.
 
@@ -7274,7 +7694,8 @@ Ffigure_mapcontours
 ?set datafile binary
  The `set datafile binary` command is used to set the defaults when reading
  binary data files.  The syntax matches precisely that used for commands
- `plot` and `splot`.  See `binary` for details about <binary list>.
+ `plot` and `splot`.  See `binary matrix` and `binary general` for details
+ about the keywords that can be present in <binary list>.
 
  Syntax:
        set datafile binary <binary list>
@@ -7375,8 +7796,8 @@ Ffigure_mapcontours
  is equally spaced in x (rows) and in y (columns); the z values are computed
  as weighted averages or spline interpolations of the scattered points' z 
  values. In other words, a regularly spaced grid is created and the a smooth
- approximation to the raw data is evaluated for all grid points. Only this
- approximation is plotted, but not the raw data.
+ approximation to the raw data is evaluated for all grid points. This
+ approximation is plotted in place of the raw data.
 
  The number of columns defaults to the number of rows, which defaults to 10.
 
@@ -7386,7 +7807,7 @@ Ffigure_mapcontours
  the more effect it has on that grid point.
 
  The `splines` algorithm calculates an interpolation based on "thin plate
- splines". It does not take additional paramaters.
+ splines". It does not take additional parameters.
 
  The `qnorm` algorithm calculates a weighted average of the input data at
  each grid point. Each data point is weighted inversely by its distance from
@@ -7439,7 +7860,7 @@ Ffigure_mapcontours
  A slightly different syntax is also supported for reasons of backwards
  compatibility. If no interpolation algorithm has been explicitly selected,
  the `qnorm` algorithm is assumed. Up to three comma-separated, optional
- paramaters can be specified, which are interpreted as the the number of
+ parameters can be specified, which are interpreted as the the number of
  rows, the number of columns, and the norm value, respectively.
 
  The `dgrid3d` option is a simple scheme which replaces scattered data
@@ -7496,6 +7917,7 @@ Ffigure_mapcontours
 ?encoding
 ?encodings
 =UTF-8
+=SJIS
  The `set encoding` command selects a character encoding.
  Syntax:
        set encoding {<value>}
@@ -7519,6 +7941,7 @@ Ffigure_mapcontours
     cp1250      - codepage for MS Windows, Central and Eastern Europe
     cp1251      - codepage for 8-bit Russian, Serbian, Bulgarian, Macedonian
     cp1254      - codepage for MS Windows, Turkish (superset of Latin5)
+    sjis        - shift-JIS Japanese encoding
     utf8        - variable-length (multibyte) representation of Unicode
                   entry point for each character
 
@@ -7605,13 +8028,12 @@ Ffigure_mapcontours
  off, then. You can find out which is the default fontpath by using
  `show fontpath`.
 
- However, `show fontpath` prints the contents of user defined fontpath and
- system fontpath separately.  Also, the `save` and `save set` commands save
- only the user specified parts of `fontpath`, for portability reasons.
+ `show fontpath` prints the contents of the user-defined fontpath and the
+ system fontpath separately.  However, the `save` and `save set` commands
+ save only the user-specified parts of `fontpath`.
 
- Many other terminal drivers access TrueType fonts via the gd library.
- For these drivers the font search path is controlled by the environmental
- variable GDFONTPATH.
+ For terminal drivers that access fonts by filename via the gd library, the
+ font search path is controlled by the environmental variable GDFONTPATH.
 3 format
 ?commands set format
 ?commands show format
@@ -7724,6 +8146,33 @@ Ffigure_mapcontours
 %%P@multiple of pi
 %_
 @end table
+
+^<table align="center" border="1" rules="groups" frame="hsides" cellpadding="3">
+^<colgroup>
+^  <col align="center">
+^  <col align="left">
+^</colgroup>
+^<thead>
+^<tr>    <th>Format</th>    <th>Explanation</th></tr>
+^</thead>
+^<tbody>
+^<tr>    <td><tt>%f</tt></td>    <td>floating point notation</td></tr>
+^<tr>    <td><tt>%e</tt> or <tt>%E</tt></td>    <td>exponential notation; an "e" or "E" before the power</td></tr>
+^<tr>    <td><tt>%g</tt> or <tt>%G</tt></td>    <td>the shorter of <tt>%e</tt> (or <tt>%E</tt>) and <tt>%f</tt></td></tr>
+^<tr>    <td><tt>%x</tt> or <tt>%X</tt></td>    <td>hex</td></tr>
+^<tr>    <td><tt>%o</tt> or <tt>%O</tt></td>    <td>octal</td></tr>
+^<tr>    <td><tt>%t</tt></td>    <td>mantissa to base 10</td></tr>
+^<tr>    <td><tt>%l</tt></td>    <td>mantissa to base of current logscale</td></tr>
+^<tr>    <td><tt>%s</tt></td>    <td>mantissa to base of current logscale; scientific power</td></tr>
+^<tr>    <td><tt>%T</tt></td>    <td>power to base 10</td></tr>
+^<tr>    <td><tt>%L</tt></td>    <td>power to base of current logscale</td></tr>
+^<tr>    <td><tt>%S</tt></td>    <td>scientific power</td></tr>
+^<tr>    <td><tt>%c</tt></td>    <td>character replacement for scientific power</td></tr>
+^<tr>    <td><tt>%b</tt></td>    <td>mantissa of ISO/IEC 80000 notation (ki, Mi, Gi, Ti, Pi, Ei, Zi, Yi)</td></tr>
+^<tr>    <td><tt>%B</tt></td>    <td>prefix of ISO/IEC 80000 notation (ki, Mi, Gi, Ti, Pi, Ei, Zi, Yi)</td></tr>
+^<tr>    <td><tt>%P</tt></td>    <td>multiple of &pi;</td></tr>
+^</tbody>
+^</table>
 
  A 'scientific' power is one such that the exponent is a multiple of three.
  Character replacement of scientific powers (`"%c"`) has been implemented
@@ -7862,6 +8311,44 @@ Ffigure_mapcontours
 %%Y@year, 4-digit
 %_
 @end table
+
+
+^<table align="center" border="1" rules="groups" frame="hsides" cellpadding="3">
+^<colgroup>
+^  <col align="center">
+^  <col align="left">
+^</colgroup>
+^<thead>
+^<tr>    <th>Format</th>    <th>Explanation</th></tr>
+^</thead>
+^<tbody>
+^<tr>    <td><tt>%a</tt></td>    <td>abbreviated name of day of the week</td></tr>
+^<tr>    <td><tt>%A</tt></td>    <td>full name of day of the week</td></tr>
+^<tr>    <td><tt>%b</tt> or <tt>%h</tt></td>    <td>abbreviated name of the month</td></tr>
+^<tr>    <td><tt>%B</tt></td>    <td>full name of the month</td></tr>
+^<tr>    <td><tt>%d</tt></td>    <td>day of the month, 01&ndash;31</td></tr>
+^<tr>    <td><tt>%D</tt></td>    <td>shorthand for <tt>%m/%d/%y</tt> (only output)</td></tr>
+^<tr>    <td><tt>%F</tt></td>    <td>shorthand for <tt>%Y-%m-%d</tt> (only output)</td></tr>
+^<tr>    <td><tt>%k</tt></td>    <td>hour, 0&ndash;23 (one or two digits)</td></tr>
+^<tr>    <td><tt>%H</tt></td>    <td>hour, 00&ndash;23 (always two digits)</td></tr>
+^<tr>    <td><tt>%l</tt></td>    <td>hour, 1&ndash;12 (one or two digits)</td></tr>
+^<tr>    <td><tt>%I</tt></td>    <td>hour, 01&ndash;12 (always two digits)</td></tr>
+^<tr>    <td><tt>%j</tt></td>    <td>day of the year, 1&ndash;366</td></tr>
+^<tr>    <td><tt>%m</tt></td>    <td>month, 01&ndash;12</td></tr>
+^<tr>    <td><tt>%M</tt></td>    <td>minute, 0&ndash;60</td></tr>
+^<tr>    <td><tt>%p</tt></td>    <td>"am" or "pm"</td></tr>
+^<tr>    <td><tt>%r</tt></td>    <td>shorthand for <tt>%I:%M:%S %p</tt> (only output)</td></tr>
+^<tr>    <td><tt>%R</tt></td>    <td>shorthand for <tt>%H:%M</tt> (only output)</td></tr>
+^<tr>    <td><tt>%S</tt></td>    <td>second, integer 0&ndash;60 on output, (double) on input</td></tr>
+^<tr>    <td><tt>%s</tt></td>    <td>number of seconds since start of year 2000</td></tr>
+^<tr>    <td><tt>%T</tt></td>    <td>shorthand for <tt>%H:%M:%S</tt> (only output)</td></tr>
+^<tr>    <td><tt>%U</tt></td>    <td>week of the year (week starts on Sunday)</td></tr>
+^<tr>    <td><tt>%w</tt></td>    <td>day of the week, 0&ndash;6 (Sunday = 0)</td></tr>
+^<tr>    <td><tt>%W</tt></td>    <td>week of the year (week starts on Monday)</td></tr>
+^<tr>    <td><tt>%y</tt></td>    <td>year, 0-99 in range 1969-2068</td></tr>
+^<tr>    <td><tt>%Y</tt></td>    <td>year, 4-digit</td></tr>
+^</tbody>
+^</table>
 
  Except for the non-numerical formats, these may be preceded by a "0" ("zero",
  not "oh") to pad the field length with leading zeroes, and a positive digit,
@@ -8026,12 +8513,12 @@ Ffigure_mapcontours
  will keep their previous values, so you can turn on/off hidden line removal
  via `set {no}hidden3d`, without modifying the set of options you chose.
 
- The first option, `offset`, influences the linestyle used for lines on the
- 'back' side.  Normally, they are drawn in a linestyle one index number higher
+ The first option, `offset`, influences the linetype used for lines on the
+ 'back' side.  Normally, they are drawn in a linetype one index number higher
  than the one used for the front, to make the two sides of the surface
- distinguishable.  You can specify a different line style offset to add
+ distinguishable.  You can specify a different linetype offset to add
  instead of the default 1, by `offset <offset>`.  Option `nooffset` stands for
- `offset 0`, making the two sides of the surface use the same linestyle.
+ `offset 0`, making the two sides of the surface use the same linetype.
 
  Next comes the option `trianglepattern <bitpattern>`.  <bitpattern> must be
  a number between 0 and 7, interpreted as a bit pattern.  Each bit determines
@@ -8647,14 +9134,14 @@ Ffigure_mapcontours
 ?logscale
 ?nologscale
  Syntax:
-       set logscale <axes> <base>
+       set logscale <axes> {<base>}
        unset logscale <axes>
        show logscale
 
- where <axes> may be any combinations of `x`, `x2`, `y`, `y2`, `z`, and `cb` in
- any order, and where <base> is the base of the log scaling.  If <base> is not
- given, then 10 is assumed.  If <axes> is not given, then all axes are assumed.
- The command `unset logscale` turns off log scaling for the specified axes.
+ where <axes> may be any combinations of `x`, `x2`, `y`, `y2`, `z`, `cb`, and
+ `r` in any order.  <base> is the base of the log scaling (default is base 10).
+ If no axes are specified, the command affects all axes except `r`.
+ The command `unset logscale` turns off log scaling for all axes.
 
  Examples:
 
@@ -8735,8 +9222,11 @@ Ffigure_mapcontours
 ?set margin
 ?show margin
 ?margin
- The computed margins can be overridden by the `set margin` commands.  `show
- margin` shows the current settings.
+ The `margin` is the distance between the plot border and the outer edge of the
+ canvas. The size of the margin is chosen automatically, but can be overridden
+ by the `set margin` commands.  `show margin` shows the current settings.
+ To alter the distance between the inside of the plot border and the data in the
+ plot itself, see `set offsets`.
 
  Syntax:
        set bmargin {{at screen} <margin>}
@@ -8815,29 +9305,6 @@ Ffigure_mapcontours
  and the ruler is also shown in polar coordinates (distance and angle in
  degrees or tangent (slope)). This corresponds to the default key binding '5'.
 
- The `format` option takes a fprintf like format string which determines how
- floating point numbers are printed to the drivers window and the clipboard.
- The default is "% #g".
-
- `clipboardformat` and `mouseformat` are used for formatting the text on
- Button1 and Button2 actions -- copying the coordinates to the clipboard and
- temporarily annotating the mouse position. This corresponds to the key
- bindings '1', '2', '3', '4' (see the driver's documentation). If the argument
- is a string this string is used as c format specifier and should contain two
- float specifiers, e.g. `set mouse mouseformat "mouse = %5.2g, %10.2f"`. Use
- `set mouse mouseformat ""` to turn this string off again.
-
- The following formats are available (format 6 may only be selected if the
- format string was specified already):
-
-  0   real coordinates in  brackets e.g. [1.23, 2.45]
-  1   real coordinates w/o brackets e.g.  1.23, 2.45
-  2   x == timefmt                       [(as set by `set timefmt`), 2.45]
-  3   x == date                          [31. 12. 1999, 2.45]
-  4   x == time                          [23:59, 2.45]
-  5   x == date / time                   [31. 12. 1999 23:59, 2.45]
-  6   alt. format, specified as string   ""
-
 =labels
  Choose the option `labels` to define persistent gnuplot labels using Button 2.
  The default is `nolabels`, which makes Button 2 draw only a temporary label at
@@ -8863,6 +9330,34 @@ Ffigure_mapcontours
  can be defined using the `bind` command, see help for `bind`.  Note, that user
  defined `hotkeys` may override the default bindings.
  See also help for `bind` and `label`.
+4 mouseformat
+?set mouse format
+?set mouse mouseformat
+?mouse format
+?mouseformat
+ The `set mouse format` command specifies a format string for sprintf() which
+ determines how the mouse cursor [x,y] coordinates are printed to the plot
+ window and to the clipboard.  The default is "% #g".
+
+ `set mouse clipboardformat` and `set mouse mouseformat` are used for formatting
+ the text on Button1 and Button2 actions -- copying the coordinates to the
+ clipboard and temporarily annotating the mouse position.  An integer argument
+ selects one of the format options in the table below. A string argument is used
+ as a format for sprintf() in option 6 and should contain two float specifiers.
+ Example:
+      `set mouse mouseformat "mouse x,y = %5.2g, %10.3f"`.
+ Use `set mouse mouseformat ""` to turn this string off again.
+
+ The following formats are available:
+
+  0   default (same as 1)
+  1   axis coordinates                    1.23, 2.45
+  2   graph coordinates (from 0 to 1)    /0.00, 1.00/
+  3   x = timefmt     y = axis           [(as set by `set timefmt`), 2.45]
+  4   x = date        y = axis           [31. 12. 1999, 2.45]
+  5   x = time        y = axis           [23:59, 2.45]
+  6   x = date time   y = axis           [31. 12. 1999 23:59, 2.45]
+  7   format from `set mouse mouseformat`, e.g. "mouse x,y = 1.23,     2.450"
 4 scrolling
 ?set mouse scrolling
 ?mouse scrolling
@@ -9553,6 +10048,8 @@ Ffigure_mapcontours
 =median
 =min
 =max
+ `3 columns of data (x,y,z)`:
+
  The coloring setup as well as the color box drawing are determined by
  `set palette`.  There can be only one palette for the current plot.  Drawing
  of several surfaces with different palettes can be achieved by `multiplot`
@@ -9575,6 +10072,17 @@ Ffigure_mapcontours
  contributing to the color of any quadrangle.  For example, applying the pm3d
  algorithm to the 4x4 grid of data points in script `demo/pm3d.dem` (please have
  a look) produces only (4-1)x(4-1)=9 colored rectangles.
+
+ `4 columns of data (x,y,z,color)`:
+
+ If a fourth column of data is provided, it is normally interpreted as a 
+ separate palette-mapped gray value. The coloring of individual quadrangles
+ works as above, except that the color value is distinct from the z value.
+ As a separate coloring option, the fourth data column may provide instead
+ an RGB color. See `rgbcolor variable`. In this case the plotting command
+ must be
+
+       splot ... using 1:2:3:4 with pm3d lc rgb variable
 
  Another drawing algorithm, which would draw quadrangles around a given node
  by taking corners from averaged (x,y)-coordinates of its surrounding 4 nodes
@@ -9614,7 +10122,7 @@ Ffigure_mapcontours
  is interpolated m-times and n-times in the respective direction.  For negative
  m and n, the interpolation frequency is chosen so that there will be at least
  |m| and |n| points drawn; you can consider this as a special gridding function.
- Zeros, i.e. `interpolation 0,0`, will automatically choose an optimal number of
+ Zeros, i.e. `interpolate 0,0`, will automatically choose an optimal number of
  interpolated surface points.
 4 deprecated_options
 ?pm3d deprecated_options
@@ -9789,11 +10297,11 @@ Ffigure_mapcontours
 ?set palette defined
 ?palette defined
 =colors
- Gray-to-rgb mapping can be manually set by use of `palette defined`:  A color gradient
- is defined and used to give the rgb values.  Such a  gradient is a piecewise
- linear mapping from gray values in [0,1] to the RGB space [0,1]x[0,1]x[0,1].
- You have to specify the gray values and the corresponding RGB values in
- between a linear interpolation shall take place:
+ Gray-to-rgb mapping can be manually set by use of `palette defined`:
+ A color gradient is defined and used to give the rgb values.  Such a gradient
+ is a piecewise linear mapping from gray values in [0,1] to the RGB space
+ [0,1]x[0,1]x[0,1].  You must specify the gray values and the corresponding RGB
+ values between which linear interpolation will be done.
 
  Syntax:
        set palette  defined { ( <gray1> <color1> {, <grayN> <colorN>}... ) }
@@ -10164,6 +10672,8 @@ Ffigure_mapcontours
 ?show size
 ?size
 ?aspect ratio
+?set size square
+?set size ratio
  Syntax:
        set size {{no}square | ratio <r> | noratio} {<xscale>,<yscale>}
        show size
@@ -10221,15 +10731,10 @@ Ffigure_mapcontours
  To make the graph twice as high as wide use:
        set size ratio 2
 
- See also
-^ <a href="http://www.gnuplot.info/demo/airfoil.html">
- airfoil demo.
-^ </a>
 3 style
 ?set style
 ?show style
 ?unset style
-^ <a name="set style <style>"></a>
  Default plotting styles are chosen with the `set style data` and
  `set style function` commands.  See `plot with` for information about how to
  override the default plotting style for individual functions and data sets.
@@ -10265,8 +10770,6 @@ Ffigure_mapcontours
 ?unset style arrow
 ?show style arrow
 ?arrowstyle
-^ <a name="arrowtype"></a>
-^ <a name="arrowwidth"></a>
  Each terminal has a default set of arrow and point types, which can be seen
  by using the command `test`.  `set style arrow` defines a set of arrow types
  and widths and point types and sizes so that you can refer to them later by
@@ -10455,6 +10958,7 @@ Ffigure_mapcontours
        png    TrueColor   index     yes
        post          no     yes      no
        svg          yes      no     yes
+       win          yes     yes     yes
        wxt          yes     yes     yes
        x11           no     yes      no
 #\begin{tabular}{|cccl|} \hline
@@ -10465,6 +10969,7 @@ Ffigure_mapcontours
 #png        &TrueColor&   index &     yes \\
 #post       &      no &     yes &      no \\
 #svg        &     yes &      no &     yes \\
+#win        &     yes &     yes &     yes \\
 #wxt        &     yes &     yes &     yes \\
 #x11        &      no &     yes &      no \\
 %c l .
@@ -10476,10 +10981,35 @@ Ffigure_mapcontours
 %png@TrueColor@index@yes
 %post@no@yes@no
 %svg@yes@yes@yes
+%win@yes@yes@yes
 %wxt@yes@yes@yes
 %x11@no@yes@no
 %_
 @end table
+
+^<table align="center" border="1" rules="groups" frame="hsides" cellpadding="3">
+^<colgroup>
+^  <col align="center">
+^  <col align="center">
+^  <col align="center">
+^  <col align="center">
+^</colgroup>
+^<thead>
+^<tr>    <th>Terminal</th>    <th>solid</th>    <th>pattern</th>    <th>pm3d</th></tr>
+^</thead>
+^<tbody>
+^<tr>    <td>gif</td>    <td>no</td>    <td>yes</td>    <td>no</td></tr>
+^<tr>    <td>jpeg</td>    <td>yes</td>    <td>no</td>    <td>yes</td></tr>
+^<tr>    <td>pdf</td>    <td>yes</td>    <td>yes</td>    <td>yes</td></tr>
+^<tr>    <td>png</td>    <td>TrueColor</td>    <td>index</td>    <td>yes</td></tr>
+^<tr>    <td>post</td>    <td>no</td>    <td>yes</td>    <td>no</td></tr>
+^<tr>    <td>svg</td>    <td>yes</td>    <td>yes</td>    <td>yes</td></tr>
+^<tr>    <td>win</td>    <td>yes</td>    <td>yes</td>    <td>yes</td></tr>
+^<tr>    <td>wxt</td>    <td>yes</td>    <td>yes</td>    <td>yes</td></tr>
+^<tr>    <td>x11</td>    <td>no</td>    <td>yes</td>    <td>no</td></tr>
+^</tbody>
+^</table>
+
  Note that there may be additional limitations on the creation or viewing of
  graphs containing transparent fill areas.  For example, the png terminal can
  only use transparent fill if the "truecolor" option is set.  Some pdf viewers
@@ -10859,6 +11389,7 @@ Ffigure_mapcontours
        set tics {axis | border} {{no}mirror}
                 {in | out} {scale {default | <major> {,<minor>}}}
                 {{no}rotate {by <ang>}} {offset <offset> | nooffset}
+                {left | right | center | autojustify}
                 { format "formatstring" } { font "name{,<size>}" }
                 { textcolor <colorspec> }
        set tics {front | back}
@@ -10902,6 +11433,11 @@ Ffigure_mapcontours
  coordinate system. <offset> is the offset of the tics texts from their
  default positions, while the default coordinate system is `character`.
  See `coordinates` for details. `nooffset` switches off the offset.
+
+ By default, tic labels are justified automatically depending on the axis and
+ rotation angle to produce aesthetically pleasing results. If this is not
+ desired, justification can be overridden with an explicit `left`, `right` or
+ `center` keyword. `autojustify` restores the default behavior.
 
  `set tics` with no options restores to place tics inwards. Every other
  options are retained.
@@ -11016,6 +11552,31 @@ Ffigure_mapcontours
 %%B@name of the month
 %_
 @end table
+
+
+^<table align="center" border="1" rules="groups" frame="hsides" cellpadding="3">
+^<colgroup>
+^  <col align="center">
+^  <col align="left">
+^</colgroup>
+^<thead>
+^<tr>    <th>Format</th>    <th>Explanation</th></tr>
+^</thead>
+^<tbody>
+^<tr>    <td><tt>%d</tt></td>    <td>day of the month, 1&ndash;31</td></tr>
+^<tr>    <td><tt>%m</tt></td>    <td>month of the year, 1&ndash;12</td></tr>
+^<tr>    <td><tt>%y</tt></td>    <td>year, 0&ndash;99</td></tr>
+^<tr>    <td><tt>%Y</tt></td>    <td>year, 4-digit</td></tr>
+^<tr>    <td><tt>%j</tt></td>    <td>day of the year, 1&ndash;365</td></tr>
+^<tr>    <td><tt>%H</tt></td>    <td>hour, 0&ndash;24</td></tr>
+^<tr>    <td><tt>%M</tt></td>    <td>minute, 0&ndash;60</td></tr>
+^<tr>    <td><tt>%s</tt></td>    <td>seconds since the Unix epoch (1970-01-01 00:00 UTC)</td></tr>
+^<tr>    <td><tt>%S</tt></td>    <td>second, integer 0&ndash;60 on output, (double) on input</td></tr>
+^<tr>    <td><tt>%b</tt></td>    <td>three-character abbreviation of the name of the month</td></tr>
+^<tr>    <td><tt>%B</tt></td>    <td>name of the month</td></tr>
+^</tbody>
+^</table>
+
  Any character is allowed in the string, but must match exactly.  \t (tab) is
  recognized.  Backslash-octals (\nnn) are converted to char.  If there is no
  separating character between the time/date elements, then %d, %m, %y, %H, %M
@@ -11044,7 +11605,7 @@ Ffigure_mapcontours
  the UNIX98 spec, but conventions vary widely and two-digit year values are
  inherently ambiguous.
 
- See also `set xdata` and `Time/date` for more information.
+ See also `set xdata` and `time/date` for more information.
 
  Example:
        set timefmt "%d/%m/%Y\t%H:%M"
@@ -11303,7 +11864,7 @@ Ffigure_mapcontours
  for this  unless the `set format x "string"` has supplied something that does
  not look like a decimal format (more than one '%' or neither %f nor %g).
 
- See also `Time/date` for more information.
+ See also `time/date` for more information.
 3 xdtics
 ?commands set xdtics
 ?commands unset xdtics
@@ -11338,8 +11899,8 @@ Ffigure_mapcontours
 
  Syntax:
        set xlabel {"<label>"} {offset <offset>} {font "<font>{,<size>}"}
-                  {{textcolor | tc} {lt <line_type> | default}} {{no}enhanced}
-                  {rotate by <degrees>}
+                  {textcolor <colorspec>} {{no}enhanced}
+                  {rotate by <degrees> | rotate parallel | norotate}
        show xlabel
 
  The same syntax applies to `x2label`, `ylabel`, `y2label`, `zlabel` and
@@ -11356,8 +11917,6 @@ Ffigure_mapcontours
  <font> is used to specify the font in which the label is written; the units
  of the font <size> depend upon which terminal is used.
 
- `textcolor lt <n>` sets the text color to that of line type <n>.
-
  `noenhanced` requests that the label text not be processed by the enhanced text
  mode parser, even if enhanced text mode is currently active.
 
@@ -11365,36 +11924,22 @@ Ffigure_mapcontours
 
  The default positions of the axis labels are as follows:
 
- xlabel:  The x-axis label is centered below the bottom axis.
+ xlabel:  The x-axis label is centered below the bottom of the plot.
 
- ylabel:  The position of the y-axis label depends on the terminal, and can be
- one of the following three positions:
-
- 1. Horizontal text flushed left at the top left of the plot.  Terminals that
- cannot rotate text will probably use this method.  If `set x2tics` is also
- in use, the ylabel may overwrite the left-most x2tic label.  This may be
- remedied by adjusting the ylabel position or the left margin.
-
- 2. Vertical text centered vertically at the left of the plot.  Terminals
- that can rotate text will probably use this method.
-
- 3. Horizontal text centered vertically at the left of the plot.  The EEPIC,
- LaTeX and TPIC drivers use this method.  The EEPIC driver will produce a
- stack of characters so as not to overwrite the plot. With other drivers
- (such as LaTeX and TPIC), the user probably has to insert line breaks
- using \\ to prevent the ylabel from overwriting the plot.
+ ylabel:  The y-axis label is centered to the left of the plot, defaulting to
+ either horizontal or vertical orientation depending on the terminal type.
 
  zlabel: The z-axis label is centered along the z axis and placed in the space
  above the grid level.
 
  cblabel: The color box axis label is centered along the box and placed below
- or right according to horizontal or vertical color box gradient.
+ or to the right according to horizontal or vertical color box gradient.
 
  y2label: The y2-axis label is placed to the right of the y2 axis.  The
  position is terminal-dependent in the same manner as is the y-axis label.
 
- x2label: The x2-axis label is placed above the top axis but below the plot
- title.  It is also possible to create an x2-axis label by using new-line
+ x2label: The x2-axis label is placed above the plot but below the title.
+ It is also possible to create an x2-axis label by using new-line
  characters to make a multi-line plot title, e.g.,
 
        set title "This is the title\n\nThis is the x2label"
@@ -11402,9 +11947,10 @@ Ffigure_mapcontours
  Note that double quotes must be used.  The same font will be used for both
  lines, of course.
 
- The orientation (rotation angle) of the x, x2, y and y2 axis labels can be
- explicitly changed from the default setting, but this applies only to 2D plots
- and only on terminals that support text rotation.
+ The orientation (rotation angle) of the x, x2, y and y2 axis labels in 2D plots
+ can be changed by specifying `rotate by <degrees>`.  The orientation of the x 
+ and y axis labels in 3D plots defaults to horizontal but can be changed to run
+ parallel to the axis by specifying `rotate parallel`.
 
  If you are not satisfied with the default position of an axis label, use `set
  label` instead--that command gives you much more control over where text is
@@ -11536,7 +12082,7 @@ Ffigure_mapcontours
  To autoscale xmin but keeping xmin positive:
        set xrange [0<*:]
 
- To autoscale x but keep minumum range of 10 to 50 (actual might be larger):
+ To autoscale x but keep minimum range of 10 to 50 (actual might be larger):
        set xrange [*<10:50<*]
 
  Autoscaling but limit maximum xrange to -1000 to 1000, i.e. autoscaling
@@ -11564,6 +12110,7 @@ Ffigure_mapcontours
        set xtics {axis | border} {{no}mirror}
                  {in | out} {scale {default | <major> {,<minor>}}}
                  {{no}rotate {by <ang>}} {offset <offset> | nooffset}
+                 {left | right | center | autojustify}
                  {add}
                  {  autofreq
                   | <incr>
@@ -11613,6 +12160,11 @@ Ffigure_mapcontours
 
  Move xtics more closely to the plot.
        set xtics offset 0,graph 0.05
+
+ By default, tic labels are justified automatically depending on the axis and
+ rotation angle to produce aesthetically pleasing results. If this is not
+ desired, justification can be overridden with an explicit `left`, `right` or
+ `center` keyword. `autojustify` restores the default behavior.
 
  `set xtics` with no options restores the default border or axis if xtics are
  being displayed;  otherwise it has no effect.  Any previously specified tic
@@ -11739,7 +12291,7 @@ Ffigure_mapcontours
  total y range, and only the axis tics in this region are generated.
  I.e., the plot will be scaled to the full range on y, but there will be a gap
  between 0 and 2 on the left border and another gap between 4 and 10. This
- style is sometimes refered to as a `range-frame` graph.
+ style is sometimes referred to as a `range-frame` graph.
        set border 3
        set yrange [0:10]
        set ytics nomirror rangelimited
@@ -12142,8 +12694,7 @@ Ffigure_mapcontours
  `splot` provides only a single x, y, and z axis; there is no equivalent to the
  x2 and y2 secondary axes provided by `plot`.
 
- See `plot` for features common to the `plot` command; only differences are
- discussed in detail here.
+ See the `plot` command for many options available in both 2D and 3D plots.
 
  Syntax:
        splot {<ranges>}
@@ -12177,19 +12728,17 @@ Ffigure_mapcontours
 3 data-file
 ?commands splot datafile
 ?splot datafile
-?splot data-file
- As for `plot`, discrete data contained in a file can be displayed by
- specifying the name of the data file, enclosed in quotes,  on the `splot`
- command line.
+ `Splot`, like `plot`, can display from a file.
 
  Syntax:
        splot '<file_name>' {binary <binary list>}
-                           {matrix}
+                           {{nonuniform} matrix}
                            {index <index list>}
                            {every <every list>}
                            {using <using list>}
 
  The special filenames `""` and `"-"` are permitted, as in `plot`.
+ See `special-filenames`.
 
  In brief, `binary` and `matrix` indicate that the data are in a special
  form, `index` selects which data sets in a multi-data-set file are to be
@@ -12222,9 +12771,9 @@ Ffigure_mapcontours
 
  It is no longer necessary to specify `parametric` mode for three-column
  `splot`s.
-4 binary matrix
-?commands plot datafile binary matrix
-?commands splot datafile binary matrix
+4 matrix
+?commands plot datafile matrix
+?commands splot datafile matrix
 ?plot datafile matrix binary
 ?splot datafile matrix binary
 ?plot binary matrix
@@ -12233,24 +12782,42 @@ Ffigure_mapcontours
 ?splot matrix binary
 ?matrix binary
 ?binary matrix
-?gpbin
- Gnuplot can read matrix binary files by use of the option `binary` appearing
- without keyword qualifications unique to general binary, i.e., `array`,
- `record`, `format`, or `filetype`.  Other general binary keywords for
- translation should also apply to matrix binary.  (See `binary general` for
- more details.)
+ Gnuplot can interpret matrix input in two different ways.
+ The first of these assumes a uniform grid of x and y coordinates, and assigns
+ each value in the input matrix to one element of this uniform grid.
+ This is the default for ascii data input, but not for binary input.
+ Example commands for plotting uniform matrix data:
+      splot 'file' matrix using 1:2:3          # ascii input
+      splot 'file' binary general using 1:2:3  # binary input
 
- In previous versions, `gnuplot` dynamically detected binary data files.  It
- is now necessary to specify the keyword `binary` directly after the filename.
+ In a uniform grid matrix the z-values are read in a row at a time, i. e.,
+     z11 z12 z13 z14 ...
+     z21 z22 z23 z24 ...
+     z31 z32 z33 z34 ...
+ and so forth.
 
- Single precision floats are stored in a binary file as follows:
+ For ascii input, a blank line or comment line ends the matrix, and starts a new
+ surface mesh.  You can select among the meshes inside a file by the `index`
+ option to the `splot` command, as usual. 
+=nonuniform
+ The second interpretation assumes a non-uniform grid with explicit x and y
+ coordinates. The first row of input data contains the y coordinates; 
+ the first column of input data contains the x coordinates.  For binary input
+ data, the first element of the first row must contain the number of data
+ columns. (This number is ignored for ascii input).  Both the coordinates and
+ the data values in a binary input are treated as single precision floats.
+ Example commands for plotting non-uniform matrix data:
+      splot 'file' nonuniform matrix using 1:2:3  # ascii input
+      splot 'file' binary matrix using 1:2:3      # binary input
+
+ Thus the data organization for non-uniform matrix input is
 
        <N+1>  <y0>   <y1>   <y2>  ...  <yN>
         <x0> <z0,0> <z0,1> <z0,2> ... <z0,N>
         <x1> <z1,0> <z1,1> <z1,2> ... <z1,N>
          :      :      :      :   ...    :
 
- which are converted into triplets:
+ which is then converted into triplets:
        <x0> <y0> <z0,0>
        <x0> <y1> <z0,1>
        <x0> <y2> <z0,2>
@@ -12272,15 +12839,26 @@ Ffigure_mapcontours
  An example of using these routines is provided in the file `bf_test.c`, which
  generates binary files for the demo file `demo/binary.dem`.
 
- The `index` keyword is not supported, since the file format allows only one
- surface per file.  The `every` and `using` filters are supported.  `using`
- operates as if the data were read in the above triplet form.
+ Usage in `plot`:
+     plot `a.dat` matrix
+     plot `a.dat` matrix using 1:3
+     plot 'a.gpbin' {matrix} binary using 1:3
+ will plot rows of the matrix, while using 2:3 will plot matrix columns, and
+ using 1:2 the point coordinates (rather useless). Applying the `every` option
+ you can specify explicit rows and columns.
 
- See also `binary general` and
+ Example -- rescale axes of a matrix in an ascii file:
+     splot `a.dat` matrix using (1+$1):(1+$2*10):3
 
-^ <a href="http://www.gnuplot.info/demo/binary.html">
- Binary File Splot Demo.
-^ </a>
+ Example -- plot the 3rd row of a matrix in an ascii file:
+     plot 'a.dat' matrix using 1:3 every 1:999:1:2
+ (rows are enumerated from 0, thus 2 instead of 3).
+
+ Gnuplot can read matrix binary files by use of the option `binary` appearing
+ without keyword qualifications unique to general binary, i.e., `array`,
+ `record`, `format`, or `filetype`.  Other general binary keywords for
+ translation should also apply to matrix binary.  (See `binary general` for
+ more details.)
 4 example datafile
 ?commands splot datafile example
 ?splot datafile example
@@ -12311,7 +12889,7 @@ Ffigure_mapcontours
  Note that "datafile.dat" defines a 4 by 3 grid ( 4 rows of 3 points each ).
  Rows (datablocks) are separated by blank records.
 
-^ <img align=bottom src="http://www.gnuplot.info/doc/splot.gif" alt="[splot.gif]" width=640 height=480>
+C^ <img align=bottom src="http://www.gnuplot.info/doc/splot.gif" alt="[splot.gif]" width=640 height=480>
  Note also that the x value is held constant within each dataline.  If you
  instead keep y constant, and plot with hidden-line removal enabled, you will
  find that the surface is drawn 'inside-out'.
@@ -12323,74 +12901,6 @@ Ffigure_mapcontours
  derived, connects sequentially corresponding points, the effect of an
  irregular grid on a surface plot is unpredictable and should be examined
  on a case-by-case basis.
-4 matrix_ascii
-?commands plot datafile matrix ascii
-?commands splot datafile matrix ascii
-?plot datafile matrix ascii
-?splot datafile matrix ascii
-?plot matrix ascii
-?splot matrix ascii
-?data-file matrix ascii
-?datafile matrix ascii
-?matrix ascii
- The `matrix` keyword (without a sequent `binary` keyword) in
-     {s}plot 'a.dat' matrix
- indicates that data are stored in an ascii numbers matrix format.
-
- The z-values are read in a row at a time, i. e.,
-     z11 z12 z13 z14 ...
-     z21 z22 z23 z24 ...
-     z31 z32 z33 z34 ...
- and so forth.
-
- In 3D, the x- and y-indices of the matrix surface plot correspond to column
- and row indices of the matrix, respectively, being enumerated from 0. You can
- rescale or transform the axes as usual for a data file with three columns
- by means of x=$1, y=$2, z=$3. For example
-     splot 'a.dat' matrix using (1+$1/100):(1+$2*10):3
-
- A blank line or comment line ends the matrix, and starts a new surface mesh.
- You can select among the meshes inside a file by the `index` option to the
- `splot` command, as usual.
-
- See `matrix` for examples of plotting rows and columns of the matrix in
- a 2D plot.
-4 matrix
-?commands plot datafile matrix
-?commands splot datafile matrix
-?plot datafile matrix
-?splot datafile matrix
-?plot matrix
-?splot matrix
-?data-file matrix
-?datafile matrix
-?matrix
- Datafile can be in an ascii or binary matrix format. The `matrix` flag
- indicates that the file is ascii, the `binary` or `matrix binary` stands for
- a binary format. For details, see `matrix ascii` and `matrix binary`.
-
- Basic usage in `splot`:
-     splot 'a.dat' matrix
-     splot 'a.gpbin' {matrix} binary
- Advanced usage in `splot`:
-     splot 'a.dat' matrix using 1:2:3
-     splot 'a.gpbin' {matrix} binary using 1:2:3
- allows to transform the axes coordinates and the z-data independently.
-
- Usage in `plot`:
-     plot `a.dat` matrix
-     plot `a.dat` matrix using 1:3
-     plot 'a.gpbin' {matrix} binary using 1:3
- will plot rows of the matrix, while using 2:3 will plot matrix columns, and
- using 1:2 the point coordinates (rather useless). Applying the `every` option
- you can specify explicit rows and columns.
-
- Example -- rescale axes of a matrix in an ascii file:
-     splot `a.dat` matrix using (1+$1):(1+$2*10):3
-
- Example -- plot the 3rd row of a matrix in an ascii file:
-     plot 'a.dat' matrix using 1:3 every 1:999:1:2
- (rows are enumerated from 0, thus 2 instead of 3).
 3 grid data
 ?commands splot grid_data
 ?splot grid_data
@@ -12424,9 +12934,9 @@ Ffigure_mapcontours
         set samples 4,10; replot
         set samples 10,4; replot
 
-3 splot overview
-?commands splot overview
-?splot overview
+3 splot surfaces
+?commands splot surfaces
+?splot surfaces
  `splot` can display a surface as a collection of points, or by connecting
  those points.  As with `plot`, the points may be read from a data file or
  result from evaluation of a function at specified intervals, see
@@ -12536,6 +13046,15 @@ Ffigure_mapcontours
  on VMS systems, since they use file-versioning.]
 
  Please see `fit` for more information.
+2 While
+?while
+?commands while
+ Syntax:
+       while (<expr>) {
+           <commands>
+       }
+ Execute a block of commands repeatedly so long as <expr> evaluates to 
+ a non-zero value.
 1 Terminal types
 ^ <h2> Terminal Types </h2>
 2 complete list of terminals
@@ -12571,21 +13090,13 @@ Ffigure_mapcontours
 
 1 Bugs
 ?bugs
- Bugs reported since the current release as well as older ones
- may be located via the official distribution site on SourceForge.
-
- Please e-mail bug reports to the gnuplot-bugs mailing list.
- Or upload the report to the gnuplot web site on SourceForge.
+ Please e-mail bug reports to the gnuplot-bugs mailing list or
+ upload the report to the gnuplot web site on SourceForge.
  Please give complete information on the version of gnuplot you are using
  and, if possible, a test script that demonstrates the bug.
- See `Seeking-assistance`.
+ See `seeking-assistance`.
 
- The sections below list problems known to be present in gnuplot version 4.4 at
- the time of release.  Some of these are actually bugs in external support
- libraries and may have been fixed independent of any changes in gnuplot.
-
-2 Gnuplot limitations
-?bugs gnuplot
+2 known limitations
 =gamma
 =bessel
 =timefmt
@@ -12604,14 +13115,15 @@ Ffigure_mapcontours
  This means that multiplots whose constituent plots use different palettes
  will not display correctly in x11.
 
- Coordinates specified as "time" wrap at 24 hours, and have a precision limited
- to 1 second.  This is in particular a limitation in using time format to
- handle geographic coordinates.
-
- Error bars are not handled properly in polar/spherical coordinate plot modes.
+ Coordinates specified as "time" wrap at 24 hours. This is in particular
+ a limitation in using time format to handle geographic coordinates.
 
  The 'nohidden3d' option that is supposed to exempt individual plots from the
  global property 'set hidden3d' does not work for parametric curves.
+
+ The program does not track the true aspect ratio of the x11 terminal window.
+ In order for commands such as "set size ratio" to work, the x11 window must
+ itself have equal height and width.
 
 2 External libraries
 ?bugs external_libraries

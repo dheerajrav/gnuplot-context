@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: gplt_x11.c,v 1.202 2010/10/07 18:29:42 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: gplt_x11.c,v 1.207 2011/06/21 01:10:43 sfeam Exp $"); }
 #endif
 
 #define X11_POLYLINE 1
@@ -429,11 +429,6 @@ static long int SetTime __PROTO((plot_struct *, Time));
 static unsigned long AllocateXorPixel __PROTO((cmap_t *));
 static void GetGCXor __PROTO((plot_struct *, GC *));
 static void GetGCXorDashed __PROTO((plot_struct *, GC *));
-#if 0
-static void GetGCBlackAndWhite __PROTO((plot_struct *, GC *, Pixmap, int));
-static int SplitAt __PROTO((char **, int, char *, char));
-static void xfree __PROTO((void *));
-#endif
 static void EraseCoords __PROTO((plot_struct *));
 static void DrawCoords __PROTO((plot_struct *, const char *));
 static void DisplayCoords __PROTO((plot_struct *, const char *));
@@ -1287,6 +1282,7 @@ scan_palette_from_buf(void)
 	}
 	break;
     case SMPAL_COLOR_MODE_GRADIENT: {
+	static char frac[8] = {0,0,0,0,0,0,0,0};
 	int i=0;
 	read_input_line();
 	if (1 != sscanf( buf, "%d", &(tpal.gradient_num) )) {
@@ -1298,12 +1294,20 @@ scan_palette_from_buf(void)
 	  malloc( tpal.gradient_num * sizeof(gradient_struct) );
 	assert(tpal.gradient);
 	for( i=0; i<tpal.gradient_num; i++ ) {
-	    /*  this %50 *must* match the amount of gradient structs
-		written to the pipe by x11.trm!  */
-	    if (i%50 == 0) {
+	    char *b = &(buf[12*(i%50)]);
+	    unsigned int rgb_component;
+	    /*  this %50 *must* match the corresponding line in x11.trm!  */
+	    if (i%50 == 0)
 	        read_input_line();
-	    }
-	    str_to_gradient_entry( &(buf[8*(i%50)]), &(tpal.gradient[i]) );
+	    /* Read gradient entry as 0.1234RRGGBB */
+	    memcpy(frac, b, 6);
+	    tpal.gradient[i].pos = atof(frac);
+	    sscanf(b+6,"%2x",&rgb_component);
+	    tpal.gradient[i].col.r = (double)(rgb_component) / 255.;
+	    sscanf(b+8,"%2x",&rgb_component);
+	    tpal.gradient[i].col.g = (double)(rgb_component) / 255.;
+	    sscanf(b+10,"%2x",&rgb_component);
+	    tpal.gradient[i].col.b = (double)(rgb_component) / 255.;
 	}
 	break;
       }
@@ -3280,23 +3284,6 @@ UpdateWindow(plot_struct * plot)
 	return;
     }
 
-#if 0 /* START OF CRUFT */
-    if (plot->pixmap == None) {
-	/* create a black background pixmap */
-	FPRINTF((stderr, "Create pixmap %d : %dx%dx%d\n", plot->plot_number, plot->width, PIXMAP_HEIGHT(plot), dep));
-	plot->pixmap = XCreatePixmap(dpy, root, plot->width, PIXMAP_HEIGHT(plot), dep);
-	if (gc)
-	    XFreeGC(dpy, gc);
-	gc = XCreateGC(dpy, plot->pixmap, 0, (XGCValues *) 0);
-	if (font)
-	  gpXSetFont(dpy, gc, font->fid);
-	/* set pixmap background */
-	XSetForeground(dpy, gc, plot->cmap->colors[0]);
-	XFillRectangle(dpy, plot->pixmap, gc, 0, 0, plot->width, PIXMAP_HEIGHT(plot) + vchar);
-	XSetBackground(dpy, gc, plot->cmap->colors[0]);
-    }
-#endif /* END OF CRUFT */
-
     XSetWindowBackgroundPixmap(dpy, plot->window, plot->pixmap);
     XClearWindow(dpy, plot->window);
 
@@ -3551,6 +3538,7 @@ PaletteMake(t_sm_palette * tpal)
 
 	if (current_plot) {
 
+#ifdef TITLE_BAR_DRAWING_MSG
 	    if (current_plot->window) {
 		char *msg;
 		char *added_text = " allocating colors ...";
@@ -3566,6 +3554,7 @@ PaletteMake(t_sm_palette * tpal)
 		    free(msg);
 		}
 	    }
+#endif
 
 	    if (!num_colormaps) {
 		XFree(XListInstalledColormaps(dpy, current_plot->window, &num_colormaps));
@@ -3675,6 +3664,7 @@ PaletteMake(t_sm_palette * tpal)
 
     }
 
+#ifdef TITLE_BAR_DRAWING_MSG
     if (save_title) {
 	/* Restore window title (current_plot and current_plot->window are
 	 * valid, otherwise would not have been able to get save_title.
@@ -3682,6 +3672,7 @@ PaletteMake(t_sm_palette * tpal)
 	XStoreName(dpy, current_plot->window, save_title);
 	XFree(save_title);
     }
+#endif
 
 }
 
@@ -3938,85 +3929,6 @@ GetGCXorDashed(plot_struct * plot, GC * gc)
 		       JoinMiter /* also: JoinRound, JoinBevel */ );
 }
 
-#if 0
-/*
- * returns the newly created gc
- * pixmap: where the gc will be used
- * mode == 0 --> black on white
- * mode == 1 --> white on black
- */
-/* FIXME HBB 20020225: This function is not used anywhere ??? */
-static void
-GetGCBlackAndWhite(plot_struct * plot, GC * ret, Pixmap pixmap, int mode)
-{
-    XGCValues values;
-    unsigned long mask = 0;
-
-    mask = GCForeground | GCBackground | GCFont | GCFunction;
-    if (!mode) {
-#if 0
-	values.foreground = BlackPixel(dpy, scr);
-	values.background = WhitePixel(dpy, scr);
-#else
-	values.foreground = plot->cmap->colors[1];
-	values.background = plot->cmap->colors[0];
-#endif
-    } else {
-	/*
-	 * swap colors
-	 */
-#if 0
-	values.foreground = WhitePixel(dpy, scr);
-	values.background = BlackPixel(dpy, scr);
-#else
-	values.foreground = plot->cmap->colors[0];
-	values.background = plot->cmap->colors[1];
-#endif
-    }
-    values.function = GXcopy;
-    values.font = font->fid;
-
-    *ret = XCreateGC(dpy, pixmap, mask, &values);
-}
-
-/*
- * split a string at `splitchar'.
- */
-/* FIXME HBB 20020225: This function is not used anywhere ??? */
-static int
-SplitAt(char **args, int maxargs, char *buf, char splitchar)
-{
-    int argc = 0;
-
-    while (*buf != '\0' && argc < maxargs) {
-
-	if ((*buf == splitchar))
-	    *buf++ = '\0';
-
-	if (!(*buf))		/* don't count the terminating NULL */
-	    break;
-
-	/* Save the argument.  */
-	*args++ = buf;
-	argc++;
-
-	/* Skip over the argument */
-	while ((*buf != '\0') && (*buf != splitchar))
-	    buf++;
-    }
-
-    *args = '\0';		/* terminate */
-    return argc;
-}
-
-/* FIXME HBB 20020225: This function is not used anywhere ??? */
-static void
-xfree(void *fred)
-{
-    if (fred)
-	free(fred);
-}
-#endif
 
 /* erase the last displayed position string */
 static void
@@ -4024,7 +3936,6 @@ EraseCoords(plot_struct * plot)
 {
     DrawCoords(plot, plot->str);
 }
-
 
 
 static void
@@ -4120,12 +4031,13 @@ is_meta(KeySym mod)
  * value of gnuplotXID (because Konsole's in KDE <3.2 don't set WINDOWID contrary
  * to all other xterm's).
  * Currently implemented for:
- *	- KDE's Konsole.
+ *	- KDE3 Konsole.
  * Note: if the returned command is !NULL, then it must be free()'d by the caller.
  */
 static char*
 getMultiTabConsoleSwitchCommand(unsigned long *newGnuplotXID)
 {
+/* NOTE: This code uses the DCOP mechanism from KDE3, which went away in KDE4 */
 #ifdef HAVE_STRDUP	/* We assume that any machine missing strdup is too old for KDE */
     char *cmd = NULL; /* result */
     char *ptr = getenv("KONSOLE_DCOP_SESSION"); /* Try KDE's Konsole first. */
@@ -4202,6 +4114,7 @@ getMultiTabConsoleSwitchCommand(unsigned long *newGnuplotXID)
     /* ... if somebody bothers to implement it ... */
 
 #endif /* HAVE_STRDUP */
+/* NOTE: End of DCOP/KDE3 code (no longer works in KDE4) */
     /* we are not running in any known (implemented) multitab console */
     return NULL;
 }
@@ -5107,13 +5020,6 @@ gnuplot: X11 aborted.\n", ldisplay);
 #if 0
     if (DirectColor == vis->class) {
 	have_pm3d = 0;
-    }
-#endif
-#if 0
-    /* removed this message as it is annoying
-     * when using gnuplot in a pipe (joze) */
-    if (vis->class < (sizeof(visual_name) / sizeof(char **)) - 1) {
-	fprintf(stderr, "Using %s at depth %d.\n", visual_name[vis->class], dep);
     }
 #endif
     CmapClear(&default_cmap);

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: mouse.c,v 1.128 2010/11/18 23:59:59 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: mouse.c,v 1.131 2011/05/14 10:04:45 markisch Exp $"); }
 #endif
 
 /* GNUPLOT - mouse.c */
@@ -661,6 +661,7 @@ apply_zoom(struct t_zoom *z)
 	for (i=0; i<AXIS_ARRAY_SIZE; i++) {
 	    axis_array_copy[i].label = axis_array[i].label;
 	    axis_array_copy[i].ticdef.def.user = axis_array[i].ticdef.def.user;
+	    axis_array_copy[i].ticdef.font = axis_array[i].ticdef.font;
 	}
 	memcpy(axis_array, axis_array_copy, sizeof(axis_array));
 	s[0] = '\0';	/* FIXME:  Is this better than calling replotrequest()? */
@@ -764,8 +765,8 @@ incr_mousemode(const int amount)
     if (MOUSE_COORDINATES_ALT == mouse_mode && !(mouse_alt_string || polar))
 	mouse_mode += amount;	/* stepping over */
     if (mouse_mode > MOUSE_COORDINATES_ALT) {
-	mouse_mode = MOUSE_COORDINATES_REAL;
-    } else if (mouse_mode < MOUSE_COORDINATES_REAL) {
+	mouse_mode = MOUSE_COORDINATES_REAL1;
+    } else if (mouse_mode <= MOUSE_COORDINATES_REAL) {
 	mouse_mode = MOUSE_COORDINATES_ALT;
 	if (!(mouse_alt_string || polar))
 	    mouse_mode--;	/* stepping over */
@@ -1106,7 +1107,7 @@ static char *
 builtin_decrement_mousemode(struct gp_event_t *ge)
 {
     if (!ge) {
-	return "`builtin-decrement-mousemode`";
+	return "`builtin-previous-mouse-format`";
     }
     incr_mousemode(-1);
     return (char *) 0;
@@ -1116,7 +1117,7 @@ static char *
 builtin_increment_mousemode(struct gp_event_t *ge)
 {
     if (!ge) {
-	return "`builtin-increment-mousemode`";
+	return "`builtin-next-mouse-format`";
     }
     incr_mousemode(1);
     return (char *) 0;
@@ -1302,7 +1303,7 @@ event_keypress(struct gp_event_t *ge, TBOOLEAN current)
 	bind_install_default_bindings();
     }
 
-    if (modifier_mask & Mod_Shift) {
+    if ((modifier_mask & Mod_Shift) && ((c & 0xff) == 0)) {
 	c = toupper(c);
     }
 

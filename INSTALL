@@ -32,7 +32,10 @@ For the impatient
 selects the set of terminal drivers to be compiled in.  
 
    The recommended way to configure both of these is the GNU-style
-"./configure" script described below, and also in INSTALL.gnu.
+"./configure" script described below and described further in INSTALL.gnu.
+This script is provided as part of the distributed source package, but if you
+are using sources downloaded directly from a CVS repository you may need to
+regenerate it using the preliminary script "./prepare".
 
    A complete overview of configure options is below in the Basic
 Installation section. On platforms which do not support GNU
@@ -169,14 +172,9 @@ $ ./configure --help
   --disable-x11-mbfonts   disable multi-byte font support for x11
   --disable-binary-x11-polygon  disable binary_x11_polygon
   --disable-x11-external  disable drawing to windows belonging to external apps
-  --enable-thin-splines   enable thin plate splines
   --disable-volatile-data disable zooming of volatile data
   --disable-raise-console spacebar in plot window does not raise console
-  --disable-objects       disable rectangles and other objects
   --disable-macros        disable command line macros
-  --enable-mgr            enable MGR terminal
-  --enable-rgip           enable Redwood Graphics Interface Protocol
-  --disable-h3d-quadtree  disable quadtree optimization in hidden3d code
   --enable-h3d-gridbox    enable gridbox optimization in hidden3d code
   --disable-wxwidgets     wxWidgets terminal (default enabled)
   --enable-backwards-compatibility       enable deprecated syntax
@@ -185,6 +183,9 @@ $ ./configure --help
 			restrictive that the gnuplot license.  This option
 			disables inclusion of this code and any terminals that
 			depend on it (mostly HP deskjet era dot matrix printers).
+  --with-readline={gnu|bsd|builtin}
+			Override the automatic choice of terminal input modes.
+			See below for more detail.
 
 Options marked with (*) are enabled by default, ie. these features or
 packages are used if configure detects them even if the corresponding
@@ -210,25 +211,40 @@ Ubuntu:
 Mac OSX
 -------
 
-As I understand the situation, Apple ships OSX with a "fake" libreadline shared
-library. The file /usr/lib/libreadline.dylib is really a symlink to a
-compatibility layer over the BSD libedit library.  But the compatibility isn't
-complete, and in particular it is missing many of the routines used for readline
-support by gnuplot. As of version 4.4.1, the ./configure script should be able
-to cope with this. But you will still be left without some of the functionality
-of the "real" libreadline.  For one thing, libedit doesn't handle UTF input.
-You have a couple of options:
+Readline issues:
 
-1) Delete the fake libreadline libraries from OSX and install
-the real gnu libreadline as a system library.
+  As I understand the situation, Apple ships OSX with a "fake" libreadline
+  shared library. The file /usr/lib/libreadline.dylib is really a symlink to a
+  compatibility layer over the BSD libedit library.  But the compatibility isn't
+  complete, and in particular it is missing many of the routines used for readline
+  support by gnuplot. As of version 4.4.1, the ./configure script should be able
+  to cope with this. But you will still be left without some of the functionality
+  of the "real" libreadline.  For one thing, libedit doesn't handle UTF input.
+  You have a couple of options:
+  
+  1) Delete the fake libreadline libraries from OSX and install
+  the real gnu libreadline as a system library.
+  
+  2) Install the real gnu libreadline into your personal account and
+  tell gnuplot to use it:
+  ./configure --with-readline=/my/private/readline/installdir
+  This may require some playing around with additional -L and -I
+  definitions in CFLAGS, and is probably harder than replacing the
+  system copy of the library.
 
-2) Install the real gnu libreadline into your personal account and
-tell gnuplot to use it:
-./configure --with-readline=/my/private/readline/installdir
-This may require some playing around with additional -L and -I
-definitions in CFLAGS, and is probably harder than replacing the
-system copy of the library.
+wxt terminal:
 
+  Cairo & pango need to be installed first on Mac, 
+  I recommend using MacPorts building universal (i386 libraries):
+  sudo port install cairo +no_x11 +quartz +universal
+  sudo port install pango +no_x11 +quartz +universal
+
+  Next gnuplot may be compiled with shipped with Mac OS X 10.6 SL wxWidgets using:
+  ./configure CPPFLAGS='-arch i386' LDFLAGS='-arch i386'
+
+  NOTE: 10.6 SL by default generates x86_64 code, but wxWidgets stable is using
+  Carbon API on Mac which is 32-bit only, that makes compiling gnuplot,
+  cairo and pango to i386 necessary.
 
 
 VMS
@@ -385,11 +401,17 @@ non-default location that is not searched by the preprocessor or linker.
 
   --with-readline
 
-   Use gnuplot's builtin readline function. This is enabled by default.
+   Use whatever readline support is detected automatically, either an
+   external library or gnuplot's built-in version. This is the default.
+
+  --with-readline=builtin
+
+   Use gnuplot's own builtin readline routines even if a GNU or BSD readline
+   library is detected.
 
   --without-readline
 
-   (same as --with-readline=no) Do not use gnuplot's builtin readline function.
+   (same as --with-readline=no) Do not use any readline processing.
 
   --with-readline=gnu
 
@@ -412,13 +434,6 @@ non-default location that is not searched by the preprocessor or linker.
   --with-pdf[=DIR]
 
     Dto. for the pdf library. This option is on by default.
-
-  --with-plot[=DIR]
-
-    If used without the DIR argument, this option selects the standard
-    UNIX plot library, if available. If used with the DIR argument,
-    configure looks for the plot library from GNU plotutils version 2.2
-    or better. The option is off by default.
 
 
 Platform compiler problems

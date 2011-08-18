@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: internal.c,v 1.61 2011/01/08 13:37:26 broeker Exp $"); }
+static char *RCSid() { return RCSid("$Id: internal.c,v 1.64 2011/08/01 05:14:23 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - internal.c */
@@ -191,11 +191,65 @@ f_calln(union argument *x)
     for (i = num_pop - 1; i >= 0; i--)
 	(void) pop(&(udf->dummy_values[i]));
 
+    if (recursion_depth++ > STACK_DEPTH)
+	int_error(NO_CARET, "recursion depth limit exceeded");
+
     execute_at(udf->at);
+
+    recursion_depth--;
+
     for (i = 0; i < MAX_NUM_VAR; i++) {
 	gpfree_string(&udf->dummy_values[i]);
 	udf->dummy_values[i] = save_dummy[i];
     }
+}
+
+
+void
+f_sum(union argument *arg)
+{
+    struct value beg, end, varname; /* [<var> = <start>:<end>] */
+    udft_entry *udf;                /* function to evaluate */
+    udvt_entry *udv;                /* iteration variable */
+    struct value ret;               /* result */
+    struct value z;
+    int i;
+
+    (void) pop(&end);
+    (void) pop(&beg);
+    (void) pop(&varname);
+
+    if (beg.type != INTGR || end.type != INTGR)
+        int_error(NO_CARET, "range specifiers of sum must have integer values");
+    if (varname.type != STRING)
+        int_error(NO_CARET, "internal error: f_sum expects argument (varname) of type string.");
+
+    udv = get_udv_by_name(varname.v.string_val);
+    if (!udv)
+        int_error(NO_CARET, "internal error: f_sum could not access iteration variable.");
+    udv->udv_undef = false;
+
+    udf = arg->udf_arg;
+    if (!udf)
+        int_error(NO_CARET, "internal error: f_sum could not access summation coefficient function");
+
+    Gcomplex(&ret, 0, 0);
+    for (i=beg.v.int_val; i<=end.v.int_val; ++i) {
+        double x, y;
+
+        /* calculate f_i = f() with user defined variable i */
+        Ginteger(&udv->udv_value, i);
+        execute_at(udf->at);
+
+        pop(&z);
+        x = real(&ret) + real(&z);
+        y = imag(&ret) + imag(&z);
+        Gcomplex(&ret, x, y);
+    }
+
+    gpfree_string(&varname);
+
+    push(Gcomplex(&z, real(&ret), imag(&ret)));
 }
 
 
@@ -1070,7 +1124,7 @@ void
 f_range(union argument *arg)
 {
     struct value beg, end, full;
-    struct value substr = {0};
+    struct value substr;
 
     (void) arg;			/* avoid -Wunused warning */
     (void) pop(&end);

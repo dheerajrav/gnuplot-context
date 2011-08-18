@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: plot2d.c,v 1.237 2010/11/19 04:03:23 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: plot2d.c,v 1.247 2011/07/22 14:37:57 juhaszp Exp $"); }
 #endif
 
 /* GNUPLOT - plot2d.c */
@@ -420,7 +420,7 @@ get_data(struct curve_points *current_plot)
 	    df_axis[2] = df_axis[3] = df_axis[1];
 	break;
 
-    case VECTOR:	/* x, y, dx, dy, variable_color */
+    case VECTOR:	/* x, y, dx, dy, variable color or arrow style */
 	min_cols = 4;
 	max_cols = 5;
 	break;
@@ -654,6 +654,9 @@ get_data(struct curve_points *current_plot)
 	    continue;
 	case DF_KEY_TITLE_MISSING:
 	    fprintf(stderr,"get_data: key title not found in requested column\n");
+	    continue;
+
+	case DF_COLUMN_HEADERS:
 	    continue;
 
 	case 0:         /* not blank line, but df_readline couldn't parse it */
@@ -950,6 +953,12 @@ get_data(struct curve_points *current_plot)
 				  v[2], v[3], v[4]);
 		    break;
 
+		case VECTOR:
+		    /* x,y,dx,dy, variable arrowstyle */
+		    store2d_point(current_plot, i++, v[0], v[1], v[0], v[0] + v[2],
+				  v[1], v[1] + v[3], v[4]);
+		    break;
+
 #ifdef EAM_OBJECTS
 		case CIRCLES:	/* x, y, radius, arc begin, arc end */
 		    /* negative radius means default radius -> set flag in width */
@@ -1016,11 +1025,14 @@ images:
     }                           /*while */
 
     /* This removes extra point caused by blank lines after data. */
-    if (current_plot->points[i-1].type == UNDEFINED)
+    if (i>0 && current_plot->points[i-1].type == UNDEFINED)
 	i--;
 
     current_plot->p_count = i;
     cp_extend(current_plot, i); /* shrink to fit */
+
+    /* Last chance to substitute input values for placeholders in plot title */
+    df_set_key_title(current_plot);
 
     df_close();
 
@@ -1293,18 +1305,15 @@ boxplot_range_fiddling(struct curve_points *plot)
 {
     double extra_width;
 
+    /* Sort the points and removed any that are undefined */
+    int N = filter_boxplot(plot);
+
     if (plot->points[0].type == UNDEFINED)
 	int_error(NO_CARET,"boxplot has undefined x coordinate");
 
     extra_width = plot->points[0].xhigh - plot->points[0].xlow;
     if (extra_width == 0)
 	extra_width = (boxwidth > 0 && boxwidth_is_absolute) ? boxwidth : 0.5;
-
-    /* FIXME:  This is a boxplot-specific kludge to remove any extra, undefined
-     * points at the end of the point list.  A more general fix would be nice.
-     */
-    while (plot->points[plot->p_count-1].type == UNDEFINED)
-	plot->p_count--;
 
     if (axis_array[plot->x_axis].autoscale & AUTOSCALE_MIN) {
 	if (axis_array[plot->x_axis].min >= plot->points[0].x)
@@ -1313,9 +1322,9 @@ boxplot_range_fiddling(struct curve_points *plot)
 	    axis_array[plot->x_axis].min -= 1 * extra_width;
     }
     if (axis_array[plot->x_axis].autoscale & AUTOSCALE_MAX) {
-	if (axis_array[plot->x_axis].max <= plot->points[plot->p_count-1].x)
+	if (axis_array[plot->x_axis].max <= plot->points[N-1].x)
 	    axis_array[plot->x_axis].max += 1.5 * extra_width;
-	else if (axis_array[plot->x_axis].max <= plot->points[plot->p_count-1].x + extra_width)
+	else if (axis_array[plot->x_axis].max <= plot->points[N-1].x + extra_width)
 	    axis_array[plot->x_axis].max += 1 * extra_width;
     }
 }
@@ -1520,94 +1529,6 @@ store_label(
     FPRINTF((stderr,"LABELPOINT %f %f \"%s\" \n", tl->place.x, tl->place.y, tl->text));
 }
 
-
-/*
- * print_points: a debugging routine to print out the points of a curve, and
- * the curve structure. If curve<0, then we print the list of curves.
- */
-
-#if 0                           /* not used */
-static char *plot_type_names[] =
-{
-    "Function", "Data", "3D Function", "3d data"
-};
-static char *plot_style_names[] =
-{
-    "Lines", "Points", "Impulses", "LinesPoints", "Dots", "XErrorbars",
-    "YErrorbars", "XYErrorbars", "BoxXYError", "Boxes", "Boxerror", "Steps",
-    "FSteps", "Vector",
-    "XErrorlines", "YErrorlines", "XYErrorlines"
-};
-static char *plot_smooth_names[] =
-{
-    "None", "Unique", "Frequency", "CSplines", "ACSplines", "Bezier", "SBezier"
-};
-
-static void
-print_points(int curve)
-{
-    struct curve_points *this_plot;
-    int i;
-
-    if (curve < 0) {
-	for (this_plot = first_plot, i = 0;
-	     this_plot != NULL;
-	     i++, this_plot = this_plot->next) {
-	    printf("Curve %d:\n", i);
-	    if ((int) this_plot->plot_type >= 0 && (int) (this_plot->plot_type) < 4)
-		printf("Plot type %d: %s\n", (int) (this_plot->plot_type),
-			plot_type_names[(int) (this_plot->plot_type)]);
-	    else
-		printf("Plot type %d: BAD\n", (int) (this_plot->plot_type));
-	    if ((int) this_plot->plot_style >= 0 && (int) (this_plot->plot_style) < 14)
-		printf("Plot style %d: %s\n", (int) (this_plot->plot_style),
-			plot_style_names[(int) (this_plot->plot_style)]);
-	    else
-		printf("Plot style %d: BAD\n", (int) (this_plot->plot_style));
-	    if ((int) this_plot->plot_smooth >= 0 && (int) (this_plot->plot_smooth) < 6)
-		printf("Plot smooth style %d: %s\n", (int) (this_plot->plot_style),
-			plot_smooth_names[(int) (this_plot->plot_smooth)]);
-	    else
-		printf("Plot smooth style %d: BAD\n", (int) (this_plot->plot_smooth));
-	    printf("\
-Plot title: '%s'\n\
-Line type %d\n\
-Point type %d\n\
-max points %d\n\
-current points %d\n\n",
-		   this_plot->title,
-		   this_plot->line_type,
-		   this_plot->point_type,
-		   this_plot->p_max,
-		   this_plot->p_count);
-	}
-    } else {
-	for (this_plot = first_plot, i = 0;
-	     i < curve && this_plot != NULL;
-	     i++, this_plot = this_plot->next);
-	if (this_plot == NULL)
-	    printf("Curve %d does not exist; list has %d curves\n", curve, i);
-	else {
-	    printf("Curve %d, %d points\n", curve, this_plot->p_count);
-	    for (i = 0; i < this_plot->p_count; i++) {
-		printf("%c x=%g y=%g z=%g xlow=%g xhigh=%g ylow=%g yhigh=%g\n",
-			this_plot->points[i].type == INRANGE ? 'i'
-			: this_plot->points[i].type == OUTRANGE ? 'o'
-			: 'u',
-			this_plot->points[i].x,
-			this_plot->points[i].y,
-			this_plot->points[i].z,
-			this_plot->points[i].xlow,
-			this_plot->points[i].xhigh,
-			this_plot->points[i].ylow,
-			this_plot->points[i].yhigh);
-	    }
-	    printf("\n");
-	}
-    }
-}
-#endif /* not used */
-
 /* HBB 20010610: mnemonic names for the bits stored in 'uses_axis' */
 typedef enum e_uses_axis {
     USES_AXIS_FOR_DATA = 1,
@@ -1681,7 +1602,7 @@ eval_plots()
      * as filling in every thing except the function data. That is done after
      * the xrange is defined.
      */
-    check_for_iteration();
+    plot_iterator = check_for_iteration();
     while (TRUE) {
 	if (END_OF_COMMAND)
 	    int_error(c_token, "function to plot expected");
@@ -1901,20 +1822,17 @@ eval_plots()
 		    }
 		    c_token++;
 
-		    if (almost_equals(c_token,"col$umnheader")) {
-			df_set_key_title_columnhead(this_plot->plot_type);
-		    } else 
-
-#ifdef BACKWARDS_COMPATIBLE
-		    /* Annoying backwards-compatibility hack - deprecate! */
-		    if (isanumber(c_token)) {
-			c_token--;
-			df_set_key_title_columnhead(this_plot->plot_type);
-		    } else
-#endif
-
-		    if (!(this_plot->title = try_to_get_string()))
-			int_error(c_token, "expecting \"title\" for plot");
+		    /* This ugliness is because columnheader can be either a keyword */
+		    /* or a function name.  Yes, the design could have been better. */
+		    if (almost_equals(c_token,"col$umnheader")
+		    && !(equals(c_token,"columnhead") && equals(c_token+1,"(")) ) {
+			df_set_key_title_columnhead(this_plot);
+		    } else {
+			evaluate_inside_using = TRUE;
+			if (!(this_plot->title = try_to_get_string()))
+			    int_error(c_token, "expecting \"title\" for plot");
+			evaluate_inside_using = FALSE; 
+		    }
 		    set_title = TRUE;
 		    continue;
 		}
@@ -2453,16 +2371,17 @@ eval_plots()
 	}
 
 	/* Iterate-over-plot mechanism */
-	if (empty_iteration() && this_plot) {
+	if (empty_iteration(plot_iterator) && this_plot) {
 	    this_plot->plot_type = NODATA;
-	} else if (next_iteration()) {
+	} else if (next_iteration(plot_iterator)) {
 	    c_token = start_token;
 	    continue;
 	}
 
+	plot_iterator = cleanup_iteration(plot_iterator);
 	if (equals(c_token, ",")) {
 	    c_token++;
-	    check_for_iteration();
+	    plot_iterator = check_for_iteration();
 	} else
 	    break;
     }
@@ -2545,7 +2464,7 @@ eval_plots()
 	this_plot = first_plot;
 	c_token = begin_token;  /* start over */
 
-	check_for_iteration();
+	plot_iterator = check_for_iteration();
 
 	/* Read through functions */
 	while (TRUE) {
@@ -2636,8 +2555,9 @@ eval_plots()
 				    this_plot->points[i].type = OUTRANGE;
 			    }
 			    if (temp < R_AXIS.min) {
+				/* FIXME: could do this outside the loop */
 				if (R_AXIS.autoscale & AUTOSCALE_MIN)
-				    R_AXIS.min = (temp>0) ? 0 : temp;
+				    R_AXIS.min = 0;
 			    }
 			    if (R_AXIS.log) {
 				temp = AXIS_DO_LOG(POLAR_AXIS,temp)
@@ -2728,15 +2648,16 @@ eval_plots()
 	    }
 
 	    /* Iterate-over-plot mechanism */
-	    if (!in_parametric && next_iteration()) {
+	    if (!in_parametric && next_iteration(plot_iterator)) {
 		c_token = start_token;
 		continue;
 	    }
 
+	    plot_iterator = cleanup_iteration(plot_iterator);
 	    if (equals(c_token, ",")) {
 		c_token++;
 		if (!in_parametric)
-		    check_for_iteration();
+		    plot_iterator = check_for_iteration();
 	    } else
 		break;
 	}

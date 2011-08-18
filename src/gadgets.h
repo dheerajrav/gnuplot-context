@@ -52,6 +52,7 @@
 /* Default point size is taken from the global "pointsize" variable */
 #define PTSZ_DEFAULT    (-2)
 #define PTSZ_VARIABLE   (-3)
+#define AS_VARIABLE	(-3)
 
 /* Type definitions */
 
@@ -91,8 +92,11 @@ typedef struct text_label {
 
 /* This is the default state for the axis, timestamp, and plot title labels
  * indicated by tag = -2 */
+#define NONROTATABLE_LABEL_TAG -2
+#define ROTATE_IN_3D_LABEL_TAG -3
 #define EMPTY_LABELSTRUCT \
-    {NULL, -2, {character, character, character, 0.0, 0.0, 0.0}, CENTRE, 0, 0, \
+    {NULL, NONROTATABLE_LABEL_TAG, \
+     {character, character, character, 0.0, 0.0, 0.0}, CENTRE, 0, 0, \
      NULL, NULL, {TC_LT, -2, 0.0}, DEFAULT_LP_STYLE_TYPE, \
      {character, character, character, 0.0, 0.0, 0.0}, FALSE }
 
@@ -291,7 +295,7 @@ typedef struct {
 
 extern legend_key keyT;
 
-# define DEFAULT_KEYBOX_LP { 0, LT_NODRAW, 0, 1.0, 1.0, 0 }
+#define DEFAULT_KEYBOX_LP {0, LT_NODRAW, 0, 0, 1.0, PTSZ_DEFAULT, FALSE, DEFAULT_COLORSPEC}
 
 #define DEFAULT_KEY_POSITION { graph, graph, graph, 0.9, 0.9, 0. }
 
@@ -306,7 +310,8 @@ extern legend_key keyT;
 		FALSE, FALSE, FALSE, TRUE, \
 		DEFAULT_KEYBOX_LP, \
 		"", \
-		NULL, {TC_LT, LT_BLACK, 0.0} }
+		NULL, {TC_LT, LT_BLACK, 0.0}, \
+		{0,0,0,0}, 0, 0 }
 
 
 /*

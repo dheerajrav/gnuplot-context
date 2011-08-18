@@ -90,10 +90,10 @@ struct TERMENTRY {
 
 One consequence of (1) is that we would like drivers to be backwards
 compatible - drivers in the correct form below should work in future
-versions of gnuplot without change. C compilers guarantee to fill
-uninitialised members of a structure to zero, so gnuplot can detect old
-drivers, in which fields have not been initialised, and can point
-new interface entry pointers to dummy functions.
+versions of gnuplot without change. ISO C guarantees to fill uninitialised
+members of a static structure to zero, so gnuplot can detect old drivers,
+in which fields have not been initialised, and can point new interface entry
+pointers to dummy functions.
 
 We can add fields to the terminal structure, but only at the end of the list.
 If you design a terminal that can't work without a new interface being defined,
@@ -406,11 +406,14 @@ _image(unsigned M, unsigned N, coordval *image, gpiPoint *corner, t_imagecolor c
    along rows finishing in the lower right corner.  If 'color_mode' is
    IC_PALETTE, the terminal is to use palette lookup to generate color
    information.  In this scenario the size of 'image' is M*N.  If
-   'color_mode' is IC_RGB, the terminal is to use RGB components.  In
-   this scenario the size of 'image' is 3*M*N.  The data appears in RGB
-   triples, i.e., image[0] = R(1,1), image[1] = G(1,1), image[2] =
-   B(1,1), image[3] = R(1,2), image[4] = G(1,2), ..., image[3*M*N-1] =
-   B(M,N).  The 'image' is actually an "input" image in the sense that
+   'color_mode' is IC_RGB, successive bytes of the data structure are 
+   interpreted as RGB components of a single pixel.  In this scenario
+   the size of 'image' is 3*M*N.  The data appears in RGB triples, i.e.,
+   image[0] = R(1,1), image[1] = G(1,1), image[2] = B(1,1), 
+   image[3] = R(1,2), image[4] = G(1,2), ..., image[3*M*N-1] = B(M,N).
+   The mode IC_RGBA is similar except that four values red, green, blue,
+   alpha per pixel are passed to the terminal in the image structure.
+   The 'image' is actually an "input" image in the sense that
    it must also be properly resampled for the output device.  Many output
    media, e.g., PostScript, do this work via various driver functions.
    To determine the appropriate rescaling, the 'corner' information
@@ -488,6 +491,12 @@ bitmap in memory, drawing lines and writing text. A simple driver
 need provide only a text() entry point, which converts and outputs
 the stored bitmap in the format required by the device.
 
+As of version 4.5, inclusion of bitmap.c and the terminal drivers
+that depend on it is controlled by ./configure --with-bitmap-terminals.
+This may be desirable because the license for bitmap.c is more
+restrictive than the gnuplot license itself, and because the terminals
+it supports are mostly obsolete.
+
 Internally, the bitmap is built of one or more planes of 1
 bit per pixel. In fact, I think the library would be easier to
 use if it offered one or more planes of pixels with 1,2,4 or 8
@@ -543,17 +552,6 @@ the initialisation that presently has to be done by the driver graphics()
 entry point.  Also, one day I would like to have parsing, including
 terminal driver options, table-driven, but I'm getting ahead of myself
 here.
-
-
-At present, bitmap.c is linked into gnuplot unconditionally. Perhaps
-it should be put into a library, so that it is linked in only if
-any of the user-selected drivers require bitmap support.
-
-There may be scope to do similar things with some of the other
-stuff that is shared by several drivers. Rather than requiring,
-for example, that LATEX driver is required if EMTEX is to be used,
-the shared routines could be extracted to a library and linked
-if any of the drivers which use them are used.  Just a thought...
 
 ------------------------------------
 

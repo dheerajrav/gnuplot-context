@@ -1,5 +1,5 @@
 /*
- * $Id: term.h,v 1.47 2010/11/14 00:06:53 sfeam Exp $
+ * $Id: term.h,v 1.51 2011/06/01 03:44:36 sfeam Exp $
  */
 
 /* GNUPLOT - term.h */
@@ -39,7 +39,7 @@
  *   Edit this file depending on the set of terminals you wish to support.
  * Comment out the terminal types that you don't want or don't have, and
  * uncomment those that you want included. Be aware that some terminal
- * types (eg, SUN, UNIXPLOT) will require changes in the makefile
+ * types (eg, SUN) will require changes in the makefile
  * LIBS definition.
  */
 
@@ -124,11 +124,6 @@
 /* MSDOS with djgpp compiler */
 # if defined(DJGPP) && (!defined(DJSVGA) || (DJSVGA != 0))
 #  include "djsvga.trm"
-# endif
-
-/* MSDOS with Zortech-C++ Compiler */
-# ifdef __ZTC__
-#  include "fg.trm"
 # endif
 
 /* All other Compilers */
@@ -233,14 +228,6 @@
 /* AED 512 and AED 767 graphics terminals */
 /* # include "aed.trm" */
 
-# if defined(UNIXPLOT) || defined(GNUGRAPH)
-#  ifdef GNUGRAPH
-#   include "gnugraph.trm"
-#  else
-#   include "unixplot.trm"
-#  endif			/* !GNUGRAPH */
-# endif				/* UNIXPLOT || GNUGRAPH */
-
 /* gpic for groff */
 # include "gpic.trm"
 
@@ -271,6 +258,9 @@
 /* #include "ai.trm" */
 
 /* HTML Canvas terminal */
+#if (defined(HAVE_GD_PNG) || defined(HAVE_CAIROPDF))
+# include "write_png_image.c"
+#endif
 #include "canvas.trm"
 
 /* Computer Graphics Metafile (eg ms office) */

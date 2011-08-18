@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: axis.c,v 1.88 2010/12/04 05:05:52 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: axis.c,v 1.93 2011/07/12 19:30:34 juhaszp Exp $"); }
 #endif
 
 /* GNUPLOT - axis.c */
@@ -137,7 +137,7 @@ const lp_style_type default_axis_zeroaxis = DEFAULT_AXIS_ZEROAXIS;
 
 /* grid drawing */
 /* int grid_selection = GRID_OFF; */
-# define DEFAULT_GRID_LP { 0, -1, 0, 1.0, 1.0, 0 }
+#define DEFAULT_GRID_LP {0, LT_AXIS, 0, 0, 1.0, 0.0, FALSE, DEFAULT_COLORSPEC}
 const struct lp_style_type default_grid_lp = DEFAULT_GRID_LP;
 struct lp_style_type grid_lp   = DEFAULT_GRID_LP;
 struct lp_style_type mgrid_lp  = DEFAULT_GRID_LP;
@@ -460,6 +460,15 @@ copy_or_invent_formatstring(AXIS_INDEX axis)
 	|| !axis_array[axis].format_is_numeric) {
 	/* The simple case: formatstring is usable, so use it! */
 	strcpy(ticfmt[axis], axis_array[axis].formatstring);
+	/* Ensure enough precision to distinguish tics */
+	if (!strcmp(ticfmt[axis],"% g")) {
+	    double axmin = AXIS_DE_LOG_VALUE(axis,axis_array[axis].min);
+	    double axmax = AXIS_DE_LOG_VALUE(axis,axis_array[axis].max);
+	    int precision = (ceil(-log10(fabs(axmax-axmin))));
+	    if (precision > 4)
+		sprintf(ticfmt[axis],"%%.%df", (precision>14) ? 14 : precision);
+	}
+
 	return ticfmt[axis];
     }
 
@@ -871,7 +880,7 @@ gen_tics(AXIS_INDEX axis, tic_callback callback)
 	}
 
 	for (mark = def->def.user; mark; mark = mark->next) {
-	    char label[64];
+	    char label[MAX_ID_LEN];
 	    double internal;
 
 	    /* This condition is only possible if we are in polar mode */
@@ -887,7 +896,7 @@ gen_tics(AXIS_INDEX axis, tic_callback callback)
 	    if (mark->level < 0) /* label read from data file */
 		strncpy(label, mark->label, sizeof(label));
 	    else if (axis_array[axis].is_timedata)
-		gstrftime(label, 24, mark->label ? mark->label : ticfmt[axis], mark->position);
+		gstrftime(label, MAX_ID_LEN-1, mark->label ? mark->label : ticfmt[axis], mark->position);
 	    else
 		gprintf(label, sizeof(label), mark->label ? mark->label : ticfmt[axis], log10_base, mark->position);
 
@@ -1141,10 +1150,10 @@ gen_tics(AXIS_INDEX axis, tic_callback callback)
 			break;
 		    }
 		default:{	/* comp or series */
-			char label[64];
+			char label[MAX_ID_LEN]; /* Leave room for enhanced text markup */
 			if (axis_array[axis].is_timedata) {
 			    /* If they are doing polar time plot, good luck to them */
-			    gstrftime(label, 24, ticfmt[axis], (double) user);
+			    gstrftime(label, MAX_ID_LEN-1, ticfmt[axis], (double) user);
 			} else if (polar) {
 			    double min = (R_AXIS.autoscale & AUTOSCALE_MIN) ? 0 : R_AXIS.min;
 			    double r = fabs(user) + min;
@@ -1321,6 +1330,11 @@ axis_output_tics(
 		: (axis_is_second ? JUST_BOT : JUST_TOP);
 	    rotate_tics = 0;
 	}
+
+	if (axis_array[axis].manual_justify)
+	    tic_hjust = axis_array[axis].label.pos;
+	else
+	    axis_array[axis].label.pos = tic_hjust;
 
 	if (axis_array[axis].ticmode & TICS_MIRROR)
 	    tic_mirror = mirror_position;

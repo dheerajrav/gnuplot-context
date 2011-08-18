@@ -1,5 +1,5 @@
 /*
- * $Id: syscfg.h,v 1.44 2010/12/14 22:57:05 broeker Exp $
+ * $Id: syscfg.h,v 1.46 2011/04/16 11:15:55 markisch Exp $
  */
 
 /* GNUPLOT - syscfg.h */
@@ -103,7 +103,6 @@
 # ifndef _Windows
 #  define _Windows
 # endif
-# ifdef WIN32
 #  define OS "MS-Windows 32 bit"
 /* introduced by Pedro Mendes, prm@aber.ac.uk */
 #  define far
@@ -111,7 +110,6 @@
  * See stdfn.h
  */
 #  define S_IFIFO  _S_IFIFO
-# endif /* WIN32 */
 # define HOME    "GNUPLOT"
 # define PLOTRC  "gnuplot.ini"
 # define SHELL   "\\command.com"
@@ -202,11 +200,7 @@
 #  include <process.h>
 # endif                         /* !DJGPP */
 
-# ifdef __ZTC__
-#  define HAVE_SLEEP 1
-#  define P_WAIT 0
-
-# elif defined(__TURBOC__)
+# if defined(__TURBOC__)
 #  include <dos.h>		/* for sleep() prototype */
 #  ifndef _Windows
 #   define HAVE_SLEEP 1

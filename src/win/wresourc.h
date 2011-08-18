@@ -1,5 +1,5 @@
 /*
- * $Id: wresourc.h,v 1.7 2010/02/16 07:12:52 mikulik Exp $
+ * $Id: wresourc.h,v 1.14 2011/04/28 13:44:04 markisch Exp $
  */
 
 /* GNUPLOT - win/wresourc.h */
@@ -41,10 +41,6 @@
  *   Russell Lang
  */
 
-#ifndef DS_3DLOOK
-#define DS_3DLOOK 0x0004L
-#endif
-
 /* This contains items internal to wgnuplot.dll
    that are used by the Resource Compiler */
 
@@ -52,6 +48,9 @@
 #define ID_PROMPT 300
 #define ID_ANSWER 302
 #define NUMMENU 512
+#define ID_TOOLBAR NUMMENU+42
+#define ID_TEXTSTATUS NUMMENU+43
+#define ID_GRAPHSTATUS NUMMENU+44
 
 /* wpause.c */
 
@@ -76,9 +75,13 @@
 #define M_COMMANDLINE  NUMMENU+12
 /* wtext.c */
 #define M_SYSCOLORS    NUMMENU+13
+#define M_WRAP         NUMMENU+17
 
 /* wgraph.c */
 #define M_SAVE_AS_EMF  NUMMENU+14
+#define M_DOUBLEBUFFER NUMMENU+15
+#define M_OVERSAMPLE   NUMMENU+16
+#define M_ANTIALIASING NUMMENU+17
 
 /* wprinter.c */
 #define PSIZE_SBOX 100
@@ -92,7 +95,6 @@
 #define PSIZE_OFFX 108
 #define PSIZE_OFFY 109
 #define CANCEL_PCDONE 120
-#define SPOOL_PORT 121
 
 /* wgraph.c */
 /* line style dialog box */

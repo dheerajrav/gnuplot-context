@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: unset.c,v 1.142 2011/01/07 18:24:25 juhaszp Exp $"); }
+static char *RCSid() { return RCSid("$Id: unset.c,v 1.146 2011/07/22 14:37:57 juhaszp Exp $"); }
 #endif
 
 /* GNUPLOT - unset.c */
@@ -154,7 +154,7 @@ unset_command()
 
     c_token++;
 
-    check_for_iteration();
+    set_iterator = check_for_iteration();
 
     found_token = lookup_table(&set_tbl[0],c_token);
 
@@ -538,13 +538,15 @@ unset_command()
 	break;
     }
 
-    if (next_iteration()) {
+    if (next_iteration(set_iterator)) {
 	c_token = save_token;
 	goto ITERATE;
     }
 
     /* FIXME - Should this be inside the iteration loop? */
     update_gpval_variables(0);
+    
+    set_iterator = cleanup_iteration(set_iterator);
 }
 
 
@@ -626,7 +628,9 @@ static void
 unset_autoscale()
 {
     if (END_OF_COMMAND) {
-	INIT_AXIS_ARRAY(set_autoscale, FALSE);
+	int axis;
+	for (axis=0; axis<AXIS_ARRAY_SIZE; axis++)
+	    axis_array[axis].set_autoscale = FALSE;
     } else if (equals(c_token, "xy") || equals(c_token, "tyx")) {
 	axis_array[FIRST_X_AXIS].set_autoscale
 	    = axis_array[FIRST_Y_AXIS].set_autoscale = AUTOSCALE_NONE;
@@ -1185,6 +1189,7 @@ unset_tics(AXIS_INDEX axis)
 	axis_array[i].ticscale = 1.0;
 	axis_array[i].miniticscale = 0.5;
 	axis_array[i].tic_in = TRUE;
+	axis_array[i].manual_justify = FALSE;
 
 	free_marklist(axis_array[i].ticdef.def.user);
 	axis_array[i].ticdef.def.user = NULL;

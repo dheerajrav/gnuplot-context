@@ -1,5 +1,5 @@
 /*
- * $Id: gp_cairo.c,v 1.52 2010/08/26 18:17:21 sfeam Exp $
+ * $Id: gp_cairo.c,v 1.58 2011/05/15 09:43:22 markisch Exp $
  */
 
 /* GNUPLOT - gp_cairo.c */
@@ -140,12 +140,17 @@ static rgb_color gp_cairo_colorlist[12] = {
 };
 
 /* correspondance between gnuplot linetypes and terminal colors */
+void gp_cairo_set_background( rgb_color background )
+{
+	gp_cairo_colorlist[0] = background;
+}
+
 rgb_color gp_cairo_linetype2color( int linetype )
 {
 	if (linetype<=LT_NODRAW)
-		linetype = LT_NODRAW; /* background color*/
-
-	return gp_cairo_colorlist[ linetype%9 +3 ];
+		return gp_cairo_colorlist[ 0 ];
+	else
+		return gp_cairo_colorlist[ linetype%9 +3 ];
 }
 
 /* initialize all fields of the plot structure */
@@ -163,6 +168,7 @@ void gp_cairo_initialize_plot(plot_struct *plot)
 	plot->dashlength = 1.0;
 	plot->text_angle = 0.0;
 	plot->color.r = 0.0; plot->color.g = 0.0; plot->color.b = 0.0;
+	plot->background.r = 1.0; plot->background.g = 1.0; plot->background.b = 1.0;
 
 	plot->opened_path = FALSE;
 
@@ -675,7 +681,7 @@ gchar * gp_cairo_convert(plot_struct *plot, const char* string)
 		if (error != NULL) {
 			fprintf(stderr, "Unable to convert \"%s\": the sequence is invalid "\
 				"in the current charset (%s), %d bytes read out of %d\n",
-				string, charset, bytes_read, strlen(string));
+				string, charset, (int)bytes_read, (int)strlen(string));
 			string_utf8 = g_convert(string, bytes_read, "UTF-8", charset, NULL, NULL, NULL);
 			g_error_free (error);
 		} else
@@ -692,8 +698,10 @@ gchar * gp_cairo_convert(plot_struct *plot, const char* string)
  * the cairo/win32 backend for font rendering.  It has the effect of
  * testing for libfreetype support, and using that instead if possible.
  * Suggested by cairo developer Behdad Esfahbod. 
+ * Allin Cottrell suggests that this not necessary anymore for newer
+ * versions of cairo.
  */
-#ifdef WIN32
+#if defined(WIN32) && (CAIRO_VERSION_MAJOR < 2) && (CAIRO_VERSION_MINOR < 10)
 PangoLayout *
 gp_cairo_create_layout (cairo_t *cr)
 {
@@ -754,7 +762,7 @@ void gp_cairo_draw_text(plot_struct *plot, int x1, int y1, const char* string)
 	if (!strcmp(plot->fontname,"Symbol")) {
 		FPRINTF((stderr,"Parsing a Symbol string\n"));
 		string_utf8 = gp_cairo_convert_symbol_to_unicode(plot, string);
-		strncpy(plot->fontname, "Sans", sizeof(plot->fontname));
+		strncpy(plot->fontname, gp_cairo_default_font(), sizeof(plot->fontname));
 		symbol_font_parsed = TRUE;
 	} else
 #endif /*MAP_SYMBOL*/
@@ -1032,10 +1040,10 @@ void gp_cairo_draw_fillbox(plot_struct *plot, int x, int y, int width, int heigh
 	gp_cairo_fill( plot, fillstyle, fillpar);
 
 	cairo_move_to(plot->cr, x, y);
-	cairo_rel_line_to(plot->cr,0, -height);
-	cairo_rel_line_to(plot->cr, width-1, 0);
+	cairo_rel_line_to(plot->cr, 0, -height);
+	cairo_rel_line_to(plot->cr, width, 0);
 	cairo_rel_line_to(plot->cr, 0, height);
-	cairo_rel_line_to(plot->cr, -width+1, 0);
+	cairo_rel_line_to(plot->cr, -width, 0);
 	cairo_close_path(plot->cr);
 	cairo_fill(plot->cr);
 }
@@ -1198,7 +1206,7 @@ void gp_cairo_enhanced_flush(plot_struct *plot)
 				sizeof(gp_cairo_enhanced_font));
 		} else {
 			strncpy(gp_cairo_enhanced_font,
-				"Sans", sizeof(gp_cairo_enhanced_font));
+				gp_cairo_default_font(), sizeof(gp_cairo_enhanced_font));
 		}
 		symbol_font_parsed = TRUE;
 	} else
@@ -1557,7 +1565,7 @@ void gp_cairo_fill(plot_struct *plot, int fillstyle, int fillpar)
 		FPRINTF((stderr,"pattern fillpar = %d %lf %lf %lf\n",fillpar, plot->color.r, plot->color.g, plot->color.b));
 		return;
 	case FS_EMPTY: /* fill with background plot->color */
-		cairo_set_source_rgb(plot->cr, 1, 1, 1);
+		cairo_set_source_rgb(plot->cr, plot->background.r, plot->background.g, plot->background.b);
 		FPRINTF((stderr,"empty\n"));
 		return;
 	default:
@@ -1716,7 +1724,7 @@ void gp_cairo_solid_background(plot_struct *plot)
 			cairo_status_to_string (cairo_status (plot->cr)));
 		exit(0);
 	}
-	cairo_set_source_rgb(plot->cr, 1.0, 1.0, 1.0);
+	cairo_set_source_rgb(plot->cr, plot->background.r, plot->background.g, plot->background.b);
 	cairo_paint(plot->cr);
 }
 
@@ -1744,6 +1752,19 @@ const char* gp_cairo_enhanced_get_fontname(plot_struct *plot)
 		return plot->fontname;
 	else
 		return gp_cairo_enhanced_font;
+}
+
+/* BM: New function to determine the default font.
+ * On Windows, the "Sans" alias normally is equivalent to 
+ * "Tahoma" but the resolution fails on some systems. */
+const char *
+gp_cairo_default_font(void)
+{
+#ifdef WIN32
+	return "Tahoma";
+#else
+	return "Sans";
+#endif
 }
 
 /*----------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 /* Hello, Emacs, this is -*-C-*-
- * $Id: x11.trm,v 1.189 2010/09/16 02:50:51 sfeam Exp $
+ * $Id: x11.trm,v 1.192 2011/06/21 01:10:43 sfeam Exp $
  *
  */
 
@@ -187,6 +187,7 @@ static FILE *X11_ipc = (FILE *) 0;
 
 /* reserve a minimum 10 driver opts */
 static char *optvec[2 * X11_nopts + 1 + 10];
+static char x11_userbkg[] = "#RRGGBB";
 
 /* gnuplot_x11 has extension .exe on OS/2 and Windows (and on RSX/VMS, but
    these construct their own full path GNUPLOT_X11 in their build script).
@@ -371,6 +372,7 @@ enum X11_id {
     X11_NOCTRLQ,
     X11_SIZE,
     X11_POSITION,
+    X11_BACKGROUND,
 #ifdef EXTERNAL_X11_WINDOW
     X11_WINDOW,
 #endif
@@ -397,6 +399,7 @@ static struct gen_table X11_opts[] = {
     {"noctrl$q", X11_NOCTRLQ},
     {"si$ze", X11_SIZE},
     {"pos$ition", X11_POSITION},
+    {"backg$round", X11_BACKGROUND},
 #ifdef EXTERNAL_X11_WINDOW
     {"w$indow", X11_WINDOW},
 #endif
@@ -412,6 +415,7 @@ X11_options()
 
     int c_title_token = 0;
     int new_term_number = 0;
+    int background;
     TBOOLEAN duplication = FALSE;
     TBOOLEAN set_reset = FALSE, set_persist = FALSE, set_raise = FALSE, set_font = FALSE;
     TBOOLEAN set_ctrlq = FALSE;
@@ -424,6 +428,7 @@ X11_options()
     do_raise = dashedlines = ctrlq = UNSET;
     set_size = set_position = UNSET;
     persist = persist_cl;	/* previously set from command line */
+    strcpy(x11_userbkg,"#RRGGBB");
 
     while (!END_OF_COMMAND) {
 	switch (lookup_table(&X11_opts[0], c_token)) {
@@ -562,6 +567,11 @@ X11_options()
 		}
 		set_position = yes;
 	    }
+	    break;
+	case X11_BACKGROUND:
+	    c_token++;
+	    background = parse_color_name();
+	    sprintf(x11_userbkg,"#%06x",background);
 	    break;
 
 #ifdef EXTERNAL_X11_WINDOW
@@ -975,9 +985,19 @@ X11_init()
 		*++ptr = (char *) 0;	/* terminate */
 	    }
 # endif	/* PIPE_IPC */
+
+	    /* Add user-specified background to list of command options */
+	    if (strcmp(x11_userbkg,"#RRGGBB")) {
+		char **ptr;
+		for (ptr = optvec; ptr && *ptr; ptr++)
+		    ;		/* do nothing: skip over set arguments */
+		*ptr++ = "-bg";
+		*ptr++ = x11_userbkg;
+		*ptr = (char *) 0;	/* terminate */
+	    }
+
 	    /* close the write side of the child's forward fd */
 	    close(fdes[1]);
-
 	    dup2(fdes[0], 0);	/* stdin from pipe */
 	    execvp(X11_full_command_path, optvec);
 	    /* if we get here, something went wrong */
@@ -1536,7 +1556,11 @@ transmit_gradient(gradient_struct *gradient, int cnt)
 	    fputs("\n", X11_ipc);
 	    fflush(X11_ipc);
 	}
-	fprintf(X11_ipc, "%s", gradient_entry_to_str(&(gradient[i])));
+	/* Send gradient entry as 0.1234RRGGBB */
+	fprintf(X11_ipc, "%6.4f", gradient[i].pos);
+	fprintf(X11_ipc, "%02x", (unsigned int)(255.*gradient[i].col.r + 0.5));
+	fprintf(X11_ipc, "%02x", (unsigned int)(255.*gradient[i].col.g + 0.5));
+	fprintf(X11_ipc, "%02x", (unsigned int)(255.*gradient[i].col.b + 0.5));
     }
     fputs("\n", X11_ipc);
 }
@@ -1615,7 +1639,7 @@ X11_set_color(t_colorspec *colorspec)
 {
     if (colorspec->type == TC_RGB) {
 	fputc(X11_GR_SET_RGBCOLOR, X11_ipc);
-	PRINT1("%6.6x\n", colorspec->lt);
+	PRINT1("%6.6x\n", colorspec->lt & 0xffffff);
 	FFLUSH();
 	return;
     }

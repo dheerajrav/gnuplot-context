@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: term.c,v 1.213 2011/01/11 01:04:13 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: term.c,v 1.222 2011/07/12 18:38:52 juhaszp Exp $"); }
 #endif
 
 /* GNUPLOT - term.c */
@@ -84,11 +84,11 @@ static char *RCSid() { return RCSid("$Id: term.c,v 1.213 2011/01/11 01:04:13 sfe
 #include "help.h"
 #include "plot.h"
 #include "tables.h"
+#include "getcolor.h"
 #include "term.h"
 #include "util.h"
 #include "version.h"
 #include "misc.h"
-#include "getcolor.h"
 
 #ifndef NO_BITMAP_SUPPORT
 #include "bitmap.h"
@@ -140,7 +140,7 @@ enum set_encoding_id encoding;
 const char *encoding_names[] = {
     "default", "iso_8859_1", "iso_8859_2", "iso_8859_9", "iso_8859_15",
     "cp437", "cp850", "cp852", "cp950", "cp1250", "cp1251", "cp1254", 
-    "koi8r", "koi8u", "utf8", NULL };
+    "koi8r", "koi8u", "sjis", "utf8", NULL };
 /* 'set encoding' options */
 const struct gen_table set_encoding_tbl[] =
 {
@@ -159,6 +159,7 @@ const struct gen_table set_encoding_tbl[] =
     { "cp1254", S_ENC_CP1254 },
     { "koi8$r", S_ENC_KOI8_R },
     { "koi8$u", S_ENC_KOI8_U },
+    { "sj$is", S_ENC_SJIS },
     { NULL, S_ENC_INVALID }
 };
 
@@ -218,11 +219,10 @@ static void do_pointsize __PROTO((double size));
 static void line_and_point __PROTO((unsigned int x, unsigned int y, int number));
 static void do_arrow __PROTO((unsigned int sx, unsigned int sy, unsigned int ex, unsigned int ey, int head));
 
-static void UP_redirect __PROTO((int called));
-
 static int null_text_angle __PROTO((int ang));
 static int null_justify_text __PROTO((enum JUSTIFY just));
 static int null_scale __PROTO((double x, double y));
+static void null_layer __PROTO((t_termlayer layer));
 static void options_null __PROTO((void));
 static void UNKNOWN_null __PROTO((void));
 static void MOVE_null __PROTO((unsigned int, unsigned int));
@@ -298,11 +298,6 @@ static struct {
 } mp_layout = MP_LAYOUT_DEFAULT;
 
 
-#ifdef __ZTC__
-char *ztc_init();
-/* #undef TGIF */
-#endif
-
 #ifdef VMS
 char *vms_init();
 void vms_reset();
@@ -338,13 +333,6 @@ void fflush_binary();
 #if defined(__WATCOMC__) || defined(__MSC__)
 # include <io.h>        /* for setmode() */
 #endif
-
-/* This is needed because the unixplot library only writes to stdout,
- * but GNU plotutils libplot.a doesn't */
-#if defined(UNIXPLOT) && !defined(GNUGRAPH)
-static FILE save_stdout;
-#endif
-static int unixplot = 0;
 
 #define NICE_LINE               0
 #define POINT_TYPES             6
@@ -422,7 +410,6 @@ term_set_output(char *dest)
 	gppsfile = NULL;
     }
     if (dest == NULL) {         /* stdout */
-	UP_redirect(4);
 	term_close_output();
     } else {
 
@@ -479,7 +466,6 @@ term_set_output(char *dest)
 	gpoutfile = f;
 	outstr = dest;
 	opened_binary = (term && (term->flags & TERM_BINARY));
-	UP_redirect(1);
     }
 }
 
@@ -569,8 +555,7 @@ term_start_plot()
     }
 
     /* Sync point for epslatex text positioning */
-    if (term->layer)
-	(term->layer)(TERM_LAYER_RESET);
+    (*term->layer)(TERM_LAYER_RESET);
 
     /* Because PostScript plots may be viewed out of order, make sure */
     /* Each new plot makes no assumption about the previous palette.  */
@@ -594,8 +579,7 @@ term_end_plot()
 	return;
 
     /* Sync point for epslatex text positioning */
-    if (term->layer)
-	(term->layer)(TERM_LAYER_END_TEXT);
+    (*term->layer)(TERM_LAYER_END_TEXT);
     
     if (!multiplot) {
 	FPRINTF((stderr, "- calling term->text()\n"));
@@ -908,13 +892,13 @@ term_apply_lp_properties(struct lp_style_type *lp)
      */
     (*term->linewidth) (lp->l_width);
 
-    /* FIXME: This shouldn't happen, because the higher level code */
-    /* should have made some decision about color before this. But */
-    /* better to draw in black than not to draw at all.            */
-    if (lt <= LT_COLORFROMCOLUMN) lt = LT_BLACK;
-
     /* Apply "linetype", which can include both color and dot/dash */
-    (*term->linetype) (lt);
+    if (lt <= LT_COLORFROMCOLUMN)
+	/* The color will be picked up in a moment, but we first need */
+	/* to set a reasonable line type.                             */
+	(*term->linetype) (LT_BLACK);
+    else
+	(*term->linetype) (lt);
     /* Possibly override the linetype color with a fancier colorspec */
     if (lp->use_palette)
 	apply_pm3dcolor(&lp->pm3d_color, term);
@@ -1441,6 +1425,12 @@ null_scale(double x, double y)
 }
 
 static void
+null_layer(t_termlayer layer)
+{
+    (void) layer;               /* avoid -Wunused warning */
+}
+
+static void
 options_null()
 {
     term_options[0] = '\0';     /* we have no options */
@@ -1505,14 +1495,6 @@ static struct termentry term_tbl[] =
 };
 
 #define TERMCOUNT (sizeof(term_tbl) / sizeof(term_tbl[0]))
-#if 0 /* UNUSED */
-/* mainly useful for external code */
-int
-term_count()
-{
-    return TERMCOUNT;
-}
-#endif
 
 void
 list_terms()
@@ -1598,8 +1580,10 @@ set_term()
 	}
     }
 
-    if (!t)
+    if (!t) {
+	change_term("unknown", 7);
 	int_error(c_token-1, "unknown or ambiguous terminal type; type just 'set terminal' for a list");
+    }
 
     /* otherwise the type was changed */
     return (t);
@@ -1661,15 +1645,11 @@ change_term(const char *origname, int length)
 	term->pointsize = do_pointsize;
     if (term->linewidth == 0)
 	term->linewidth = null_linewidth;
+    if (term->layer == 0)
+	term->layer = null_layer;
     if (term->tscale <= 0)
 	term->tscale = 1.0;
 
-    /* Special handling for unixplot term type */
-    if (!strncmp("unixplot", term->name, 8)) {
-	UP_redirect(2);         /* Redirect actual stdout for unixplots */
-    } else if (unixplot) {
-	UP_redirect(3);         /* Put stdout back together again. */
-    }
     if (interactive)
 	fprintf(stderr, "Terminal type set to '%s'\n", term->name);
 
@@ -1707,10 +1687,6 @@ init_terminal()
     if (gnuterm != (char *) NULL) {
 	term_name = gnuterm;
     } else {
-
-#ifdef __ZTC__
-	term_name = ztc_init();
-#endif
 
 #ifdef VMS
 	term_name = vms_init();
@@ -1844,96 +1820,6 @@ init_terminal()
 }
 
 
-#ifdef __ZTC__
-char *
-ztc_init()
-{
-    int g_mode;
-    char *term_name = NULL;
-
-    g_mode = fg_init();
-
-    switch (g_mode) {
-    case FG_NULL:
-	fputs("Graphics card not detected or not supported.\n", stderr);
-	exit(1);
-    case FG_HERCFULL:
-	term_name = "hercules";
-	break;
-    case FG_EGAMONO:
-	term_name = "egamono";
-	break;
-    case FG_EGAECD:
-	term_name = "egalib";
-	break;
-    case FG_VGA11:
-	term_name = "vgamono";
-	break;
-    case FG_VGA12:
-	term_name = "vgalib";
-	break;
-    case FG_VESA6A:
-	term_name = "svgalib";
-	break;
-    case FG_VESA5:
-	term_name = "ssvgalib";
-	break;
-    }
-    fg_term();
-    return (term_name);
-}
-#endif /* __ZTC__ */
-
-
-/*
- * Unixplot can't really write to gpoutfile--it wants to write to stdout.
- * This is normally ok, but the original design of gnuplot gives us
- * little choice.  Originally users of unixplot had to anticipate
- * their needs and redirect all I/O to a file...  Not very gnuplot-like.
- *
- * caller:  1 - called from SET OUTPUT "FOO.OUT"
- * 2 - called from SET TERM UNIXPLOT
- * 3 - called from SET TERM other
- * 4 - called from SET OUTPUT
- */
-static void
-UP_redirect(int caller)
-{
-#if defined(UNIXPLOT) && !defined(GNUGRAPH)
-    switch (caller) {
-    case 1:
-	/* Don't save, just replace stdout w/gpoutfile (save was already done). */
-	if (unixplot)
-	    *(stdout) = *(gpoutfile);   /* Copy FILE structure */
-	break;
-    case 2:
-	if (!unixplot) {
-	    fflush(stdout);
-	    save_stdout = *(stdout);
-	    *(stdout) = *(gpoutfile);   /* Copy FILE structure */
-	    unixplot = 1;
-	}
-	break;
-    case 3:
-	/* New terminal in use--put stdout back to original. */
-	/* closepl(); */ /* This is called by the term. */
-	fflush(stdout);
-	*(stdout) = save_stdout;        /* Copy FILE structure */
-	unixplot = 0;
-	break;
-    case 4:
-	/*  User really wants to go to normal output... */
-	if (unixplot) {
-	    fflush(stdout);
-	    *(stdout) = save_stdout;    /* Copy FILE structure */
-	}
-	break;
-    } /* switch() */
-#else /* !UNIXPLOT || GNUGRAPH */
-    (void) caller;              /* avoid -Wunused warning */
-#endif /* !UNIXPLOT || GNUGRAPH */
-}
-
 /* test terminal by drawing border and text */
 /* called from command test */
 void
@@ -1963,8 +1849,7 @@ test_term()
 	key_entry_height = t->v_char;
 
     /* Sync point for epslatex text positioning */
-    if (term->layer)
-	(term->layer)(TERM_LAYER_FRONTTEXT);
+    (*t->layer)(TERM_LAYER_FRONTTEXT);
 
     /* border linetype */
     (*t->linewidth) (1.0);
@@ -2494,6 +2379,11 @@ enhanced_recursion(
 	    } else {					/* Some other multibyte encoding? */
 		(term->enhanced_writec)(*p);
 	    }
+/* shige : for Shift_JIS */
+	} else if ((*p & 0x80) && (encoding == S_ENC_SJIS)) {
+	    (term->enhanced_open)(fontname, fontsize, base, widthflag, showflag, overprint);
+	    (term->enhanced_writec)(*(p++));
+	    (term->enhanced_writec)(*p);
 	} else
 
 	switch (*p) {
@@ -2685,13 +2575,6 @@ enhanced_recursion(
 		}
 		break;
 	    } else if (term->flags & TERM_IS_POSTSCRIPT) {
-		/* Shigeharu TAKENO  Aug 2004 - Needed in order for shift-JIS */
-		/* encoding to work. If this change causes problems then we   */
-		/* need a separate flag for shift-JIS and certain other 8-bit */
-		/* character sets.                                            */
-		/* EAM Nov 2004 - Nevertheless we must allow \ to act as an   */
-		/* escape for a few enhanced mode formatting characters even  */
-		/* though it corrupts certain Shift-JIS character sequences.  */
 		if (strchr("^_@&~{}",p[1]) == NULL) {
 		    (term->enhanced_open)(fontname, fontsize, base, widthflag, showflag, overprint);
 		    (term->enhanced_writec)('\\');

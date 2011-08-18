@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: save.c,v 1.190 2010/12/05 00:01:02 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: save.c,v 1.194 2011/07/12 19:30:34 juhaszp Exp $"); }
 #endif
 
 /* GNUPLOT - save.c */
@@ -763,6 +763,8 @@ set origin %g,%g\n",
         save_position(fp, &(lab.offset), TRUE);				 \
 	fprintf(fp, " font \"%s\"", lab.font ? conv_text(lab.font) : "");\
 	save_textcolor(fp, &(lab.textcolor));				 \
+	if (lab.tag == ROTATE_IN_3D_LABEL_TAG)				 \
+	    fprintf(fp, " rotate parallel");				 \
 	if (lab.rotate)							 \
 	    fprintf(fp, " rotate by %d", lab.rotate);			 \
 	else								 \
@@ -983,6 +985,23 @@ save_tics(FILE *fp, AXIS_INDEX axis)
     if (axis_array[axis].tic_rotate)
     	fprintf(fp,"by %d ",axis_array[axis].tic_rotate);
     save_position(fp, &axis_array[axis].ticdef.offset, TRUE);
+    if (axis_array[axis].manual_justify) {
+    	switch (axis_array[axis].label.pos) {
+    	case LEFT:{
+		fputs(" left", fp);
+		break;
+	    }
+    	case RIGHT:{
+		fputs(" right", fp);
+		break;
+	    }
+    	case CENTRE:{
+		fputs(" center", fp);
+		break;
+	    }
+    	}
+    } else 
+        fputs(" autojustify", fp);
     fprintf(fp, "\nset %stics ", axis_defaults[axis].name);
     switch (axis_array[axis].ticdef.type) {
     case TIC_COMPUTED:{
@@ -1102,7 +1121,7 @@ save_range(FILE *fp, AXIS_INDEX axis)
 	    axis_array[axis].range_flags & RANGE_REVERSE ? "" : "no",
 	    axis_array[axis].range_flags & RANGE_WRITEBACK ? "" : "no");
 
-    if (axis_array[axis].set_autoscale) {
+    if (axis_array[axis].set_autoscale && fp == stderr) {
 	/* add current (hidden) range as comments */
 	fputs("  # (currently [", fp);
 	if (axis_array[axis].set_autoscale & AUTOSCALE_MIN) {
@@ -1314,6 +1333,8 @@ save_linetype(FILE *fp, lp_style_type *lp, TBOOLEAN show_point)
 	fprintf(fp, " linecolor");
 	if (lp->pm3d_color.type == TC_LT)
     	    fprintf(fp, " %d", lp->pm3d_color.lt+1);
+	else if (lp->pm3d_color.type == TC_LINESTYLE && lp->l_type == LT_COLORFROMCOLUMN)
+	    fprintf(fp, " variable");
 	else
     	    save_pm3dcolor(fp,&(lp->pm3d_color));
     }

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: show.c,v 1.249 2010/12/05 00:01:02 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: show.c,v 1.253 2011/08/01 05:14:24 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - show.c */
@@ -716,6 +716,7 @@ disp_at(struct at_type *curr_at, int level)
 		(void) putc('\n', stderr);
 	    break;
 	case CALLN:
+	case SUM:
 	    fprintf(stderr, " %s", arg->udf_arg->udf_name);
 	    if (level < 6) {
 		if (arg->udf_arg->at) {
@@ -972,18 +973,6 @@ show_version(FILE *fp)
 #endif
 		"";
 
-	    const char *unixplot =
-#ifdef UNIXPLOT
-		"+UNIXPLOT  "
-#endif
-		"";
-
-	    const char *gnugraph =
-#ifdef GNUGRAPH
-		"+GNUGRAPH  "
-#endif
-		"";
-
 	    const char *hiddenline =
 #ifdef HIDDEN3D_QUADTREE
 		"+HIDDEN3D_QUADTREE  "
@@ -1014,10 +1003,10 @@ show_version(FILE *fp)
 	    sprintf(compile_options, "\
 %s%s\n%s%s\n\
 %s%s\n\
-%s%s%s%s%s%s\n%s\n",
+%s%s%s%s\n%s\n",
 		    rdline, gnu_rdline, compatibility, binary_files,
 		    libgd, linuxvga,
-		    nocwdrc, x11, use_mouse, unixplot, gnugraph, hiddenline,
+		    nocwdrc, x11, use_mouse, hiddenline,
 		    plotoptions);
 	}
 
@@ -2797,7 +2786,9 @@ show_xyzlabel(const char *name, const char *suffix, text_label *label)
 	fprintf(stderr, ", using font \"%s\"", conv_text(label->font));
 
     if (label->rotate)
-	fprintf(stderr, ", rotated by %d degrees", label->rotate);
+	fprintf(stderr, ", rotated by %d degrees in 2D plots", label->rotate);
+    if (label->tag == ROTATE_IN_3D_LABEL_TAG)
+	fprintf(stderr, ", parallel to axis in 3D plots");
 
     if (label->textcolor.type)
 	save_textcolor(stderr, &label->textcolor);
@@ -3186,7 +3177,25 @@ show_ticdef(AXIS_INDEX axis)
 
     if (axis_array[axis].ticdef.rangelimited)
 	fprintf(stderr, "\n\t  tics are limited to data range");
-    fprintf(stderr, "\n\t  labels are format \"%s\"", ticfmt);
+    fputs("\n\t  labels are ", stderr);
+    if (axis_array[axis].manual_justify) {
+    	switch (axis_array[axis].label.pos) {
+    	case LEFT:{
+		fputs("left justified, ", stderr);
+		break;
+	    }
+    	case RIGHT:{
+		fputs("right justified, ", stderr);
+		break;
+	    }
+    	case CENTRE:{
+		fputs("center justified, ", stderr);
+		break;
+	    }
+    	}
+    } else 
+        fputs("justified automatically, ", stderr);    
+    fprintf(stderr, "format \"%s\"", ticfmt);
     if (axis_array[axis].tic_rotate) {
 	fprintf(stderr," rotated");
 	fprintf(stderr," by %d",axis_array[axis].tic_rotate);

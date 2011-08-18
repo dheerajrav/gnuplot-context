@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: set.c,v 1.335 2010/12/09 04:13:23 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: set.c,v 1.344 2011/07/22 14:37:57 juhaszp Exp $"); }
 #endif
 
 /* GNUPLOT - set.c */
@@ -242,7 +242,7 @@ set_command()
 #endif /* BACKWARDS_COMPATIBLE */
 
 	int save_token;
-	check_for_iteration();
+	set_iterator = check_for_iteration();
 	save_token = c_token;
 	ITERATE:
 
@@ -652,7 +652,7 @@ set_command()
 	    break;
 	}
 
-    	if (next_iteration()) {
+    	if (next_iteration(set_iterator)) {
 	    c_token = save_token;
 	    goto ITERATE;
 	}
@@ -662,6 +662,7 @@ set_command()
     /* FIXME - Should this be inside the iteration loop? */
     update_gpval_variables(0);
 
+    set_iterator = cleanup_iteration(set_iterator);
 }
 
 
@@ -819,7 +820,9 @@ set_autoscale()
 
     c_token++;
     if (END_OF_COMMAND) {
-	INIT_AXIS_ARRAY(set_autoscale , AUTOSCALE_BOTH);
+	int axis;
+	for (axis=0; axis<AXIS_ARRAY_SIZE; axis++)
+	    axis_array[axis].set_autoscale = AUTOSCALE_BOTH;
 	return;
     } else if (equals(c_token, "xy") || equals(c_token, "yx")) {
 	axis_array[FIRST_X_AXIS].set_autoscale =
@@ -1110,7 +1113,7 @@ set_cntrparam()
     } else if (almost_equals(c_token, "le$vels")) {
 	c_token++;
 
-	if (!iteration) {
+	if (!(set_iterator && set_iterator->iteration)) {
 	    free_dynarray(&dyn_contour_levels_list);
 	    init_dynarray(&dyn_contour_levels_list, sizeof(double), 5, 10);
 	}
@@ -1369,6 +1372,8 @@ set_encoding()
 	char *l = setlocale(LC_CTYPE,"");
 	if (l && (strstr(l,"utf") || strstr(l,"UTF")))
 	    encoding = S_ENC_UTF8;
+	if (l && (strstr(l,"sjis") || strstr(l,"SJIS") || strstr(l,"932")))
+	    encoding = S_ENC_SJIS;
 	c_token++;
 #endif
     } else {
@@ -2205,15 +2210,15 @@ set_locale()
 static void
 set_logscale()
 {
+    TBOOLEAN set_for_axis[AXIS_ARRAY_SIZE] = AXIS_ARRAY_INITIALIZER(FALSE);
+    int axis;
+    double newbase = 10;
     c_token++;
-    if (END_OF_COMMAND) {
-	INIT_AXIS_ARRAY(log,TRUE);
-	INIT_AXIS_ARRAY(base, 10.0);
-    } else {
-	TBOOLEAN set_for_axis[AXIS_ARRAY_SIZE] = AXIS_ARRAY_INITIALIZER(FALSE);
-	int axis;
-	double newbase = 10;
 
+    if (END_OF_COMMAND) {
+	for (axis = 0; axis < LAST_REAL_AXIS; axis++)
+	    set_for_axis[axis] = TRUE;
+    } else {
 	/* do reverse search because of "x", "x1", "x2" sequence in axisname_tbl */
 	int i = 0;
 	while (i < token[c_token].length) {
@@ -2234,14 +2239,15 @@ set_logscale()
 		int_error(c_token,
 			  "log base must be > 1.0; logscale unchanged");
 	}
+    }
 
-	for (axis = 0; axis < AXIS_ARRAY_SIZE; axis++)
-	    if (set_for_axis[axis]) {
-		axis_array[axis].log = TRUE;
-		axis_array[axis].base = newbase;
-		axis_array[axis].log_base = log(newbase);
-		if ((axis == POLAR_AXIS) && polar)
-		    rrange_to_xy();
+    for (axis = 0; axis <= LAST_REAL_AXIS; axis++) {
+	if (set_for_axis[axis]) {
+	    axis_array[axis].log = TRUE;
+	    axis_array[axis].base = newbase;
+	    axis_array[axis].log_base = log(newbase);
+	    if ((axis == POLAR_AXIS) && polar)
+		rrange_to_xy();
 	}
     }
 
@@ -2475,7 +2481,7 @@ set_mouse()
 	    } else {
 		int itmp = int_expression();
 		if (itmp >= MOUSE_COORDINATES_REAL
-		    && itmp <= MOUSE_COORDINATES_XDATETIME) {
+		    && itmp <= MOUSE_COORDINATES_ALT) {
 		    if (MOUSE_COORDINATES_ALT == itmp && !mouse_alt_string) {
 			fprintf(stderr,
 			    "please 'set mouse mouseformat <fmt>' first.\n");
@@ -2484,7 +2490,7 @@ set_mouse()
 		    }
 		} else {
 		    fprintf(stderr, "should be: %d <= mouseformat <= %d\n",
-			MOUSE_COORDINATES_REAL, MOUSE_COORDINATES_XDATETIME);
+			MOUSE_COORDINATES_REAL, MOUSE_COORDINATES_ALT);
 		}
 	    }
 	} else if (almost_equals(c_token, "noru$ler")) {
@@ -3372,14 +3378,9 @@ set_pm3d()
 	if (PM3D_SCANS_AUTOMATIC == pm3d.direction
 	    && PM3D_FLUSH_BEGIN != pm3d.flush) {
 	    pm3d.direction = PM3D_SCANS_FORWARD;
-#if 0
-	    /* be silent, don't print this warning */
-	    /* Rather FIXME that this combination is supported? Shouldn't be
-	       so big problem, I guess, just it is not implemented. */
-	    fprintf(stderr, "pm3d: `scansautomatic' and `flush %s' are incompatible\n",
-		PM3D_FLUSH_END == pm3d.flush ? "end": "center");
-	    fputs("   => setting `scansforward'\n", stderr);
-#endif
+	    /* FIXME: Why isn't this combination supported? */
+	    FPRINTF((stderr, "pm3d: `scansautomatic' and `flush %s' are incompatible\n",
+		PM3D_FLUSH_END == pm3d.flush ? "end": "center"));
 	}
     }
 }
@@ -4264,6 +4265,22 @@ set_tics()
 	    for (i = 0; i < AXIS_ARRAY_SIZE; ++i)
 		axis_array[i].tic_rotate = 0;
 	    ++c_token;
+	} else if (almost_equals(c_token, "l$eft")) {
+	    axis_array[i].label.pos = LEFT;
+	    axis_array[i].manual_justify = TRUE;
+	    c_token++;
+	} else if (almost_equals(c_token, "c$entre")
+		|| almost_equals(c_token, "c$enter")) {
+	    axis_array[i].label.pos = CENTRE;
+	    axis_array[i].manual_justify = TRUE;
+	    c_token++;
+	} else if (almost_equals(c_token, "ri$ght")) {
+	    axis_array[i].label.pos = RIGHT;
+	    axis_array[i].manual_justify = TRUE;
+	    c_token++;
+	} else if (almost_equals(c_token, "autoj$ustify")) {
+	    axis_array[i].manual_justify = FALSE;
+	    c_token++;
 	} else if (almost_equals(c_token, "off$set")) {
 	    struct position lpos;
 	    ++c_token;
@@ -4780,6 +4797,22 @@ set_tic_prop(AXIS_INDEX axis)
 		    { character, character, character, 0., 0., 0.};
 		++c_token;
 		axis_array[axis].ticdef.offset = tics_nooffset;
+	    } else if (almost_equals(c_token, "l$eft")) {
+		axis_array[axis].label.pos = LEFT;
+		axis_array[axis].manual_justify = TRUE;
+		c_token++;
+	    } else if (almost_equals(c_token, "c$entre")
+		       || almost_equals(c_token, "c$enter")) {
+		axis_array[axis].label.pos = CENTRE;
+		axis_array[axis].manual_justify = TRUE;
+		c_token++;
+	    } else if (almost_equals(c_token, "ri$ght")) {
+		axis_array[axis].label.pos = RIGHT;
+		axis_array[axis].manual_justify = TRUE;
+		c_token++;
+	    } else if (almost_equals(c_token, "autoj$ustify")) {
+		axis_array[axis].manual_justify = FALSE;
+		c_token++;
 	    } else if (almost_equals(c_token,"range$limited")) {
 		axis_array[axis].ticdef.rangelimited = TRUE;
 		++c_token;
@@ -5050,6 +5083,7 @@ set_arrowstyle()
 	    prev_arrowstyle->next = new_arrowstyle;	/* add it to end of list */
 	else
 	    first_arrowstyle = new_arrowstyle;	/* make it start of list */
+	new_arrowstyle->arrow_properties.tag = tag;
 	new_arrowstyle->tag = tag;
 	new_arrowstyle->next = this_arrowstyle;
 	this_arrowstyle = new_arrowstyle;
@@ -5114,7 +5148,7 @@ load_tic_user(AXIS_INDEX axis)
     double ticposition;
 
     /* Free any old tic labels */
-    if (!axis_array[axis].ticdef.def.mix && !iteration) {
+    if (!axis_array[axis].ticdef.def.mix && !(set_iterator && set_iterator->iteration)) {
 	free_marklist(axis_array[axis].ticdef.def.user);
 	axis_array[axis].ticdef.def.user = NULL;
     }
@@ -5460,22 +5494,28 @@ parse_label_options( struct text_label *this_label )
 	}
 
 	/* get rotation (added by RCC) */
-	if (! set_rot) {
-	    if (almost_equals(c_token, "rot$ate")) {
+	if (almost_equals(c_token, "rot$ate")) {
+	    c_token++;
+	    set_rot = TRUE;
+	    rotate = this_label->rotate;
+	    if (equals(c_token, "by")) {
+		c_token++;
+		rotate = int_expression();
+	    } else if (almost_equals(c_token,"para$llel")) {
+		if (this_label->tag >= 0)
+		    int_error(c_token,"invalid option");
+		c_token++;
+		this_label->tag = ROTATE_IN_3D_LABEL_TAG;
+	    } else
 		rotate = TEXT_VERTICAL;
-		c_token++;
-		set_rot = TRUE;
-		if (equals(c_token, "by")) {
-		    c_token++;
-		    rotate = int_expression();
-		}
-		continue;
-	    } else if (almost_equals(c_token, "norot$ate")) {
-		rotate = 0;
-		c_token++;
-		set_rot = TRUE;
-		continue;
-	    }
+	    continue;
+	} else if (almost_equals(c_token, "norot$ate")) {
+	    rotate = 0;
+	    c_token++;
+	    set_rot = TRUE;
+	    if (this_label->tag == ROTATE_IN_3D_LABEL_TAG)
+		this_label->tag = NONROTATABLE_LABEL_TAG;
+	    continue;
 	}
 
 	/* get font (added by DJL) */

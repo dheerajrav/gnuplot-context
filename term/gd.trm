@@ -1,5 +1,5 @@
 /* Hello, Emacs, this is -*-C-*-
- * $Id: gd.trm,v 1.149 2010/09/16 04:58:45 sfeam Exp $
+ * $Id: gd.trm,v 1.160 2011/07/21 04:54:09 sfeam Exp $
  * based on gif.trm,v 1.26.2.1 2000/05/01 00:17:20 joze
  */
 
@@ -58,14 +58,13 @@
  *
  * font name (TrueType or Adobe Type 1 font name is passed to libgd)
  *
+ * EAM Dec 2010: Obsolete!
  * xrrggbb - sets the next color.  x is the literal character 'x',
  * rrggbb are the red green and blue components in hex.  For example
  * x00ff00 is green.  The background color is set first, then the
  * color borders, then the X & Y axis, then the plotting colors.
  * (The wierd color spec is in order to get around limitations
  * in gnuplot's scanner.)
- * EAM Feb 2010: This mechanism is totally obsolete except for setting the
- * background color.  Revise the documentation accordingly.
  *
  * This driver is modeled after the PBM driver pbm.trm.
  *
@@ -94,6 +93,7 @@
  * Petr Mikulik, Jan 1999: terminal entries for PM3D functionality
  * Ethan Merritt, May 2001: modified gd/gif driver to produce png instead;
  *                          added support for line width and TrueType fonts
+ * Shige Takeno, Mar 2011: deal with libgd built to use SJIS rather than UTF-8
  */
 
 /* Approximate "fillstyle solid FRAC " for indexed palettes */
@@ -199,11 +199,12 @@ BGD_EXPORT_DATA_PROT gdFontPtr gdFontMediumBold;	/* 7x13 */
 BGD_EXPORT_DATA_PROT gdFontPtr gdFontGiant;  /* 9x15 */
 BGD_EXPORT_DATA_PROT gdFontPtr gdFontTiny;  /* 5x8 */
 #else
-static gdFontPtr gdFontSmall;	/* 6x12 */
-static gdFontPtr gdFontLarge;	/* 8x16 */
-static gdFontPtr gdFontMediumBold;	/* 7x13 */
-static gdFontPtr gdFontGiant;  /* 9x15 */
-static gdFontPtr gdFontTiny;  /* 5x8 */
+static gdFontPtr gp_gdFonts[5];
+#define gdFontSmall gp_gdFonts[0]
+#define gdFontLarge gp_gdFonts[1]
+#define gdFontMediumBold gp_gdFonts[2]
+#define gdFontGiant gp_gdFonts[3]
+#define gdFontTiny gp_gdFonts[4]
 #endif
 
 #define GREG_XMAX 640
@@ -270,7 +271,7 @@ enum PNG_id {
     /* Font size */
     PNG_TINY, PNG_SMALL, PNG_MEDIUM, PNG_LARGE, PNG_GIANT,
     PNG_FONT, PNG_FONTSCALE,
-    PNG_SIZE,
+    PNG_SIZE, PNG_BACKGROUND,
     PNG_ENHANCED, PNG_NOENHANCED,
     PNG_TRUECOLOR, PNG_NOTRUECOLOR,
     PNG_LINEWIDTH, PNG_BUTT, PNG_ROUNDED, PNG_DASHLENGTH,
@@ -319,6 +320,7 @@ static struct gen_table PNG_opts[] =
     { "round$ed", PNG_ROUNDED},
     { "dashl$ength", PNG_DASHLENGTH},
     { "dl", PNG_DASHLENGTH},
+    { "backg$round", PNG_BACKGROUND},
     { NULL, PNG_OTHER }
 };
 
@@ -326,6 +328,19 @@ static struct gen_table PNG_opts[] =
 #define MAXLINEWIDTH 100
 static double PNG_linewidth_factor = 1.0;
 static double PNG_dashlength_factor = 1.0;
+
+/* shige takeno: 
+ * libgd can be built to prefer UTF-8 or SJIS encoding for Japanese.
+ * If it wants SJIS and we are currently in UTF8, convert.
+ * If it wants UTF8 and we are currently in SJIS, convert.
+ * conditional compilation flags:
+ *   HAVE_ICONV (iconv library)
+ *   JIS_GDLIB (using gdlib configured with -DJISX0208)
+ */
+#ifdef HAVE_ICONV
+#include <iconv.h>
+#endif
+static void gd_iconv __PROTO((char **string));
 
 /* EAM - gdImage structure to hold brushes for linewidth */
 /* We will allocate and initialize these on demand */
@@ -627,12 +642,18 @@ PNG_options()
     int i;
     char *string;
     unsigned long color;
-    TBOOLEAN new_colors = FALSE;
     TBOOLEAN gif_anim_option = FALSE; /* set to TRUE if an animated gif option given */
 
     if (!PNG_initialized) {
 	PNG_initialized = TRUE;
 	term_options[0] = '\0';
+#ifdef GD_NEED_LOCAL_FONT_POINTERS
+	gdFontSmall = gdFontGetSmall();
+	gdFontLarge = gdFontGetLarge();
+	gdFontMediumBold = gdFontGetMediumBold();
+	gdFontGiant = gdFontGetGiant();
+	gdFontTiny = gdFontGetTiny();
+#endif
 	term->h_char = PNG_HCHAR; /* Default to medium font */
 	png_state.default_font = gdfont;
 	png_state.n_colors = 0;
@@ -647,12 +668,22 @@ PNG_options()
 	PNG_linewidth_factor = 1.0;
 	PNG_dashlength_factor = 1.0;
 	png_state.capbutt = FALSE; /* to preserve previous default behavior */
-#ifdef GD_NEED_LOCAL_FONT_POINTERS
-	gdFontSmall = gdFontGetSmall();
-	gdFontLarge = gdFontGetLarge();
-	gdFontMediumBold = gdFontGetMediumBold();
-	gdFontGiant = gdFontGetGiant();
-	gdFontTiny = gdFontGetTiny();
+#ifdef _Windows
+	/* Set the default search path for fonts to something useful. */
+	if (getenv("GDFONTPATH") == NULL) {
+	    const char fonts[] = "\\fonts";
+	    char *windir = getenv("windir");
+	    if (windir) {
+		char *gdfontpath = (char *) 
+		    gp_alloc(strlen(windir) + strlen(fonts) + 1, "GDFONTPATH");
+		if (gdfontpath) {
+		   strcpy(gdfontpath, windir); 
+		   strcat(gdfontpath, fonts);
+		   SetEnvironmentVariable("GDFONTPATH", gdfontpath);
+		   free(gdfontpath);
+		}
+	    }
+	}
 #endif
     } else {
 	/* FIXME EAM - these should never happen! */
@@ -937,6 +968,12 @@ PNG_options()
 	    c_token++;
 	    break;
 
+	case PNG_BACKGROUND:
+	    c_token++;
+	    png_state.rgb_table[0] = parse_color_name();
+	    png_state.n_colors = 1;
+	    break;
+
 	case PNG_OTHER:
 	default:
 	    /* not "size" */
@@ -949,24 +986,15 @@ PNG_options()
 		    png_state.default_ttfsize = i;
 		else
 		    int_warn(c_token,"illegal font size");
-		++c_token;
+		c_token++;
 	        break;
 	    }
 #endif
 
-	    if (sscanf(string, "x%lx", &color) != 1) {
-		int_error(c_token, "invalid color spec, must be xRRGGBB");
-	    } else if (png_state.n_colors == PNG_MAX_COLORS && new_colors) {
-		int_warn(c_token, "too many colors, ignoring");
-		++c_token;
-	    } else {
-	        if (!new_colors) {
-		    new_colors = TRUE;
-		    png_state.n_colors = 0;
-		}
-		png_state.rgb_table[png_state.n_colors++] = color;
-		++c_token;
-	    }
+	    if (sscanf(string, "x%lx", &color) == 1)
+		int_error(c_token, "obsolete color option");
+	    else
+		int_error(c_token, "unrecognized terminal option");
 	    break;
 	}
     }
@@ -1115,12 +1143,10 @@ PNG_options()
     sprintf(term_options + strlen(term_options),
 	    "size %d,%d ", PNG_XMAX, PNG_YMAX);
 
-    if (new_colors)
-	for (i = 0; strlen(term_options) + 9 < MAX_LINE_LEN &&
-	     i < png_state.n_colors; i++) {
-	    sprintf(term_options + strlen(term_options),
-		"x%06x ", png_state.rgb_table[i]);
-	}
+    if (png_state.n_colors == 1)
+	sprintf(term_options + strlen(term_options),
+	    "background \"#%06x\" ", png_state.rgb_table[0]);
+
 }
 
 
@@ -1303,7 +1329,9 @@ void PNG_set_color (t_colorspec *colorspec)
     if (colorspec->type == TC_RGB) {
 	png_state.rgb = colorspec->lt;
 	png_state.color = gdImageColorResolve(png_state.image,
-	    colorspec->lt >> 16, (colorspec->lt >> 8) & 0xff, colorspec->lt & 0xff);
+	    (colorspec->lt >> 16) & 0xff,
+	    (colorspec->lt >> 8) & 0xff, 
+	    colorspec->lt & 0xff);
     }
 
     if (colorspec->type != TC_FRAC)
@@ -1635,6 +1663,11 @@ PNG_linewidth(double linewidth)
 TERM_PUBLIC void
 PNG_put_text(unsigned int x, unsigned int y, const char *string)
 {
+    /* Mar 2011 - added to handle SJIS/UTF8 conversion */
+    if (contains8bit(string)) {
+	gd_iconv((char **)(&string));
+    }
+
     if (png_state.ttffont) {
 	int brect[8]; char *err;
 	/* Draw once with a NULL image to get the bounding rectangle */
@@ -1696,6 +1729,7 @@ PNG_put_text(unsigned int x, unsigned int y, const char *string)
 		      x, Y(y),
 		      (unsigned char *)string, png_state.color);
     }
+
 }
 
 #else  /* not HAVE_GD_TTF */
@@ -1965,73 +1999,81 @@ ENHGD_FLUSH()
 {
     int brect[8]; char *err;
     unsigned int x, y;
+    char *fragment = enhanced_text;
 
-	if (ENHgd_opened_string) {
-	    ENHgd_opened_string = FALSE;
-	    *enhanced_cur_text = '\0';
-	    x = png_state.x;
-	    y = png_state.y;
-	    x -= sin((double)png_state.angle * M_PI_2/90.) * ENHgd_base;
-	    y += cos((double)png_state.angle * M_PI_2/90.) * ENHgd_base;
-	    x += sin((double)png_state.angle * M_PI_2/90.) * (double)png_state.charh/4.;
-	    y -= cos((double)png_state.angle * M_PI_2/90.) * (double)png_state.charh/4.;
+    if (!ENHgd_opened_string)
+	return;
 
-	    /* First try the old GDFONTPATH mechanism for locating fonts */
-	    (void)gdUseFontConfig(0);
+    ENHgd_opened_string = FALSE;
+    *enhanced_cur_text = '\0';
+
+    /* Mar 2011 - added to handle SJIS/UTF8 conversion */
+    if (contains8bit(fragment)) {
+	gd_iconv(&fragment);
+    }
+
+    x = png_state.x;
+    y = png_state.y;
+    x -= sin((double)png_state.angle * M_PI_2/90.) * ENHgd_base;
+    y += cos((double)png_state.angle * M_PI_2/90.) * ENHgd_base;
+    x += sin((double)png_state.angle * M_PI_2/90.) * (double)png_state.charh/4.;
+    y -= cos((double)png_state.angle * M_PI_2/90.) * (double)png_state.charh/4.;
+
+    /* First try the old GDFONTPATH mechanism for locating fonts */
+    (void)gdUseFontConfig(0);
 #ifdef gdFTEX_Adobe_Custom
-	    /* libgd defaults to UTF-8 encodings. We have limited options for	*/
-	    /* over-riding this, but we can try					*/
-	    if (encoding != S_ENC_UTF8 && ENHgd_font && !strcmp(ENHgd_font,"Symbol")) {
-		PNG_FONT_INFO.flags |= gdFTEX_CHARMAP;
-		PNG_FONT_INFO.charmap = gdFTEX_Adobe_Custom;
-	    } else {
-		PNG_FONT_INFO.flags &= ~gdFTEX_CHARMAP;
-		PNG_FONT_INFO.charmap = 0;   /* gdFTEX_Adobe_Custom */
-	    }
-	    err = gdImageStringFTEx(
-			(ENHgd_show && !ENHgd_sizeonly) ? png_state.image : NULL,
-			brect, png_state.color,
-			ENHgd_font, ENHgd_fontsize,
-			(double)png_state.angle * M_PI_2/90.,
-			x, Y(y), enhanced_text, &PNG_FONT_INFO);
-	    if (err && gdUseFontConfig(1)) {
-		err = gdImageStringFTEx(
-			(ENHgd_show && !ENHgd_sizeonly) ? png_state.image : NULL,
-			brect, png_state.color,
-			ENHgd_font, ENHgd_fontsize,
-			(double)png_state.angle * M_PI_2/90.,
-			x, Y(y), enhanced_text, &PNG_FONT_INFO);
-	    }
+    /* libgd defaults to UTF-8 encodings. We have limited options for	*/
+    /* over-riding this, but we can try					*/
+    if (encoding != S_ENC_UTF8 && ENHgd_font && !strcmp(ENHgd_font,"Symbol")) {
+	PNG_FONT_INFO.flags |= gdFTEX_CHARMAP;
+	PNG_FONT_INFO.charmap = gdFTEX_Adobe_Custom;
+    } else {
+	PNG_FONT_INFO.flags &= ~gdFTEX_CHARMAP;
+	PNG_FONT_INFO.charmap = 0;   /* gdFTEX_Adobe_Custom */
+    }
+    err = gdImageStringFTEx(
+		(ENHgd_show && !ENHgd_sizeonly) ? png_state.image : NULL,
+		brect, png_state.color,
+		ENHgd_font, ENHgd_fontsize,
+		(double)png_state.angle * M_PI_2/90.,
+		x, Y(y), fragment, &PNG_FONT_INFO);
+    if (err && gdUseFontConfig(1)) {
+	err = gdImageStringFTEx(
+		(ENHgd_show && !ENHgd_sizeonly) ? png_state.image : NULL,
+		brect, png_state.color,
+		ENHgd_font, ENHgd_fontsize,
+		(double)png_state.angle * M_PI_2/90.,
+		x, Y(y), fragment, &PNG_FONT_INFO);
+    }
 #else
-	    err = gdImageStringFT(
-			(ENHgd_show && !ENHgd_sizeonly) ? png_state.image : NULL,
-			brect, png_state.color,
-			ENHgd_font, ENHgd_fontsize,
-			(double)png_state.angle * M_PI_2/90.,
-			x, Y(y), enhanced_text);
-	    if (err && gdUseFontConfig(1)) {
-		err = gdImageStringFT(
-			(ENHgd_show && !ENHgd_sizeonly) ? png_state.image : NULL,
-			brect, png_state.color,
-			ENHgd_font, ENHgd_fontsize,
-			(double)png_state.angle * M_PI_2/90.,
-			x, Y(y), enhanced_text);
-	    }
+    err = gdImageStringFT(
+		(ENHgd_show && !ENHgd_sizeonly) ? png_state.image : NULL,
+		brect, png_state.color,
+		ENHgd_font, ENHgd_fontsize,
+		(double)png_state.angle * M_PI_2/90.,
+		x, Y(y), fragment);
+    if (err && gdUseFontConfig(1)) {
+	err = gdImageStringFT(
+		(ENHgd_show && !ENHgd_sizeonly) ? png_state.image : NULL,
+		brect, png_state.color,
+		ENHgd_font, ENHgd_fontsize,
+		(double)png_state.angle * M_PI_2/90.,
+		x, Y(y), fragment);
+    }
 #endif
-	    if (err) 
-		fprintf(stderr,"gdImageStringFT: %s while printing string %s with font %s\n",
-		    err,enhanced_text,ENHgd_font);
+    if (err) 
+	fprintf(stderr,"gdImageStringFT: %s while printing string %s with font %s\n",
+	    err,enhanced_text,ENHgd_font);
 
-	    FPRINTF((stderr,"outputstring: %s boundingbox: %d %d %d %d\n",
-			enhanced_text, brect[6], brect[7], brect[2], brect[3]));
-	    if (ENHgd_overprint == 1) {
-		png_state.x += ((brect[2] - brect[0]))/2;
-		png_state.y -= (brect[3] - brect[1]);
-	    } else if (ENHgd_widthflag) {
-		png_state.x += (brect[2] - brect[0]);
-		png_state.y -= (brect[3] - brect[1]);
-	    }
-	}
+    FPRINTF((stderr,"outputstring: %s boundingbox: %d %d %d %d\n",
+		enhanced_text, brect[6], brect[7], brect[2], brect[3]));
+    if (ENHgd_overprint == 1) {
+	png_state.x += ((brect[2] - brect[0]))/2;
+	png_state.y -= (brect[3] - brect[1]);
+    } else if (ENHgd_widthflag) {
+	png_state.x += (brect[2] - brect[0]);
+	png_state.y -= (brect[3] - brect[1]);
+    }
 }
 
 TERM_PUBLIC void
@@ -2236,6 +2278,71 @@ PNG_image (unsigned int M, unsigned int N, coordval * image, gpiPoint * corner, 
 
 }
 
+
+/* Mar 2011 - shige takeno
+ * libgd can be built to prefer UTF-8 or SJIS encoding for Japanese.
+ * If it wants SJIS and we are currently in UTF8, convert.
+ * If it wants UTF8 and we are currently in SJIS, convert.
+ */
+static void
+gd_iconv(char **string)
+{
+#ifdef HAVE_ICONV
+    size_t len1 = strlen(*string)+1;
+    size_t len2;
+    iconv_t cd;
+    size_t stat;
+    char *stmp;
+
+    /* We will return this to the caller and free it next time */
+    static char *iconv_string = NULL;
+    free(iconv_string);
+    iconv_string = NULL;
+
+#ifdef JIS_GDLIB
+    if (encoding == S_ENC_UTF8) { /* UTF-8 -> Shift_JIS by iconv */
+	len2 = len1;
+	iconv_string = gp_alloc(len2, "iconv string");
+	stmp = iconv_string;
+	if ((cd = iconv_open("Shift_JIS", "UTF-8")) == (iconv_t)-1) 
+	  int_warn(NO_CARET, "iconv_open failed");
+	else {
+	    if (iconv(cd, string, &len1, &stmp, &len2) == (size_t)-1)
+		int_warn(NO_CARET, "iconv failed");
+	    else
+		*string = iconv_string;
+	    iconv_close(cd);
+	}
+    }
+#else /* ! JIS_GDLIB */
+    if (encoding == S_ENC_SJIS) { /* Shift_JIS -> UTF-8 by iconv */
+	len2 = len1*3/2+2;
+	iconv_string = gp_alloc(len2, "iconv string");
+	stmp = iconv_string;
+	if ((cd = iconv_open("UTF-8", "Shift_JIS")) == (iconv_t)-1)
+	  int_warn(NO_CARET, "iconv_open failed");
+	else {
+	    if (iconv(cd, (char **)(string), &len1, &stmp, &len2) == (size_t)-1)
+		int_warn(NO_CARET, "iconv failed");
+	    else
+		*string = iconv_string;
+	    iconv_close(cd);
+	}
+    }
+#endif /* JIS_GDLIB */
+#else /* ! HAVE_ICONV */
+#ifdef JIS_GDLIB
+    if (encoding == S_ENC_UTF8)
+	int_warn(NO_CARET, 
+		 "This gdlib supports Shift_JIS encoding, but not UTF-8.");
+#else /* ! JIS_GDLIB */
+    if (encoding == S_ENC_SJIS) /* Shift_JIS -> UTF-8 */
+	int_warn(NO_CARET, 
+		 "This gdlib supports UTF-8 encoding, but not Shift_JIS.");
+#endif  /* JIS_GDLIB */
+#endif /* HAVE_ICONV */
+}
+
 #undef MAXLINEWIDTH
 #undef Y
 
@@ -2290,7 +2397,7 @@ START_HELP(png)
 "              {tiny | small | medium | large | giant}",
 "              {font \"<face> {,<pointsize>}\"} {fontscale <scale>}",
 "              {size <x>,<y>} {{no}crop}",
-"              {<background_color>}",
+"              {background <rgb_color>}",
 "",
 " PNG, JPEG and GIF images are created using the external library libgd.",
 " PNG plots may be viewed interactively by piping the output to the",
@@ -2445,7 +2552,7 @@ START_HELP(jpeg)
 "              {tiny | small | medium | large | giant}",
 "              {font \"<face> {,<pointsize>}\"} {fontscale <scale>}",
 "              {size <x>,<y>} {{no}crop}",
-"              {<background_color>}",
+"              {background <rgb_color>}",
 "",
 " PNG, JPEG and GIF images are created using the external library libgd.",
 " In most cases, PNG is to be preferred for single plots, and GIF for",
@@ -2600,7 +2707,7 @@ START_HELP(gif)
 "              {font \"<face> {,<pointsize>}\"} {fontscale <scale>}",
 "              {size <x>,<y>} {{no}crop}",
 "              {animate {delay <d>} {loop <n>} {{no}optimize}}",
-"              {<background_color>}",
+"              {background <rgb_color>}",
 "",
 " PNG, JPEG and GIF images are created using the external library libgd.",
 " GIF plots may be viewed interactively by piping the output to the",

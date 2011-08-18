@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: winmain.c,v 1.32 2010/12/14 23:02:23 broeker Exp $"); }
+static char *RCSid() { return RCSid("$Id: winmain.c,v 1.47 2011/05/07 16:18:01 markisch Exp $"); }
 #endif
 
 /* GNUPLOT - win/winmain.c */
@@ -54,8 +54,15 @@ static char *RCSid() { return RCSid("$Id: winmain.c,v 1.32 2010/12/14 23:02:23 b
 # include "config.h"
 #endif
 #define STRICT
+#define _WIN32_IE 0x0400
 #include <windows.h>
 #include <windowsx.h>
+#include <commctrl.h>
+#include <shlobj.h>
+#include <shlwapi.h>
+#ifdef WITH_HTML_HELP
+#include <htmlhelp.h>
+#endif
 #include <dos.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -79,17 +86,13 @@ static char *RCSid() { return RCSid("$Id: winmain.c,v 1.32 2010/12/14 23:02:23 b
 #include "wgnuplib.h"
 #include "wtext.h"
 #include "wcommon.h"
+#ifdef HAVE_GDIPLUS
+#include "wgdiplus.h"
+#endif
 
-#ifdef WIN32
-# ifndef _WIN32_IE
-#  define _WIN32_IE 0x0400
-# endif
-# include <shlobj.h>
-# include <shlwapi.h>
-  /* workaround for old header files */
-# ifndef CSIDL_APPDATA
-#  define CSIDL_APPDATA (0x001a)
-# endif
+/* workaround for old header files */
+#ifndef CSIDL_APPDATA
+# define CSIDL_APPDATA (0x001a)
 #endif
 
 /* limits */
@@ -98,17 +101,27 @@ static char *RCSid() { return RCSid("$Id: winmain.c,v 1.32 2010/12/14 23:02:23 b
   /* used if vsnprintf(NULL,0,...) returns zero (MingW 3.4) */
 
 /* globals */
+#ifndef WGP_CONSOLE
 TW textwin;
+MW menuwin;
+#endif
 GW graphwin;
 PW pausewin;
-MW menuwin;
 LPSTR szModuleName;
 LPSTR szPackageDir;
 LPSTR winhelpname;
 LPSTR szMenuName;
+#if defined(WGP_CONSOLE) && defined(CONSOLE_SWITCH_CP)
+BOOL cp_changed = FALSE;
+UINT cp_input;  /* save previous codepage settings */
+UINT cp_output;
+#endif
 #define MENUNAME "wgnuplot.mnu"
 #ifndef HELPFILE /* HBB 981203: makefile.win predefines this... */
 #define HELPFILE "wgnuplot.hlp"
+#endif
+#ifdef WITH_HTML_HELP
+HWND help_window = NULL;
 #endif
 
 char *authors[]={
@@ -118,6 +131,8 @@ char *authors[]={
 
 void WinExit(void);
 int gnu_main(int argc, char *argv[], char *env[]);
+static void WinCloseHelp(void);
+
 
 void
 CheckMemory(LPSTR str)
@@ -142,18 +157,16 @@ kill_pending_Pause_dialog ()
             return;
         /* Pause dialog displayed, thus kill it */
         DestroyWindow(pausewin.hWndPause);
-#ifndef WIN32
-#ifndef __DLL__
-        FreeProcInstance((FARPROC)pausewin.lpfnPauseButtonProc);
-#endif
-#endif
         pausewin.bPause = FALSE;
 }
 
 /* atexit procedure */
 void
-WinExit()
+WinExit(void)
 {
+        /* Last chance, call before anything else to avoid a crash. */
+        WinCloseHelp();
+
         term_reset();
 
 #ifndef __MINGW32__ /* HBB 980809: FIXME: doesn't exist for MinGW32. So...? */
@@ -163,23 +176,39 @@ WinExit()
                 GraphClose(&graphwin);
 #ifndef WGP_CONSOLE
         TextMessage();  /* process messages */
-#endif
+#ifndef WITH_HTML_HELP
         WinHelp(textwin.hWndText,(LPSTR)winhelpname,HELP_QUIT,(DWORD)NULL);
-#ifndef WGP_CONSOLE
+#endif
         TextMessage();  /* process messages */
+#else
+#ifndef WITH_HTML_HELP
+        WinHelp(GetDesktopWindow(), (LPSTR)winhelpname, HELP_QUIT, (DWORD)NULL);
+#endif
+#ifdef CONSOLE_SWITCH_CP
+        /* restore console codepages */
+        if (cp_changed) {
+            SetConsoleCP(cp_input);
+            SetConsoleOutputCP(cp_output);
+            /* file APIs are per process */
+        }
+#endif
+#endif
+#ifdef HAVE_GDIPLUS
+        gdiplusCleanup();
 #endif
         return;
 }
 
 /* call back function from Text Window WM_CLOSE */
-int CALLBACK WINEXPORT
+int CALLBACK
 ShutDown()
 {
-        exit(0);
-        return 0;
+	/* First chance for wgnuplot to close help system. */
+	WinCloseHelp();
+	exit(0);
+	return 0;
 }
 
-#ifdef WIN32
 
 /* This function can be used to retrieve version information from
  * Window's Shell and common control libraries such (Comctl32.dll,
@@ -221,6 +250,19 @@ GetDllVersion(LPCTSTR lpszDllName)
 }
 
 
+BOOL IsWindowsXPorLater(void) 
+{
+    OSVERSIONINFO versionInfo;
+
+    /* get Windows version */
+    ZeroMemory(&versionInfo, sizeof(OSVERSIONINFO));
+    versionInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+    GetVersionEx(&versionInfo);
+    return ((versionInfo.dwMajorVersion > 5) ||
+           ((versionInfo.dwMajorVersion == 5) && (versionInfo.dwMinorVersion >= 1)));
+}
+
+
 char *
 appdata_directory(void)
 {
@@ -255,7 +297,21 @@ appdata_directory(void)
     return NULL;
 }
 
-#endif /* WIN32 */
+
+static void
+WinCloseHelp(void)
+{
+#ifdef WITH_HTML_HELP
+	/* Due to a known bug in the HTML help system we have to
+	 * call this as soon as possible before the end of the program. 
+	 * See e.g. http://helpware.net/FAR/far_faq.htm#HH_CLOSE_ALL
+	 */
+	if (IsWindow(help_window))
+		SendMessage(help_window, WM_CLOSE, 0, 0);
+	Sleep(0);
+#endif
+}
+
 
 #ifndef WGP_CONSOLE
 int PASCAL WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
@@ -271,51 +327,30 @@ int main(int argc, char **argv)
 # define _argv argv
 # define _argc argc
         HINSTANCE hInstance = GetModuleHandle(NULL), hPrevInstance = NULL;
-        int nCmdShow = 0;
 #else
-#ifdef __MSC__  /* MSC doesn't give us _argc and _argv[] so ...   */
-# ifdef WIN32    /* WIN32 has __argc and __argv */
+#if defined(__MSC__) || defined(__WATCOMC__)
 #  define _argv __argv
 #  define _argc __argc
-# else
-#  define MAXCMDTOKENS 128
-        int     _argc=0;
-        LPSTR   _argv[MAXCMDTOKENS];
-        _argv[_argc] = "wgnuplot.exe";
-        _argv[++_argc] = _fstrtok( lpszCmdLine, " ");
-        while (_argv[_argc] != NULL)
-                _argv[++_argc] = _fstrtok( NULL, " ");
-# endif /* WIN32 */
-#endif /* __MSC__ */
-#ifdef  __WATCOMC__
-# define _argv __argv
-# define _argc __argc
 #endif
 #endif /* WGP_CONSOLE */
 
-        szModuleName = (LPSTR)farmalloc(MAXSTR+1);
+        szModuleName = (LPSTR)malloc(MAXSTR+1);
         CheckMemory(szModuleName);
 
         /* get path to EXE */
         GetModuleFileName(hInstance, (LPSTR) szModuleName, MAXSTR);
-#ifndef WIN32
-        if (CheckWGNUPLOTVersion(WGNUPLOTVERSION)) {
-                MessageBox(NULL, "Wrong version of WGNUPLOT.DLL", szModuleName, MB_ICONSTOP | MB_OK);
-                exit(1);
-        }
-#endif
         if ((tail = (LPSTR)_fstrrchr(szModuleName,'\\')) != (LPSTR)NULL)
         {
                 tail++;
                 *tail = 0;
         }
-        szModuleName = (LPSTR)farrealloc(szModuleName, _fstrlen(szModuleName)+1);
+        szModuleName = (LPSTR)realloc(szModuleName, _fstrlen(szModuleName)+1);
         CheckMemory(szModuleName);
 
         if (_fstrlen(szModuleName) >= 5 && _fstrnicmp(&szModuleName[_fstrlen(szModuleName)-5], "\\bin\\", 5) == 0)
         {
                 int len = _fstrlen(szModuleName)-4;
-                szPackageDir = (LPSTR)farmalloc(len+1);
+                szPackageDir = (LPSTR)malloc(len+1);
                 CheckMemory(szPackageDir);
                 _fstrncpy(szPackageDir, szModuleName, len);
                 szPackageDir[len] = '\0';
@@ -323,31 +358,44 @@ int main(int argc, char **argv)
         else
                 szPackageDir = szModuleName;
 
-        winhelpname = (LPSTR)farmalloc(_fstrlen(szModuleName)+_fstrlen(HELPFILE)+1);
+        winhelpname = (LPSTR)malloc(_fstrlen(szModuleName)+_fstrlen(HELPFILE)+1);
         CheckMemory(winhelpname);
         _fstrcpy(winhelpname,szModuleName);
         _fstrcat(winhelpname,HELPFILE);
 
-        szMenuName = (LPSTR)farmalloc(_fstrlen(szModuleName)+_fstrlen(MENUNAME)+1);
+        szMenuName = (LPSTR)malloc(_fstrlen(szModuleName)+_fstrlen(MENUNAME)+1);
         CheckMemory(szMenuName);
         _fstrcpy(szMenuName,szModuleName);
         _fstrcat(szMenuName,MENUNAME);
 
+#ifndef WGP_CONSOLE
         textwin.hInstance = hInstance;
         textwin.hPrevInstance = hPrevInstance;
         textwin.nCmdShow = nCmdShow;
         textwin.Title = "gnuplot";
+#endif
 
-        get_user_env(); /* this hasn't been called yet */
-        textwin.IniFile = gp_strdup("~\\wgnuplot.ini");
-        gp_expand_tilde(&(textwin.IniFile));
+		/* locate ini file */
+		{
+			char * inifile;
+			get_user_env(); /* this hasn't been called yet */
+			inifile = gp_strdup("~\\wgnuplot.ini");
+			gp_expand_tilde(&inifile);
 
-        /* if tilde expansion fails use current directory as
-           default - that was the previous default behaviour */
-        if (textwin.IniFile[0] == '~') {
-            free(textwin.IniFile);
-            textwin.IniFile = "wgnuplot.ini";
-        }
+			/* if tilde expansion fails use current directory as
+			   default - that was the previous default behaviour */
+			if (inifile[0] == '~') {
+				free(inifile);
+				inifile = "wgnuplot.ini";
+			}
+			
+#ifndef WGP_CONSOLE
+			textwin.IniFile = inifile;
+#endif
+			graphwin.IniFile = inifile;
+		}
+		
+#ifndef WGP_CONSOLE
         textwin.IniSection = "WGNUPLOT";
         textwin.DragPre = "load '";
         textwin.DragPost = "'\n";
@@ -357,14 +405,21 @@ int main(int argc, char **argv)
         textwin.KeyBufSize = 2048;
         textwin.CursorFlag = 1; /* scroll to cursor after \n & \r */
         textwin.shutdown = MakeProcInstance((FARPROC)ShutDown, hInstance);
-        textwin.AboutText = (LPSTR)farmalloc(1024);
+        textwin.AboutText = (LPSTR)malloc(1024);
         CheckMemory(textwin.AboutText);
-        sprintf(textwin.AboutText,"Version %s\nPatchlevel %s\nLast Modified %s\n%s\n%s, %s and many others",
-                gnuplot_version, gnuplot_patchlevel, gnuplot_date, gnuplot_copyright, authors[1], authors[0]);
-        textwin.AboutText = (LPSTR)farrealloc(textwin.AboutText, _fstrlen(textwin.AboutText)+1);
+        sprintf(textwin.AboutText,
+	    "Version %s patchlevel %s\n" \
+	    "last modified %s\n" \
+	    "%s\n%s, %s and many others\n" \
+	    "gnuplot home:     http://www.gnuplot.info\n",
+            gnuplot_version, gnuplot_patchlevel, 
+	    gnuplot_date,
+	    gnuplot_copyright, authors[1], authors[0]);
+        textwin.AboutText = (LPSTR)realloc(textwin.AboutText, _fstrlen(textwin.AboutText)+1);
         CheckMemory(textwin.AboutText);
 
         menuwin.szMenuName = szMenuName;
+#endif
 
         pausewin.hInstance = hInstance;
         pausewin.hPrevInstance = hPrevInstance;
@@ -372,22 +427,29 @@ int main(int argc, char **argv)
 
         graphwin.hInstance = hInstance;
         graphwin.hPrevInstance = hPrevInstance;
-        graphwin.Title = WINGRAPHTITLE;
+        graphwin.Title = strdup(WINGRAPHTITLE);
+#ifdef WGP_CONSOLE
+        graphwin.lptw = NULL;
+#else
         graphwin.lptw = &textwin;
-        graphwin.IniFile = textwin.IniFile;
-        graphwin.IniSection = textwin.IniSection;
+#endif
+        graphwin.IniSection = "WGNUPLOT";
         graphwin.color=TRUE;
         graphwin.fontsize = WINFONTSIZE;
 
+	/* init common controls */
+	{
+	    INITCOMMONCONTROLSEX initCtrls;
+	    initCtrls.dwSize = sizeof(INITCOMMONCONTROLSEX);
+	    initCtrls.dwICC = ICC_WIN95_CLASSES;
+	    InitCommonControlsEx(&initCtrls);
+	}
+	
 #ifndef WGP_CONSOLE
         if (TextInit(&textwin))
                 exit(1);
         textwin.hIcon = LoadIcon(hInstance, "TEXTICON");
-#ifdef WIN32
         SetClassLong(textwin.hWndParent, GCL_HICON, (DWORD)textwin.hIcon);
-#else
-        SetClassWord(textwin.hWndParent, GCW_HICON, (WORD)textwin.hIcon);
-#endif
         if (_argc>1) {
                 int i,noend=FALSE;
                 for (i=0; i<_argc; ++i)
@@ -405,8 +467,23 @@ int main(int argc, char **argv)
                 InvalidateRect(textwin.hWndParent, (LPRECT) &rect, 1);
                 UpdateWindow(textwin.hWndParent);
         }
+#else /* WGP_CONSOLE */
+#ifdef CONSOLE_SWITCH_CP
+        /* Change codepage of console to match that of the graph window.
+           WinExit() will revert this.
+           Attention: display of characters does not work correctly with 
+           "Terminal" font! Users will have to use "Lucida Console" or similar.
+        */
+        cp_input = GetConsoleCP();
+        cp_output = GetConsoleOutputCP();
+        if (cp_input != GetACP()) {
+            cp_changed = TRUE;
+            SetConsoleCP(GetACP()); /* keyboard input */
+            SetConsoleOutputCP(GetACP()); /* screen output */
+            SetFileApisToANSI(); /* file names etc. */
+        }
 #endif
-
+#endif
 
         atexit(WinExit);
 
@@ -415,6 +492,9 @@ int main(int argc, char **argv)
 
         gnu_main(_argc, _argv, environ);
 
+        /* First chance to close help system for console gnuplot,
+        second for wgnuplot */
+        WinCloseHelp();
         return 0;
 }
 
@@ -450,11 +530,7 @@ int main(int argc, char **argv)
 #undef fwrite
 #undef fread
 
-#if defined(__MSC__)|| defined(WIN32)
 #define isterm(f) (f==stdin || f==stdout || f==stderr)
-#else
-#define isterm(f) isatty(fileno(f))
-#endif
 
 int
 MyPutCh(int ch)
@@ -503,11 +579,11 @@ MyGetS(char *str)
 char *
 MyFGetS(char *str, unsigned int size, FILE *file)
 {
-    char FAR *p;
+    char *p;
 
     if (isterm(file)) {
         p = TextGetS(&textwin, str, size);
-        if (p != (char FAR *)NULL)
+        if (p != (char *)NULL)
             return str;
         return (char *)NULL;
     }
@@ -709,7 +785,7 @@ int ConsoleGetch()
                             case VK_RIGHT: return 006;
                             case VK_HOME: return 001;
                             case VK_END: return 005;
-                            case VK_DELETE: return 004;
+                            case VK_DELETE: return 0117;
                         }
                 }
             }
