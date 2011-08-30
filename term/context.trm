@@ -1113,6 +1113,22 @@ CONTEXT_init()
 
 	/* place the header first if this is a standalone graphic */
 	if(CONTEXT_params.standalone) {
+		/* If encoding is explicitely set to UTF-8 by gnuplot, use that setting.
+		 * \enableregime only makes a difference for pdfTeX; in LuaTeX and XeTeX UTF-8 is already default,
+		 * so this line will be ignored.
+		 *
+		 * There is no extra support for other encodings on purpose:
+		 * - ConTeXt doesn't support all encodings supported by Gnuplot.
+		 * - In LuaTeX and XeTeX one should not use any other encoding anyway.
+		 * - pdfTeX users are free to use "header '\enableregime[...]'" */
+		switch(encoding) {
+			case S_ENC_UTF8:
+				fputs("\\enableregime\n   [utf-8]\n", gpoutfile);
+				break;
+			default:
+				/* do nothing */
+				break;
+		}
 		/* load the gnuplot module */
 		fputs("\\usemodule\n   [gnuplot]\n", gpoutfile);
 		/* enable color (the only place where "color" is indeed used so far) */
