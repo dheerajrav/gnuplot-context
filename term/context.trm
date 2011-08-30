@@ -1842,8 +1842,8 @@ CONTEXT_fillbox(int style, unsigned int x1, unsigned int y1, unsigned int width,
 		CONTEXT_endpath();
 
 	/* create a new path */
-	/*fprintf(gpoutfile, "p := unitsquare xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb);\n", width/100.0, height/100.0, x1/100.0, y1/100.0);*/
-	fprintf(gpoutfile, "p := gp_rect ((%.2fa,%.2fb),(%.2fa,%.2fb));\n", x1/100.0, y1/100.0, width/100.0, height/100.0);
+	fprintf(gpoutfile, "p := unitsquare xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb);\n", width/100.0, height/100.0, x1/100.0, y1/100.0);
+	/* fprintf(gpoutfile, "p := gp_rect ((%.2fa,%.2fb),(%.2fa,%.2fb));\n", x1/100.0, y1/100.0, width/100.0, height/100.0); */
 	
 	/* fills the box according to the "style"
 	 * the code went out of this routine because of undocumented behaviour
