@@ -5,7 +5,7 @@
 /* GNUPLOT - context.trm */
 
 /*[
- * Copyleft 2006 Mojca Miklavec
+ * Copyleft 2006-2011 Mojca Miklavec
  *
  * Permission to use, copy, and distribute this software and its
  * documentation for any purpose with or without fee is hereby granted,
@@ -50,7 +50,7 @@
  *      - author of the module m-gnuplot.tex to support inclusion of Gnuplot
  *        graphics into ConTeXt
  *      - constant support on the most tricky issues
- *   Taco Hoekwater (developer of Metapost & pdfTeX)
+ *   Taco Hoekwater (developer of MetaPost, pdfTeX & LuaTeX)
  *        <taco at elvenkind.com>
  *      - some code of this file, many tricks, lots of bug fixes,
  *        suggestions and testing
@@ -82,9 +82,9 @@
  * \usemodule[gnuplot]
  *
  * \starttext
- * \section{Drawing nice graphs with \sc gnuplot}
+ * \title{Drawing nice graphs with \sc gnuplot}
  * \startGNUPLOTscript{sin}
- * pot sin(x)
+ * plot sin(x) t '$\sin(x)$'
  * \stopGNUPLOTscript
  * \useGNUPLOTgraphic[sin]
  * \stoptext
@@ -2350,6 +2350,7 @@ START_HELP(context)
 " With `font` you can set font name and size in standalone graphics.",
 " In non-standalone (`input`) mode only the font size is important",
 " to reserve enough space for text labels.",
+" The command"
 "  set term context font \"myfont,ss\" 10pt",
 " will result in",
 "  \\setupbodyfont[myfont,ss,10pt]",
@@ -2360,19 +2361,11 @@ START_HELP(context)
 " For compatibility with other terminals font size may be specified without units,",
 " in which case the default unit \"pt\" will be appended to it, but you can also",
 " use any other supported unit, for example \"11dd\".\n",
-" However, it's your own responsibility to use the proper typescript,",
+" It is your own responsibility to provide proper typescripts (and header),",
 " otherwise switching the font will have no effect.\n",
-" For an already supported font you can use",
+" For a standard font in ConTeXt MKII (pdfTeX) you could use:",
 "    set terminal context standalone header '\\usetypescript[iwona][ec]' \\",
 "        font \"iwona,ss,11pt\"",
-" If you also need your own typescripts, then you could write",
-"    set terminal context standalone \\",
-"        header '\\usetypescriptfile[type-myfont] \\usetypescript[myfont][uc]' \\",
-"        font \"myfont\" 10pt",
-"",
-" Note: The examples with typescripts above might become obsolete",
-" with new versions of (pdf)TeX and already differ in XeTeX. They should be regarded",
-" only as examples of the usage inside gnuplot.",
 " Please take a look into ConTeXt documentation, wiki or mailing list (archives)",
 " for any up-to-date information about font usage."
 "",
@@ -2382,27 +2375,25 @@ START_HELP(context)
 "    set terminal context size 4/5, 2.54*4cm # 4in, 4in",
 " For standalone (whole-page) plots with labels in UTF-8 encoding:",
 "    set terminal context standalone header '\\enableregime[utf-8]'",
-"",
-/* TODO: LaTeX formatting */
+"", /* TODO: LaTeX formatting */
 "2 Requirements",
-" - files from http://modules.contextgarden.net/gnuplot",
+" Requirements:",
 "",
-" - please use the latest version of ConTeXt if possible (but at least one from 2007 or newer)",
-"",
-" - texmfstart has to be in PATH - teTeX is too old to process your files",
-"",
-" - if you want to call gnuplot on-the-fly, you need to have write18 enabled",
-" (on most TeX distributionts this can be set with shell_escape=t in texmf.cnf)",
+" - gnuplot module for ConTeXt and a recent version of ConTeXt",
+" - If you want to call gnuplot on-the-fly, you need to have write18 enabled.",
+" (In most TeX distributionts this can be set with shell_escape=t in texmf.cnf.)",
 "",
 " See http://wiki.contextgarden.net/Gnuplot for details about this terminal",
 " and for more exhaustive help & examples.",
+"",
 "2 Calling gnuplot from ConTeXt",
 " The easiest way to make plots in ConTeXt documents is",
 "    \\usemodule[gnuplot]",
 "    \\starttext",
-"    \\section{How to make nice plots with {\\sc gnuplot}}",
+"    \\title{How to draw nice plots with {\\sc gnuplot}?}",
 "    \\startGNUPLOTscript[sin]",
-"    plot sin(x)",
+"    set format y \"%.1f\"",
+"    plot sin(x) t '$\\sin(x)$'",
 "    \\stopGNUPLOTscript",
 "    \\useGNUPLOTgraphic[sin]",
 "    \\stoptext",
