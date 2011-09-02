@@ -789,9 +789,9 @@ f:write([[
 
 % wrapper for color settings
 \def\gpcolor#1{\tikzset{global #1}}
-\tikzset{rgb color/.code={\pgfutil@definecolor{.}{rgb}{#1}\color{.}}}
-\tikzset{global rgb color/.code={\pgfutil@definecolor{.}{rgb}{#1}\color{.}}}
-\tikzset{global color/.code={\color{#1}}}
+\tikzset{rgb color/.code={\pgfutil@definecolor{.}{rgb}{#1}\tikzset{color=.}}}
+\tikzset{global rgb color/.code={\pgfutil@definecolor{.}{rgb}{#1}\pgfsetcolor{.}}}
+\tikzset{global color/.code={\pgfsetcolor{#1}}}
 
 % prevent plot mark distortions due to changes in the PGF transformation matrix
 % use `\gpscalepointstrue' and `\gpscalepointsfalse' for enabling and disabling
