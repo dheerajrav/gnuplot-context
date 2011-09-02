@@ -2234,8 +2234,8 @@ TERM_TABLE_START(context_driver)
 	CONTEXT_linetype, CONTEXT_put_text, CONTEXT_text_angle,
 	CONTEXT_justify_text, CONTEXT_point, CONTEXT_arrow, CONTEXT_set_font,
 	CONTEXT_pointsize,
-	/* also add TERM_CAN_CLIP once you understand what it does; Why binary? Because of UTF-8? */
-	TERM_BINARY | TERM_CAN_DASH | TERM_ALPHA_CHANNEL | TERM_LINEWIDTH | TERM_FONTSCALE | TERM_IS_LATEX /* flags */,
+	/* also add TERM_CAN_CLIP once you understand what it does */
+	TERM_CAN_DASH | TERM_ALPHA_CHANNEL | TERM_LINEWIDTH | TERM_FONTSCALE | TERM_IS_LATEX /* flags */,
 	0 /* suspend */, 0 /* resume*/,
 	CONTEXT_fillbox, CONTEXT_linewidth
 #ifdef USE_MOUSE
