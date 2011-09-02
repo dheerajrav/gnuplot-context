@@ -1,5 +1,5 @@
 /*
- * $Id: wgnuplib.h,v 1.44 2011/04/28 13:44:04 markisch Exp $
+ * $Id: wgnuplib.h,v 1.46 2011/08/15 18:16:49 markisch Exp $
  */
 
 /* GNUPLOT - win/wgnuplib.h */
@@ -250,6 +250,7 @@ struct GWOPBLK {			/* kept in local memory */
 /* ops */
 #define W_endoflist 0
 
+#define WIN_POINT_TYPES 15	/* required by win.trm */
 #define W_dot 10
 #define W_plus 11
 #define W_cross 12
@@ -288,6 +289,7 @@ typedef struct tagGW {
 	GP_LPPRINT	lpr;		/* must be first */
 	HINSTANCE hInstance;	/* required */
 	HINSTANCE hPrevInstance;	/* required */
+	int		Id;	/* plot number */
 	LPSTR	Title;		/* required */
 	int		xmax;		/* required */
 	int		ymax;		/* required */
@@ -345,6 +347,8 @@ typedef struct tagGW {
 	HBRUSH	hbrush;				/* background brush */
 	HBRUSH	hcolorbrush;		/* */
 	int		sampling;	/* current sampling factor */
+
+	struct tagGW * next;		/* pointer to next window */
 } GW;
 typedef GW *  LPGW;
 
@@ -366,14 +370,14 @@ void WDPROC GraphOp(LPGW lpgw, UINT op, UINT x, UINT y, LPCSTR str);
 void WDPROC GraphOpSize(LPGW lpgw, UINT op, UINT x, UINT y, LPCSTR str, DWORD size);
 void WDPROC GraphPrint(LPGW lpgw);
 void WDPROC GraphRedraw(LPGW lpgw);
-void WDPROC GraphChangeFont(LPGW lpgw, LPCSTR font, int fontsize, HDC hdc, RECT rect);
 void WDPROC win_close_terminal_window(LPGW lpgw);
+TBOOLEAN GraphHasWindow(LPGW lpgw);
 
 #ifdef USE_MOUSE
-void WDPROC Graph_set_cursor (LPGW lpgw, int c, int x, int y );
-void WDPROC Graph_set_ruler (LPGW lpgw, int x, int y );
+void WDPROC Graph_set_cursor(LPGW lpgw, int c, int x, int y);
+void WDPROC Graph_set_ruler(LPGW lpgw, int x, int y);
 void WDPROC Graph_put_tmptext(LPGW lpgw, int i, LPCSTR str);
-void WDPROC Graph_set_clipboard (LPGW lpgw, LPCSTR s);
+void WDPROC Graph_set_clipboard(LPGW lpgw, LPCSTR s);
 #endif
 
 /* BM: callback functions for enhanced text */

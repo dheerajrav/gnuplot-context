@@ -1,3 +1,68 @@
+2011-08-23  Bastian Maerkisch  <bmaerkisch@web.de>
+
+	* src/command.c (rlgets): Removing duplicate entries trashes command
+	line history when using editline. Just suppress adding the same command
+	to history repeatedly.
+	* src/history.c (history_find_all): editline's version of
+	history_set_pos() does not work, so traverse history list manually.
+	History indices are reversed compared to GNU readline. Fixes history ?.
+	Patch #3186010
+
+	* term/em.trm (EMF_put_text): Use iconv (if available) to convert
+	UTF-8 encoding to UTF-16 and store using wide characters.
+	Bug #3021779
+
+2011-08-22  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/graph3d.c:  Honor 'set key maxrows N' in 3D plot key.
+	Bug #3396501
+
+2011-08-19  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/commands.c src/misc.c docs/gnuplot.doc:
+	The old-style if/else syntax cannot be mixed with the new syntax using
+	{ and } to enclose blocks of commands, possibly spanning several lines.
+	Add stronger warnings to the documentation and issue an error message
+	if an old-style if statement is encountered inside a bracketed clause.
+	Bug #3393631
+
+2011-08-15  Bastian Maerkisch  <bmaerkisch@web.de>
+
+	* src/win/wgraph.c (WndGraphProc): Restore text window on space key:
+	also show terminal window if it is currently minimized.
+
+	* src/command.c (pause_command) src/win/wgnuplib.h (GW) src/win/wgraph.c
+	src/win/winmain.h src/win/winmain.c term/win.trm: Support multiple
+	graph windows. All state variables of graph windows were contained
+	in a single struct already. Replace all references to this struct
+	(graphwin) by pointers and dynamically allocate new instances when
+	required. Do not pass on mouse and key events from inactive windows.
+	Note: Since a single number passed to `set term win` is now interpreted
+	as window identifier, the old and fontsize options are no longer
+	supported and the `font` keyword is now required. This is consistent
+	with other terminals (e.g. x11 and wxt).
+
+	* src/win/wgnuplib.h src/win/wgraph.c: Make GraphChangeFont static. 
+
+2011-08-15  Reinier Heeres  <rheeres@users.sourceforge.net>
+
+	* src/win/pgnuplot.c: Detect termination of wgnuplot. Slightly enhanced
+	version of SF patch #2373741.
+
+2011-08-09  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* PORTING config/config.cyg config/config.dj2 config/config.mgw 
+	config/config.nt config/config.os2 config/config.oww
+	config/makefile.unx configure.in configure.vms docs/Makefile.in
+	docs/doc2texi.el docs/gpcard.tex src/Makefile.am src/makefile.all 
+	src/makefile.awc src/rgipgnu src/term.h term/rgip.trm 
+
+	Remove code specific to the rgip terminal (Redwood Graphics Interface
+	Protocol). The company (uniplex) supporting this protocol no longer
+	exists.  The terminal itself no longer compiles cleanly, and valgrind
+	shows many buffer overflows and alloc/free errors.
+	19 files changed, 13 insertions(+), 841 deletions(-)
+
 2011-08-02  Ethan A Merritt  <merritt@u.washington.edu>
 
 	* docs/plotstyles.gnu docs/gnuplot.doc term/be.trm term/canvas.trm

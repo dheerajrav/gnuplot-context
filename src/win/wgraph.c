@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: wgraph.c,v 1.129 2011/07/30 04:39:13 markisch Exp $"); }
+static char *RCSid() { return RCSid("$Id: wgraph.c,v 1.132 2011/08/15 20:00:44 markisch Exp $"); }
 #endif
 
 /* GNUPLOT - win/wgraph.c */
@@ -60,7 +60,7 @@ static char *RCSid() { return RCSid("$Id: wgraph.c,v 1.129 2011/07/30 04:39:13 m
 #endif
 #include <stdio.h>
 #include <string.h>
-#include "wgnuplib.h"
+#include "winmain.h"
 #include "wresourc.h"
 #include "wcommon.h"
 #include "term_api.h"         /* for enum JUSTIFY */
@@ -234,6 +234,7 @@ static void ReadGraphIni(LPGW lpgw);
 static COLORREF	GetColor(HWND hwnd, COLORREF ref);
 static void	UpdateColorSample(HWND hdlg);
 static BOOL	LineStyle(LPGW lpgw);
+static void GraphChangeFont(LPGW lpgw, LPCSTR font, int fontsize, HDC hdc, RECT rect);
 
 
 /* ================================== */
@@ -362,9 +363,29 @@ GraphInitStruct(LPGW lpgw)
 {
 	if (!lpgw->initialized) {
 		lpgw->initialized = TRUE;
+		if (lpgw != listgraphs) {
+			char titlestr[100];
+
+			/* copy important fields from window #0 */
+			LPGW graph0 = listgraphs;
+			lpgw->IniFile = graph0->IniFile;
+			lpgw->hInstance = graph0->hInstance;
+			lpgw->hPrevInstance = graph0->hPrevInstance;
+			lpgw->lptw = graph0->lptw;
+
+			/* window title */
+			sprintf(titlestr, "%s %i", WINGRAPHTITLE, lpgw->Id);
+			lpgw->Title = strdup(titlestr);
+		} else {
+			lpgw->Title = strdup(WINGRAPHTITLE);
+		}
 		lpgw->sampling = 1;
 		lpgw->fontscale = 1.;
 		lpgw->linewidth = 1.;
+		lpgw->color = TRUE;
+		lpgw->dashed = FALSE;
+		lpgw->IniSection = "WGNUPLOT";
+		lpgw->fontsize = WINFONTSIZE;
 		ReadGraphIni(lpgw);
 	}
 }
@@ -530,7 +551,8 @@ GraphEnd(LPGW lpgw)
 void WDPROC
 GraphChangeTitle(LPGW lpgw)
 {
-	SetWindowText(lpgw->hWndGraph, lpgw->Title);
+	if (GraphHasWindow(lpgw))
+		SetWindowText(lpgw->hWndGraph, lpgw->Title);
 }
 
 
@@ -544,7 +566,7 @@ GraphResume(LPGW lpgw)
 void WDPROC
 GraphPrint(LPGW lpgw)
 {
-	if (lpgw->hWndGraph && IsWindow(lpgw->hWndGraph))
+	if (GraphHasWindow(lpgw))
 		SendMessage(lpgw->hWndGraph, WM_COMMAND, M_PRINT, 0L);
 }
 
@@ -552,9 +574,17 @@ GraphPrint(LPGW lpgw)
 void WDPROC
 GraphRedraw(LPGW lpgw)
 {
-	if (lpgw->hWndGraph && IsWindow(lpgw->hWndGraph))
+	if (GraphHasWindow(lpgw))
 		SendMessage(lpgw->hWndGraph, WM_COMMAND, M_REBUILDTOOLS, 0L);
 }
+
+
+TBOOLEAN
+GraphHasWindow(LPGW lpgw)
+{
+	return (lpgw != NULL) && (lpgw->hWndGraph != NULL) && IsWindow(lpgw->hWndGraph);
+}
+
 
 /* ================================== */
 
@@ -2748,34 +2778,40 @@ Wnd_exec_event(LPGW lpgw, LPARAM lparam, char type, int par1)
     unsigned long thisTimestamp = GetMessageTime();
     int par2 = thisTimestamp - lastTimestamp;
 
-    if (type == GE_keypress)
-	par2 = 0;
+	if (lpgw == graphwin) {
+		if (type == GE_keypress)
+			par2 = 0;
 
-    GetMousePosViewport(lpgw, &mx, &my);
-    gp_exec_event(type, mx, my, par1, par2, 0);
-    lastTimestamp = thisTimestamp;
+		GetMousePosViewport(lpgw, &mx, &my);
+		gp_exec_event(type, mx, my, par1, par2, 0);
+		lastTimestamp = thisTimestamp;
+	}
 }
 
 static void
 Wnd_refresh_zoombox(LPGW lpgw, LPARAM lParam)
 {
-    int mx, my;
+	if (lpgw == graphwin) {
+		int mx, my;
 
-    GetMousePosViewport(lpgw, &mx, &my);
-    DrawZoomBox(lpgw); /*  erase current zoom box */
-    zoombox.to.x = mx; zoombox.to.y = my;
-    DrawZoomBox(lpgw); /*  draw new zoom box */
+		GetMousePosViewport(lpgw, &mx, &my);
+		DrawZoomBox(lpgw); /*  erase current zoom box */
+		zoombox.to.x = mx; zoombox.to.y = my;
+		DrawZoomBox(lpgw); /*  draw new zoom box */
+	}
 }
 
 static void
 Wnd_refresh_ruler_lineto(LPGW lpgw, LPARAM lParam)
 {
-    int mx, my;
+	if (lpgw == graphwin) {
+		int mx, my;
 
-    GetMousePosViewport(lpgw, &mx, &my);
-    DrawRulerLineTo(lpgw); /*  erase current line */
-    ruler_lineto.x = mx; ruler_lineto.y = my;
-    DrawRulerLineTo(lpgw); /*  draw new line box */
+		GetMousePosViewport(lpgw, &mx, &my);
+		DrawRulerLineTo(lpgw); /*  erase current line */
+		ruler_lineto.x = mx; ruler_lineto.y = my;
+		DrawRulerLineTo(lpgw); /*  draw new line box */
+	}
 }
 #endif /* USE_MOUSE */
 
@@ -2799,7 +2835,7 @@ WndGraphProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 #ifdef USE_MOUSE
 	/*  mouse events first */
-	if (mouse_setting.on /* AND NOT mouse_lock */ ) {
+	if ((lpgw == graphwin) && mouse_setting.on) {
 		switch (message) {
 			case WM_MOUSEMOVE:
 #if 1
@@ -2939,7 +2975,7 @@ WndGraphProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 				/* HBB 20001023: implement the '<space> in graph returns to
 				 * text window' --- feature already present in OS/2 and X11 */
 				/* Make sure the text window is visible: */
-				ShowWindow(lpgw->lptw->hWndParent, SW_SHOW);
+				ShowWindow(lpgw->lptw->hWndParent, SW_RESTORE);
 				/* and activate it (--> Keyboard focus goes there */
 				BringWindowToTop(lpgw->lptw->hWndParent);
 				return 0;
@@ -3189,7 +3225,7 @@ WndGraphProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 				return 0;
 			}
 #endif
-			/* Context menu is handled below, everything els is not */
+			/* Context menu is handled below, everything else is not */
 			if (LOWORD(wParam) != WM_CONTEXTMENU)
 				return 1;
 			/* intentionally fall through */
@@ -3330,7 +3366,7 @@ WndGraphProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 }
 
 
-void WDPROC
+void
 GraphChangeFont(LPGW lpgw, LPCSTR font, int fontsize, HDC hdc, RECT rect)
 {
     int newfontsize;
@@ -3358,8 +3394,8 @@ GraphChangeFont(LPGW lpgw, LPCSTR font, int fontsize, HDC hdc, RECT rect)
 void WDPROC
 win_close_terminal_window(LPGW lpgw)
 {
-   if (lpgw->hWndGraph && IsWindow(lpgw->hWndGraph))
-	SendMessage( lpgw->hWndGraph, WM_CLOSE, 0L, 0L );
+	if (GraphHasWindow(lpgw))
+		SendMessage( lpgw->hWndGraph, WM_CLOSE, 0L, 0L);
 }
 
 
