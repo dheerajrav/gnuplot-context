@@ -72,3 +72,10 @@ tutorial/tutorial.aux
 tutorial/tutorial.dvi
 tutorial/tutorial.log
 tutorial/tutorial.toc
+docs/gnuplot.info
+docs/gnuplot.texi
+docs/pdffigures.tex
+share/LaTeX/gnuplot-lua-tikz-common.tex
+share/LaTeX/gnuplot-lua-tikz.sty
+share/LaTeX/gnuplot-lua-tikz.tex
+share/LaTeX/t-gnuplot-lua-tikz.tex
