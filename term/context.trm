@@ -1742,7 +1742,7 @@ CONTEXT_pointsize(double pointsize)
 		/* close and draw the current path first */
 		if (CONTEXT_path_count>0)
 			CONTEXT_endpath();
-		fprintf(gpoutfile, "gp_set_pointsize(%.3lf);\n", pointsize);
+		fprintf(gpoutfile, "gp_set_pointsize(%.3f);\n", pointsize);
 		CONTEXT_old_pointsize = pointsize;
 	}
 }
@@ -1857,7 +1857,7 @@ CONTEXT_linewidth(double linewidth)
 		/* close and draw the current path first */
 		if (CONTEXT_path_count>0)
 			CONTEXT_endpath();
-		fprintf(gpoutfile, "gp_set_linewidth(%.3lf);\n", linewidth);
+		fprintf(gpoutfile, "gp_set_linewidth(%.3f);\n", linewidth);
 		CONTEXT_old_linewidth = linewidth;
 	}
 }
