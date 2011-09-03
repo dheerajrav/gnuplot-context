@@ -1275,7 +1275,7 @@ CONTEXT_endpath()
 	
 	/* regular non-cyclic path */
 	} else {
-		fputs(";\ngp_draw(p);\n", gpoutfile);
+		fprintf(gpoutfile, "--(%.2fa,%.2fb);\ngp_draw(p);\n", CONTEXT_posx / 100.0, CONTEXT_posy / 100.0);
 	}
 
 	/* we're not inside path any more */
@@ -1362,15 +1362,16 @@ CONTEXT_vector(unsigned int x, unsigned int y)
 		CONTEXT_startpath();
 	} else {
 		/* or prevent too long lines if you're in the middle of a path */
-		if((CONTEXT_path_count % CONTEXT_LINEMAX) == 1) {
+		if((CONTEXT_path_count % CONTEXT_LINEMAX) == 2) {
 			fputs("\n  ", gpoutfile);
-			CONTEXT_path_count = 1;
+			CONTEXT_path_count = 2;
 		}
+		/* and output the previous point */
+		fprintf(gpoutfile, "--(%.2fa,%.2fb)", CONTEXT_posx / 100.0, CONTEXT_posy / 100.0);
 	}
 
 	CONTEXT_posx = x;
 	CONTEXT_posy = y;
-	fprintf(gpoutfile, "--(%.2fa,%.2fb)", CONTEXT_posx / 100.0, CONTEXT_posy / 100.0);
 	CONTEXT_path_count++;
 }
 
