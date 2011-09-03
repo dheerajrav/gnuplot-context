@@ -1587,7 +1587,7 @@ CONTEXT_fontstring_parse(char *from_string, char *to_string, int to_size, dimens
 			tmp_fontsize[i] = 0;
 			/* parse the value & unit */
 			unit[0] = 0; /* if no unit is given, we should get an empty string */
-			sscanf(tmp_fontsize, "%f%s", &size, unit);
+			sscanf(tmp_fontsize, "%lf%s", &size, unit);
 			tmp_dimension.value = size;
 			/* if no unit given - default to pt */
 			if (unit == NULL || strlen(unit)==0) {
