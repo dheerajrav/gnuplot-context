@@ -494,10 +494,12 @@ static struct gen_table CONTEXT_opts[] = {
 	{ "linew$idth", CONTEXT_OPT_SCALE_LINEWIDTH },
 	{ "lw", CONTEXT_OPT_SCALE_LINEWIDTH },
 	{ "fontscale", CONTEXT_OPT_SCALE_TEXT },
-	{ "textscale", CONTEXT_OPT_SCALE_TEXT }, /* backward compatibility */
-	{ "pointswithmp", CONTEXT_OPT_POINTS_WITH_METAPOST},
-	{ "pointswithmetapost", CONTEXT_OPT_POINTS_WITH_METAPOST},
-	{ "pointswithtex", CONTEXT_OPT_POINTS_WITH_TEX},
+	{ "textscale", CONTEXT_OPT_SCALE_TEXT },                   /* backward compatibility */
+	{ "mp$points", CONTEXT_OPT_POINTS_WITH_METAPOST},
+	{ "tex$points", CONTEXT_OPT_POINTS_WITH_TEX},
+	{ "pointswithmp", CONTEXT_OPT_POINTS_WITH_METAPOST},       /* (removable) backward compatibility */
+	{ "pointswithmetapost", CONTEXT_OPT_POINTS_WITH_METAPOST}, /* (removable) backward compatibility */
+	{ "pointswithtex", CONTEXT_OPT_POINTS_WITH_TEX},           /* (removable) backward compatibility */
 	{ "font", CONTEXT_OPT_FONT },
 	{ "defaultfont", CONTEXT_OPT_DEFAULTFONT },
 	{ NULL, CONTEXT_OPT_OTHER }
@@ -977,10 +979,10 @@ CONTEXT_options()
 
 	switch (CONTEXT_params.points) {
 		case CONTEXT_POINTS_WITH_TEX      :
-			strncat(term_options, "pointswithtex ",
+			strncat(term_options, "texpoints ",
 				sizeof(term_options)-strlen(term_options)); break;
 		case CONTEXT_POINTS_WITH_METAPOST :
-			strncat(term_options, "pointswithmetapost ",
+			strncat(term_options, "mppoints ",
 				sizeof(term_options)-strlen(term_options)); break;
 	}
 	strncat(term_options,"font \"",           sizeof(term_options)-strlen(term_options));
@@ -1724,7 +1726,7 @@ CONTEXT_set_font(const char *font)
  * Sets the (relative) point size for subsequent points
  *
  * The base point size is defined "somewhere else":
- * - depends on the font[size] used when "pointswithtex" option is on
+ * - depends on the font[size] used when "texpoints" option is on
  */
 TERM_PUBLIC void
 CONTEXT_pointsize(double pointsize)
@@ -2194,7 +2196,7 @@ START_HELP(context)
 "                     {dashlength | dl <DL>}",
 "                     {linewidth | lw <LW>}",
 "                     {fontscale <fontscale>}",
-"                     {pointswithmetapost | pointswithmp | pointswithtex}",
+"                     {mppoints | texpoints}",
 "                     {defaultfont | font {<fontsize>} |",
 "                      font \"<fontname>{,<fontsize>}\" {fontsize}}",
 "",
@@ -2245,8 +2247,8 @@ START_HELP(context)
 " (lw 1 stands for 0.5bp, which is the default line width when drawing with Metapost.)",
 " `fontscale` scales text labels for factor <fontscale> relative to default document font.",
 "",
-" `pointswithmetapost` uses predefined point shapes, drawn in Metapost.",
-" `pointswithtex` uses easily configurable set of symbols, defined with ConTeXt",
+" `mppoints` uses predefined point shapes, drawn in Metapost.",
+" `texpoints` uses easily configurable set of symbols, defined with ConTeXt",
 " in the following way:",
 "  \\defineconversion[my own points][+,{\\ss x},\\mathematics{\\circ}]",
 "  \\setupGNUPLOTterminal[context][points=tex,pointset=my own points]",
