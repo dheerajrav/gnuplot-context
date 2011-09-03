@@ -409,30 +409,6 @@ static t_sm_palette *CONTEXT_old_palette;
 /* global parameters */
 /*********************/
 
-/* btex ... etex is hopefully not needed any more (and not supported either)
- * it may be removed, but it was left here for historical reasons
- * and if I decide to extend this terminal to support plain metapost,
- * it will be needed again.
- *
- * textext("...") is not needed and supported any more either,
- * but was left here for historical reasons & (hidden) testing purposes
- * It will be removed.
- *
- * At the beginning textext("...") has been used, but:
- * - it was extremely inefficient
- * - it caused only troubles (different settings etc.)
- * Because of the second, btex ... etex has been provided as a slightly
- * more reliable alternative. The first one hasn't been solved until
- * a new command for text placement showed up.
- *
- * After Hans Hagen has patched it, he implemented a new command \sometxt{...},
- * which was one of the most crucial steps towards usability of this terminal.
- * Without it the terminal was close-to-useless because of unbearably slow speed.
- *
- * See also "\sometxt" MyWay on contextgarden.net about that.
- * Hans & Taco: thanks a lot for this wonderful macro!!!
- */
-enum CONTEXT_TEXT   { CONTEXT_TEXT_TEXTEXT, CONTEXT_TEXT_SOMETXT, CONTEXT_TEXT_BTEX };
 /* whether points are drawn with metapost or typeset with TeX (easy configurable) */
 enum CONTEXT_POINTS { CONTEXT_POINTS_WITH_METAPOST, CONTEXT_POINTS_WITH_TEX };
 
@@ -449,7 +425,6 @@ typedef struct CONTEXT_params_t {
 	float               scale_dashlength;    /* 1.0   */
 	float               scale_linewidth;     /* 1.0   */
 	float               scale_text;          /* 1.0   */
-	enum CONTEXT_TEXT   text;                /* CONTEXT_TEXT_SOMETXT */
 	enum CONTEXT_POINTS points;              /* CONTEXT_POINTS_WITH_METAPOST */
 	char                font[MAX_ID_LEN+1];  /* ""    */
 	dimension_t         fontsize;            /* 12pt  */
@@ -469,7 +444,6 @@ typedef struct CONTEXT_params_t {
 	1.0,\
 	1.0,\
 	1.0,\
-	CONTEXT_TEXT_SOMETXT,\
 	CONTEXT_POINTS_WITH_METAPOST,\
 	"",\
 	{CONTEXT_FONTSIZE, UNIT_PT}\
@@ -489,7 +463,6 @@ enum CONTEXT_id {
 	CONTEXT_OPT_LINEJOIN_MITERED, CONTEXT_OPT_LINEJOIN_ROUNDED, CONTEXT_OPT_LINEJOIN_BEVELED,
 	CONTEXT_OPT_LINECAP_BUTT, CONTEXT_OPT_LINECAP_ROUNDED, CONTEXT_OPT_LINECAP_SQUARED,
 	CONTEXT_OPT_SCALE_DASHLENGTH, CONTEXT_OPT_SCALE_LINEWIDTH, CONTEXT_OPT_SCALE_TEXT,
-	CONTEXT_OPT_TEXT_SOMETXT, CONTEXT_OPT_TEXT_TEXTEXT,
 	CONTEXT_OPT_POINTS_WITH_METAPOST, CONTEXT_OPT_POINTS_WITH_TEX,
 	CONTEXT_OPT_DEFAULTFONT,
 	CONTEXT_OPT_FONT,
@@ -522,8 +495,6 @@ static struct gen_table CONTEXT_opts[] = {
 	{ "lw", CONTEXT_OPT_SCALE_LINEWIDTH },
 	{ "fontscale", CONTEXT_OPT_SCALE_TEXT },
 	{ "textscale", CONTEXT_OPT_SCALE_TEXT }, /* backward compatibility */
-	{ "textext", CONTEXT_OPT_TEXT_TEXTEXT },
-	{ "sometxt", CONTEXT_OPT_TEXT_SOMETXT },
 	{ "pointswithmp", CONTEXT_OPT_POINTS_WITH_METAPOST},
 	{ "pointswithmetapost", CONTEXT_OPT_POINTS_WITH_METAPOST},
 	{ "pointswithtex", CONTEXT_OPT_POINTS_WITH_TEX},
@@ -564,7 +535,6 @@ CONTEXT_params_reset()
 	CONTEXT_params.scale_dashlength = 1.0;
 	CONTEXT_params.scale_linewidth  = 1.0;
 	CONTEXT_params.scale_text       = 1.0;
-	CONTEXT_params.text             = CONTEXT_TEXT_SOMETXT;
 	CONTEXT_params.points           = CONTEXT_POINTS_WITH_METAPOST;
 	CONTEXT_params.font[0]          = 0;
 	CONTEXT_params.fontsize.value   = CONTEXT_FONTSIZE;
@@ -790,29 +760,6 @@ CONTEXT_options()
 			CONTEXT_params.fontsize.value = CONTEXT_FONTSIZE;
 			CONTEXT_params.fontsize.unit = UNIT_PT;
 			break;
-		/* since the other two options are disabled, it makes no sense any more - will disappear */
-		case CONTEXT_OPT_TEXT_SOMETXT:
-			c_token++;
-			CONTEXT_params.text = CONTEXT_TEXT_SOMETXT;
-			break;
-		/* not supported by metapost macros any more - will disappear */
-		case CONTEXT_OPT_TEXT_TEXTEXT:
-			c_token++;
-			/* CONTEXT_params.text = CONTEXT_TEXT_TEXTEXT; */
-			int_warn(c_token,"textext is now deprecated: sometxt will be used instead!");
-			break;
-/*
- * so old and deprecated that we don't want users
- * to complain about its inefficiency
- *
- * but if this terminal is going to support plain metapost in the future,
- * we'll need it again
- *
-		case CONTEXT_OPT_BTEX:
-			c_token++;
-			CONTEXT_params.text = CONTEXT_TEXT_BTEX;
-			break;
-*/
 		case CONTEXT_OPT_POINTS_WITH_METAPOST:
 			c_token++;
 			CONTEXT_params.points = CONTEXT_POINTS_WITH_METAPOST;
@@ -1028,23 +975,6 @@ CONTEXT_options()
 		);
 	strncat(term_options, tmp_term_options, sizeof(term_options)-strlen(term_options));
 
-/*
- * this is undocumented on purpose:
- * - users are not supposed to use textext("...") any more,
- *   but it's left here if one decides to create a plain metapost terminal out of it
- *
- * switch(CONTEXT_params.text) {
- * 	case CONTEXT_TEXT_BTEX    :
- * 	strncat(term_options, "btex ",
- * 		sizeof(term_options)-strlen(term_options)); break;
- * case CONTEXT_TEXT_SOMETXT  :
- * 	strncat(term_options, "sometxt ",
- * 		sizeof(term_options)-strlen(term_options)); break;
- * case CONTEXT_TEXT_TEXTEXT :
- * 	strncat(term_options, "textext ",
- * 		sizeof(term_options)-strlen(term_options)); break;
- * }
- */
 	switch (CONTEXT_params.points) {
 		case CONTEXT_POINTS_WITH_TEX      :
 			strncat(term_options, "pointswithtex ",
@@ -1519,7 +1449,6 @@ CONTEXT_put_text(unsigned int x, unsigned int y, const char str[])
 		fprintf(gpoutfile, "angle(%d), ", CONTEXT_ang);
 	}
 	/* alignment - "center" is optional, but we'll add it anyway */
-	/* + \sometxt */
 	fprintf(gpoutfile, "align(%s), \\sometxt[gp]", alignments[alignment]);
 	/* fontface/fontsize - optional second argument */
 	if(CONTEXT_font_explicit[0] != 0)
@@ -1579,32 +1508,6 @@ CONTEXT_point (unsigned int x, unsigned int y, int number)
 		CONTEXT_endpath();
 
 	fprintf(gpoutfile, "gp_point(%.2fa,%.2fb,%d);\n", x/100.0, y/100.0, number);
-
-	/*
-	 * This is how the points were draw at the beginning when macros
-	 * for enclusion of TeX portions weren't as advanced as they're now.
-	 * Currently there is some trickery involved which enabled simpler
-	 * definitions of points that have to be typeset with TeX.
-	 *
-	 * See m-gnuplot.tex for details.
-	 *
-	 * This portion of code is left here for historical reasons.
-	 * It might be needed again if clean metapost code will ever be produced
-	 * with this terminal.
-	 *
-	// use the points defined in the module (drawn with metapost)
-	if(CONTEXT_params.points == CONTEXT_POINTS_WITH_METAPOST) {
-		fprintf(gpoutfile, "gp_point(%.2fa,%.2fb,%d);\n", x/100.0, y/100.0, number);
-	// use the points defined in the module (typeset with TeX)
-	} else if(CONTEXT_params.points == CONTEXT_POINTS_WITH_TEX) {
-		// change \sometxt{\GPpoint{N}} to \GPpoint{N}
-		fprintf(gpoutfile, "gp_point(%.2fa,%.2fb,\\sometxt{\\GPpoint{%d}});\n", x/100.0, y/100.0, number);
-	} else {
-		// should not happen unless there's an error in this terminal
-		// or, if one will ever want the old "btex ... etex" functionality,
-		// it might fit in here
-	}
-	*/
 }
 
 /* ***************
