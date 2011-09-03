@@ -1122,7 +1122,7 @@ CONTEXT_init()
 		fprintf(gpoutfile, "    dashlength=%g, %% scaling factor for dash lengths\n", CONTEXT_params.scale_dashlength);
 		
 		/* linewidth (gp_scale_linewidth): 1.0 */
-		fprintf(gpoutfile, "    linewidth=%g, %% scaling factor for line widths (1.0 means 0.4bp)\n", CONTEXT_params.scale_linewidth);
+		fprintf(gpoutfile, "    linewidth=%g, %% scaling factor for line widths (1.0 means 0.5bp)\n", CONTEXT_params.scale_linewidth);
 
 		/* fontscale (gp_scale_text): 1.0 */
 		/* written out just for reference - it's commented out since it needs to be part of graphic
@@ -2242,7 +2242,7 @@ START_HELP(context)
 "",
 " `dashlength` or `dl` scales the length of the dashed-line segments by <DL>.",
 " `linewidth` or `lw` scales all linewidths by <LW>."
-" (lw 1 stands for 0.4bp, which is the default line width when drawing with Metapost.)",
+" (lw 1 stands for 0.5bp, which is the default line width when drawing with Metapost.)",
 " `fontscale` scales text labels for factor <fontscale> relative to default document font.",
 "",
 " `pointswithmetapost` uses predefined point shapes, drawn in Metapost.",
