@@ -221,7 +221,7 @@ static struct gen_table units[] = {
 };
 
 typedef struct dimension_t {
-    float value;
+    double value;
     size_unit unit;
 } dimension_t;
 
@@ -420,9 +420,9 @@ typedef struct CONTEXT_params_t {
 	TBOOLEAN            dashed;              /* true  */
 	enum LINEJOIN       linejoin;            /* MITER */
 	enum LINECAP        linecap;             /* BUTT  */
-	float               scale_dashlength;    /* 1.0   */
-	float               scale_linewidth;     /* 1.0   */
-	float               scale_text;          /* 1.0   */
+	double              scale_dashlength;    /* 1.0   */
+	double              scale_linewidth;     /* 1.0   */
+	double              scale_text;          /* 1.0   */
 	enum CONTEXT_POINTS points;              /* CONTEXT_POINTS_WITH_METAPOST */
 	char                font[MAX_ID_LEN+1];  /* ""    */
 	dimension_t         fontsize;            /* 12pt  */
@@ -557,8 +557,8 @@ CONTEXT_options()
 	char   tmp_font[MAX_ID_LEN+1] = "";
 	char   tmp_term_options[MAX_LINE_LEN+1] = "";
 
-	enum  size_unit tmp_unit[2];
-	float tmp_float[2];
+	enum   size_unit tmp_unit[2];
+	double tmp_double[2];
 	dimension_t tmp_dimension;
 
 	while (!END_OF_COMMAND) {
@@ -579,9 +579,9 @@ CONTEXT_options()
 			 * in output routine as well
 			 */
 			for (i=0; i<2; i++) {
-				tmp_float[i] = real(const_express(&a));
+				tmp_double[i] = real(const_express(&a));
 				/* check if the size is positive (minimal requirement) */
-				if (tmp_float[i] <= 0)
+				if (tmp_double[i] <= 0)
 					int_error(c_token-1,"Size has to be positive.");
 				/* if unit (inch or cm) is used, use that one, otherwise interpret that value
 				 * as if it was a relative to the default value (5in); ie: 1.5 means 7.5 inches */
@@ -618,26 +618,26 @@ CONTEXT_options()
 							if (equals(c_token, ",")) {
 								c_token++;
 								/* default xsize is 5in - use the current size as relative value */
-								tmp_float[0] *= CONTEXT_XSIZE_VALUE;
-								tmp_unit[0]   = CONTEXT_XSIZE_UNIT;
+								tmp_double[0] *= CONTEXT_XSIZE_VALUE;
+								tmp_unit[0]    = CONTEXT_XSIZE_UNIT;
 							} else {
-								tmp_float[1] = tmp_float[0]*CONTEXT_YSIZE_VALUE;
-								tmp_float[0] = tmp_float[0]*CONTEXT_XSIZE_VALUE;
-								tmp_unit[0]  = CONTEXT_XSIZE_UNIT;
-								tmp_unit[1]  = CONTEXT_YSIZE_UNIT;
+								tmp_double[1] = tmp_double[0]*CONTEXT_YSIZE_VALUE;
+								tmp_double[0] = tmp_double[0]*CONTEXT_XSIZE_VALUE;
+								tmp_unit[0]   = CONTEXT_XSIZE_UNIT;
+								tmp_unit[1]   = CONTEXT_YSIZE_UNIT;
 								i++;
 							}
 						/* second run: if no unit is specified, proceed to next command
 						 * and interpret the expression as being relative to the default size */
 						} else {
-							tmp_float[1] *= CONTEXT_YSIZE_VALUE;
-							tmp_unit[1]   = CONTEXT_YSIZE_UNIT;
+							tmp_double[1] *= CONTEXT_YSIZE_VALUE;
+							tmp_unit[1]    = CONTEXT_YSIZE_UNIT;
 						}
 						break;
 				}
 			}
-			CONTEXT_params.xsize.value = tmp_float[0];
-			CONTEXT_params.ysize.value = tmp_float[1];
+			CONTEXT_params.xsize.value = tmp_double[0];
+			CONTEXT_params.ysize.value = tmp_double[1];
 			CONTEXT_params.xsize.unit  = tmp_unit[0];
 			CONTEXT_params.ysize.unit  = tmp_unit[1];
 			break;
@@ -1554,7 +1554,7 @@ CONTEXT_fontstring_parse(char *from_string, char *to_string, int to_size, dimens
 	 * we will only store the latest valid dimension
 	 * and ignore any other fields starting with a number and not containing a valid dimension */
 	dimension_t tmp_dimension;
-	float size;
+	double size;
 
 	/* positions in input string between two commas (or start/stop) */
 	int from_start=0, from_stop=0;
