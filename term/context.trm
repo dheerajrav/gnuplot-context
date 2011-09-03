@@ -1122,12 +1122,12 @@ CONTEXT_init()
 		fprintf(gpoutfile, "    dashlength=%g, %% scaling factor for dash lengths\n", CONTEXT_params.scale_dashlength);
 		
 		/* linewidth (gp_scale_linewidth): 1.0 */
-		fprintf(gpoutfile, "    linewidth=%g, %% scaling factor for line widths (1.0 means 0.4bp)\n", CONTEXT_params.scale_linewidth);		
+		fprintf(gpoutfile, "    linewidth=%g, %% scaling factor for line widths (1.0 means 0.4bp)\n", CONTEXT_params.scale_linewidth);
 
-		/* textscale (gp_scale_text): 1.0 */
+		/* fontscale (gp_scale_text): 1.0 */
 		/* written out just for reference - it's commented out since it needs to be part of graphic
 		   and affects estimation of label sizes */
-		fprintf(gpoutfile, "    %%textscale=%g, %% scaling factor for text labels\n", CONTEXT_params.scale_text);		
+		fprintf(gpoutfile, "    %%fontscale=%g, %% scaling factor for text labels\n", CONTEXT_params.scale_text);
 		
 		/* points (gp_points_with): metapost/tex (gp_points_with_metapost/gp_points_with_tex)
 		 * default: metapost */
