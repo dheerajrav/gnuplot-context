@@ -997,7 +997,9 @@ TERM_PUBLIC void
 CONTEXT_init()
 {
 	time_t now;
-	char *timedate;
+	char timebuffer[100];
+
+	time(&now);
 
 	CONTEXT_posx = CONTEXT_posy = 0;
 	CONTEXT_path_count = 0;
@@ -1005,18 +1007,11 @@ CONTEXT_init()
 
 	CONTEXT_counter=0;
 
-	/*
-	 * XXX: Timoth\'ee warned me that this is not safe to use (portable);
-	 *      but PostScript terminal uses the same set of commands.
-	 *      Is there a way to write the timestamp in a compatible way?
-	 */
-	time(&now);
-	timedate=asctime(localtime(&now));
-	timedate[strlen(timedate)-1]='\0';
-
 	fprintf(gpoutfile, "%% Written by ConTeXt terminal for GNUPLOT");
 	if(CONTEXT_params.timestamp) {
-		fprintf(gpoutfile, " on: %s", asctime(localtime(&now)));
+		if(strftime(timebuffer, 100, "%Y-%m-%d %H:%M %Z", localtime(&now)) != 0) {
+			fprintf(gpoutfile, " on: %s", timebuffer);
+		}
 	}
 	fprintf(gpoutfile, "\n");
 	fprintf(gpoutfile, "%% GNUPLOT version %s patchlevel %s\n", gnuplot_version, gnuplot_patchlevel);
