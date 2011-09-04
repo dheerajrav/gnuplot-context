@@ -507,38 +507,19 @@ static struct gen_table CONTEXT_opts[] = {
  * CONTEXT_options*
  * ****************
  *
- * The routine resets all the parameters of the terminal to their default
- * value; the routine should be better implemented if it would use the values
- * from "#define CONTEXT_PARAMS_DEFAULT", but I don't know how to do this;
- * There must be a cleaner way, I'm sure. I double-checked that the values here
- * and there agree with each other.
+ * Resets all parameters of the terminal to their default value.
  */
 static void
 CONTEXT_params_reset()
 {
-	/* default size is 5x3 inches */
-	CONTEXT_params.xsize.value      = CONTEXT_XSIZE_VALUE;
-	CONTEXT_params.ysize.value      = CONTEXT_YSIZE_VALUE;
-	CONTEXT_params.xsize.unit       = CONTEXT_XSIZE_UNIT;
-	CONTEXT_params.ysize.unit       = CONTEXT_YSIZE_UNIT;
+	const CONTEXT_params_t CONTEXT_params_default = CONTEXT_PARAMS_DEFAULT;
 
-	CONTEXT_params.standalone       = FALSE;
-	CONTEXT_params.timestamp        = TRUE;
+	/* free the memory with header first */
 	if (CONTEXT_params.header) {
 		free(CONTEXT_params.header);
-		CONTEXT_params.header = NULL;
 	}
-	CONTEXT_params.color            = TRUE;
-	CONTEXT_params.dashed           = TRUE;
-	CONTEXT_params.linejoin         = LINEJOIN_MITER;
-	CONTEXT_params.linecap          = LINECAP_BUTT;
-	CONTEXT_params.scale_dashlength = 1.0;
-	CONTEXT_params.scale_linewidth  = 1.0;
-	CONTEXT_params.scale_text       = 1.0;
-	CONTEXT_params.points           = CONTEXT_POINTS_WITH_METAPOST;
-	CONTEXT_params.font[0]          = 0;
-	CONTEXT_params.fontsize.value   = CONTEXT_FONTSIZE;
-	CONTEXT_params.fontsize.unit    = UNIT_PT;
+
+	memcpy(&CONTEXT_params, &CONTEXT_params_default, sizeof(CONTEXT_params_t));
 }
 
 
