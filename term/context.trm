@@ -99,10 +99,10 @@
  * Future plans:
  * - add missing functionality:
  *   - improved support for palettes
- *   - support for binary images
- *   - smooth shading in color bars
  *   - other color spaces
- *   - gouraud shading (once implemented in 4.3)
+ *   - enable support for binary images
+ *   - smooth shading in color bars
+ *   - gouraud shading (if it will be implemented in gnuplot)
  * - derive a better metapost terminal out of this one (to replace the old one)
  */
 
@@ -141,7 +141,7 @@ TERM_PUBLIC void CONTEXT_image __PROTO((unsigned, unsigned, coordval *, gpiPoint
 
 /* Metapost can only deal with numbers between 2^{-16} and 2^12=4069 */
 /* the values will be set later */
-/* scale is 1pt = 100 units */
+/* scale is 1bp = 100 units, resolution is 2400 'big points per inch' */
 
 #define CONTEXT_DPI (2400)
 /* default plot size will be 5in x 3in*/
