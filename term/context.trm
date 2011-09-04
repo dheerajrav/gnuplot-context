@@ -512,7 +512,7 @@ static struct gen_table CONTEXT_opts[] = {
 static void
 CONTEXT_params_reset()
 {
-	const CONTEXT_params_t CONTEXT_params_default = CONTEXT_PARAMS_DEFAULT;
+	static const CONTEXT_params_t CONTEXT_params_default = CONTEXT_PARAMS_DEFAULT;
 
 	/* free the memory with header first */
 	if (CONTEXT_params.header) {
