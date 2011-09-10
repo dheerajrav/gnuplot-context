@@ -161,8 +161,10 @@ TERM_PUBLIC void CONTEXT_image __PROTO((unsigned, unsigned, coordval *, gpiPoint
 #define CONTEXT_LM_H_TO_V_RATIO 0.4895
 #define CONTEXT_HCHAR (CONTEXT_LM_H_TO_V_RATIO*CONTEXT_VCHAR)
 /* default tic size: 3.5bp (chosen to suit the size of plot approximately)
- * - in LaTeXt it's 5bp
- * - in PostScript it's 3.15pt;
+ * - in LaTeX it is 5bp
+ * - in TikZ it is 0.18cm (approximately 5.1bp)
+ * - in PostScript it is 3.15pt
+ * - MetaPost uses 5pt or 5bp
  */
 #define CONTEXT_HTIC (3.5*CONTEXT_DPI/72)
 #define CONTEXT_VTIC CONTEXT_HTIC
