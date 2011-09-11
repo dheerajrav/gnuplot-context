@@ -2124,6 +2124,7 @@ CONTEXT_image (unsigned M, unsigned N, coordval *image, gpiPoint *corner, t_imag
 	int i, j, k, line_length, components_per_color;
 	unsigned char byte;
 	rgb_color color;
+	TBOOLEAN is_clipped = FALSE;
 
 	/* Palette colors have to be converted into RGB first */
 	if (color_mode == IC_PALETTE) {
@@ -2177,18 +2178,28 @@ CONTEXT_image (unsigned M, unsigned N, coordval *image, gpiPoint *corner, t_imag
 		}
 	}
 
-	/* TODO: clipping and transparency handling is not yet completely ready */
-	/* (width, height) in pixels;
-	 * (x,y) lower left
-	 * (x,y) upper right
-	 */
+	/* TODO: transparency handling is not yet supported in ConTeXt */
+	if((corner[2].x > corner[0].x) || (corner[0].y > corner[2].y) ||
+	   (corner[1].x > corner[3].x) || (corner[3].y > corner[1].y)) {
+		is_clipped = TRUE;
+	}
+	if(is_clipped) {
+		fprintf(gpoutfile, "draw image(\n  ");
+	}
+	fprintf(gpoutfile, "draw bitmapimage (%u,%u,img) xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb);\n",
+		N, M, corner[1].x/100.0-corner[0].x/100.0, corner[0].y/100.0-corner[1].y/100.0, corner[0].x/100.0, corner[1].y/100.0);
+	if(is_clipped) {
+		fprintf(gpoutfile, "  clip currentpicture to unitsquare xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb););\n",
+			corner[3].x/100.0-corner[2].x/100.0, corner[2].y/100.0-corner[3].y/100.0, corner[2].x/100.0, corner[3].y/100.0);
+	}
+	/* (alternative implementation) *
+
 	fprintf(gpoutfile, "gp_image_rgb");
 	if (color_mode == IC_RGB)
 		fprintf(gpoutfile, "_alpha");
 	fprintf(gpoutfile, "((%u,%u),(%.2fa,%.2fb),(%.2fa,%.2fb));\n",
 		N, M, corner[0].x/100.0, corner[1].y/100.0, corner[1].x/100.0, corner[0].y/100.0);
-	fprintf(gpoutfile, "%% I also want to clip to ((%.2fa,%.2fb), (%.2fa,%.2fb))\n",
-		corner[2].x/100.0, corner[3].y/100.0, corner[3].x/100.0, corner[2].y/100.0);
+	*/
 }
 
 /*
@@ -2226,7 +2237,7 @@ TERM_TABLE_START(context_driver)
 	0, /* XXX: CONTEXT_previous_palette: not sure if we need it at all (PS does "grestore") */
 	CONTEXT_set_color,
 	CONTEXT_filled_polygon,
-	0,       /* TODO: CONTEXT_image */
+	CONTEXT_image,
 	0, 0, 0, /* No enhanced text mode because this is TeX */
 	0,       /* layer (used to signal front/back text, used in canvas, PS, epslatex, ...); XXX: figure out what this has to do */
 	0        /* path (Path control for end-joins of closed polygons on PostScript-like devices); TODO: implement it (CONTEXT_path) */
