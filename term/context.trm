@@ -2290,8 +2290,8 @@ START_HELP(context)
 "                       {mitered | rounded | beveled}",
 "                       {butt | round | squared}",
 "                       {dashed | solid}",
-"                       {dashlength | dl <DL>}",
-"                       {linewidth | lw <LW>}",
+"                       {dashlength | dl <dl>}",
+"                       {linewidth | lw <lw>}",
 "                       {fontscale <fontscale>}",
 "                       {mppoints | texpoints}",
 "                       {defaultfont | font {<fontsize>} |",
@@ -2339,8 +2339,8 @@ START_HELP(context)
 " `dashed` (default) uses different dash patterns for different line types,"
 " `solid` draws all plots with solid lines.",
 "",
-" `dashlength` or `dl` scales the length of the dashed-line segments by <DL>.",
-" `linewidth` or `lw` scales all linewidths by <LW>."
+" `dashlength` or `dl` scales the length of the dashed-line segments by <dl>.",
+" `linewidth` or `lw` scales all linewidths by <lw>."
 " (lw 1 stands for 0.5bp, which is the default line width when drawing with Metapost.)",
 " `fontscale` scales text labels for factor <fontscale> relative to default document font.",
 "",
