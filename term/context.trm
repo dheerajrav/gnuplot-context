@@ -175,6 +175,17 @@ TERM_PUBLIC void CONTEXT_image __PROTO((unsigned, unsigned, coordval *, gpiPoint
 #ifndef TERM_PROTO_ONLY
 #ifdef TERM_BODY
 
+/*
+ * we will start counting when the code is included into CVS
+ *
+ * major number should change only in case of a complete rewrite or major incompatibility
+ * minor number should change for every new functionality
+ * patch number & date should change in every commit
+ */
+static const char CONTEXT_term_version[] = "1.0";
+static const char CONTEXT_term_patch[]   = "0";
+static const char CONTEXT_term_date[]    = "2011-09-14";
+
 /*********
  * UNITS *
  *********
@@ -1016,7 +1027,8 @@ CONTEXT_init()
 		}
 	}
 	fprintf(gpoutfile, "\n");
-	fprintf(gpoutfile, "%% GNUPLOT version %s patchlevel %s\n", gnuplot_version, gnuplot_patchlevel);
+	fprintf(gpoutfile, "%% GNUPLOT version: %s.%s, terminal version: %s.%s (%s)\n",
+		gnuplot_version, gnuplot_patchlevel, CONTEXT_term_version, CONTEXT_term_patch, CONTEXT_term_date);
 	fprintf(gpoutfile, "%% See also http://wiki.contextgarden.net/Gnuplot\n%%\n");
 
 	/* place the header first if this is a standalone graphic */
@@ -1188,7 +1200,8 @@ CONTEXT_graphics()
 		fprintf(gpoutfile, "\\startGNUPLOTgraphic[%d]\n", ++CONTEXT_counter);
 	}
 
-	fprintf(gpoutfile, "gnuplotversion := \"%s\";\n", gnuplot_version);
+	fprintf(gpoutfile, "gnuplotversion := \"%s\"; termversion := \"%s\";\n",
+		gnuplot_version, CONTEXT_term_version);
 	/*
 	 * MetaPost can only handle numbers up to 4096. Too high resolution
 	 * would thus result in number overflow, that's why we scale down all the
@@ -1200,7 +1213,7 @@ CONTEXT_graphics()
 		CONTEXT_params.ysize.value, unit_name(CONTEXT_params.ysize.unit));
 	fprintf(gpoutfile, "%% horizontal and vertical scaling factors\na:=w/%.2f; b:=h/%.2f;\n",
 		(term->xmax)/100.0, (term->ymax)/100.0);
-	fprintf(gpoutfile, "%% temporary variable for storing the path and images\nsave p, img, ima; path p; string img, ima;\n%%\n");
+	fprintf(gpoutfile, "%% temporary variable for storing the path and images\nsave p, img, ima; path p; string img, ima;\n");
 	fprintf(gpoutfile, "%% -------------------------\n");
 	fprintf(gpoutfile, "%% Different initialisations\n");
 	fprintf(gpoutfile, "%% -------------------------\n");
@@ -2186,7 +2199,7 @@ CONTEXT_image (unsigned M, unsigned N, coordval *image, gpiPoint *corner, t_imag
 	if(is_clipped) {
 		fprintf(gpoutfile, "draw image(\n  ");
 	}
-	fprintf(gpoutfile, "draw bitmapimage (%u,%u,img) xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb);\n",
+	fprintf(gpoutfile, "draw bitmapimage (%u,%u,img) xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb);\n",
 		N, M, corner[1].x/100.0-corner[0].x/100.0, corner[0].y/100.0-corner[1].y/100.0, corner[0].x/100.0, corner[1].y/100.0);
 	if(is_clipped) {
 		fprintf(gpoutfile, "  clip currentpicture to unitsquare xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb););\n",
