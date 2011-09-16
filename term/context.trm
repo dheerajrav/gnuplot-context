@@ -358,7 +358,6 @@ static void CONTEXT_endpath __PROTO((void));
 static void CONTEXT_write_palette __PROTO((t_sm_palette *palette));
 static void CONTEXT_write_palette_gradient __PROTO((gradient_struct *gradient, int cnt));
 
-
 /* Each number is divided by 100 (1/100th of a point is drawn) */
 
 static int CONTEXT_posx;
@@ -392,9 +391,6 @@ static int CONTEXT_old_linetype = -3;
 /* was the color changed explicitly? */
 static TBOOLEAN CONTEXT_color_changed = FALSE;
 
-/* counts the number of graphics */
-static int CONTEXT_counter = 0;
-
 /* the number of path nodes before a newline (doesn't really matter,
  * could be set to 1000; check if any editors have problems with that) */
 #define CONTEXT_LINEMAX 4
@@ -413,15 +409,27 @@ static enum JUSTIFY CONTEXT_justify = LEFT;
 enum LINEJOIN { LINEJOIN_MITER, LINEJOIN_ROUND, LINEJOIN_BEVEL };
 enum LINECAP  { LINECAP_BUTT, LINECAP_ROUND, LINECAP_SQUARE };
 
+/* whether points are drawn with metapost or typeset with TeX (easy configurable) */
+enum CONTEXT_POINTS { CONTEXT_POINTS_WITH_METAPOST, CONTEXT_POINTS_WITH_TEX };
+/* whether images are inline or written out as PNGs and included (in MKII only external work) */
+enum CONTEXT_IMAGES { CONTEXT_IMAGES_INLINE, CONTEXT_IMAGES_EXTERNAL };
+
+/* counts the number of graphics */
+static int CONTEXT_counter = 0;
+/* counts the number of external PNG images */
+static int CONTEXT_image_counter = 0;
+static char *CONTEXT_image_filename = NULL;
+static int  CONTEXT_image_filename_length = 0;
+/* whether images will be external or not */
+enum CONTEXT_IMAGES CONTEXT_images = CONTEXT_IMAGES_INLINE;
+static char CONTEXT_image_name[MAX_ID_LEN+1] = "";
+
 /* Pallete has to be stored for the usage in later plots */
 static t_sm_palette *CONTEXT_old_palette;
 
 /*********************/
 /* global parameters */
 /*********************/
-
-/* whether points are drawn with metapost or typeset with TeX (easy configurable) */
-enum CONTEXT_POINTS { CONTEXT_POINTS_WITH_METAPOST, CONTEXT_POINTS_WITH_TEX };
 
 typedef struct CONTEXT_params_t {
 	dimension_t         xsize;               /* 5in   */
@@ -437,6 +445,7 @@ typedef struct CONTEXT_params_t {
 	double              scale_linewidth;     /* 1.0   */
 	double              scale_text;          /* 1.0   */
 	enum CONTEXT_POINTS points;              /* CONTEXT_POINTS_WITH_METAPOST */
+	enum CONTEXT_IMAGES images;              /* CONTEXT_IMAGES_INLINE */
 	char                font[MAX_ID_LEN+1];  /* ""    */
 	dimension_t         fontsize;            /* 12pt  */
 } CONTEXT_params_t;
@@ -456,6 +465,7 @@ typedef struct CONTEXT_params_t {
 	1.0,\
 	1.0,\
 	CONTEXT_POINTS_WITH_METAPOST,\
+	CONTEXT_IMAGES_INLINE,\
 	"",\
 	{CONTEXT_FONTSIZE, UNIT_PT}\
 }
@@ -475,6 +485,7 @@ enum CONTEXT_id {
 	CONTEXT_OPT_LINECAP_BUTT, CONTEXT_OPT_LINECAP_ROUNDED, CONTEXT_OPT_LINECAP_SQUARED,
 	CONTEXT_OPT_SCALE_DASHLENGTH, CONTEXT_OPT_SCALE_LINEWIDTH, CONTEXT_OPT_SCALE_TEXT,
 	CONTEXT_OPT_POINTS_WITH_METAPOST, CONTEXT_OPT_POINTS_WITH_TEX,
+	CONTEXT_OPT_IMAGES_INLINE, CONTEXT_OPT_IMAGES_EXTERNAL,
 	CONTEXT_OPT_DEFAULTFONT,
 	CONTEXT_OPT_FONT,
 	CONTEXT_OPT_OTHER
@@ -511,6 +522,8 @@ static struct gen_table CONTEXT_opts[] = {
 	{ "pointswithmp", CONTEXT_OPT_POINTS_WITH_METAPOST},       /* (removable) backward compatibility */
 	{ "pointswithmetapost", CONTEXT_OPT_POINTS_WITH_METAPOST}, /* (removable) backward compatibility */
 	{ "pointswithtex", CONTEXT_OPT_POINTS_WITH_TEX},           /* (removable) backward compatibility */
+	{ "inline$images", CONTEXT_OPT_IMAGES_INLINE},
+	{ "external$images", CONTEXT_OPT_IMAGES_EXTERNAL},
 	{ "font", CONTEXT_OPT_FONT },
 	{ "defaultfont", CONTEXT_OPT_DEFAULTFONT },
 	{ NULL, CONTEXT_OPT_OTHER }
@@ -530,6 +543,7 @@ CONTEXT_params_reset()
 	/* free the memory with header first */
 	if (CONTEXT_params.header) {
 		free(CONTEXT_params.header);
+		CONTEXT_params.header = NULL;
 	}
 
 	memcpy(&CONTEXT_params, &CONTEXT_params_default, sizeof(CONTEXT_params_t));
@@ -762,6 +776,18 @@ CONTEXT_options()
 			c_token++;
 			CONTEXT_params.points = CONTEXT_POINTS_WITH_TEX;
 			break;
+		case CONTEXT_OPT_IMAGES_INLINE:
+			c_token++;
+			CONTEXT_params.images = CONTEXT_IMAGES_INLINE;
+			break;
+		case CONTEXT_OPT_IMAGES_EXTERNAL:
+#ifdef WRITE_PNG_IMAGE
+			c_token++;
+			CONTEXT_params.images = CONTEXT_IMAGES_EXTERNAL;
+#else
+			int_warn(c_token, "Gnuplot was built without support for PNG images. You cannot use this option unless you rebuild gnuplot.");
+#endif
+			break;
 		/*
 		 * The preferred way to set the font is to set it in a document itself,
 		 * labels in gnuplot in graphs will then inherit that font.
@@ -970,13 +996,23 @@ CONTEXT_options()
 	strncat(term_options, tmp_term_options, sizeof(term_options)-strlen(term_options));
 
 	switch (CONTEXT_params.points) {
-		case CONTEXT_POINTS_WITH_TEX      :
+		case CONTEXT_POINTS_WITH_TEX :
 			strncat(term_options, "texpoints ",
 				sizeof(term_options)-strlen(term_options)); break;
 		case CONTEXT_POINTS_WITH_METAPOST :
 			strncat(term_options, "mppoints ",
 				sizeof(term_options)-strlen(term_options)); break;
 	}
+#ifdef WRITE_PNG_IMAGE
+	switch (CONTEXT_params.images) {
+		case CONTEXT_IMAGES_INLINE :
+			strncat(term_options, "inlineimages ",
+				sizeof(term_options)-strlen(term_options)); break;
+		case CONTEXT_IMAGES_EXTERNAL :
+			strncat(term_options, "externalimages ",
+				sizeof(term_options)-strlen(term_options)); break;
+	}
+#endif
 	strncat(term_options,"font \"",           sizeof(term_options)-strlen(term_options));
 	strncat(term_options,CONTEXT_params.font, sizeof(term_options)-strlen(term_options));
 	strncat(term_options,"\" ",               sizeof(term_options)-strlen(term_options));
@@ -1011,6 +1047,7 @@ CONTEXT_init()
 {
 	time_t now;
 	char timebuffer[100];
+	int i;
 
 	time(&now);
 
@@ -1018,7 +1055,48 @@ CONTEXT_init()
 	CONTEXT_path_count = 0;
 	CONTEXT_path_is_dot = 0;
 
-	CONTEXT_counter=0;
+	CONTEXT_counter = 0;
+
+	/* setup bitmap images */
+	CONTEXT_image_counter = 0;
+	/* the default is to use inline images */
+	CONTEXT_images = CONTEXT_IMAGES_INLINE;
+	
+	/* only if external images are both requested and supported, we switch to them (double paranoia) */
+	/* delete the stored filename first */
+	if(CONTEXT_image_filename) {
+		free(CONTEXT_image_filename);
+		CONTEXT_image_filename = NULL;
+		CONTEXT_image_filename_length = 0;
+	};
+#ifdef WRITE_PNG_IMAGE
+	if(CONTEXT_params.images == CONTEXT_IMAGES_EXTERNAL) {
+		CONTEXT_images = CONTEXT_IMAGES_EXTERNAL;
+
+		/* but only if 'set output' was set because we use that string as base for image names */
+		if(outstr) {
+			CONTEXT_image_filename_length = strlen(outstr);
+			/* we will cut off the last .tex ending if present */
+			/* find the last dot if present */
+			for(i=CONTEXT_image_filename_length-1; i>=0 && outstr[i] != '.'; i--);
+			if(outstr[i] == '.') {
+				CONTEXT_image_filename_length = i;
+			}
+			/* it would also be very nice to do some sanity checks on filenames */
+
+			/* <name>.xx.png; must be at least 7 characters long */
+			CONTEXT_image_filename = (char *)gp_alloc(CONTEXT_image_filename_length + 10, "ConTeXt image filename");
+			strncpy(CONTEXT_image_filename, outstr, CONTEXT_image_filename_length);
+			CONTEXT_image_filename[CONTEXT_image_filename_length] = 0;
+		} else {
+			CONTEXT_image_filename_length = strlen("gp_image");
+			/* <name>.xx.png; must be at least 7 characters long */
+			CONTEXT_image_filename = (char *)gp_alloc(CONTEXT_image_filename_length + 10, "ConTeXt image filename");
+			strncpy(CONTEXT_image_filename, "gp_image", CONTEXT_image_filename_length);
+			CONTEXT_image_filename[CONTEXT_image_filename_length] = 0;
+		}
+	}
+#endif
 
 	fprintf(gpoutfile, "%% Written by ConTeXt terminal for GNUPLOT");
 	if(CONTEXT_params.timestamp) {
@@ -1121,8 +1199,13 @@ CONTEXT_init()
 		
 		/* points (gp_points_with): metapost/tex (gp_points_with_metapost/gp_points_with_tex)
 		 * default: metapost */
-		fprintf(gpoutfile, "    points=%s] %% *metapost* | tex (Should points be drawn with MetaPost or TeX?)\n",
+		fprintf(gpoutfile, "    points=%s, %% *metapost* | tex (Should points be drawn with MetaPost or TeX?)\n",
 			CONTEXT_params.points == CONTEXT_POINTS_WITH_METAPOST ? "metapost" : "tex");
+
+		/* images
+		 * default: inline */
+		fprintf(gpoutfile, "    images=%s] %% *inline* | external (inline only works in MKIV, external requires png support in gnuplot)\n",
+			CONTEXT_images == CONTEXT_IMAGES_INLINE ? "inline" : "external");
 
 		/*----------------*
 		 * end of options *
@@ -1156,6 +1239,12 @@ CONTEXT_reset()
 		 */
 		fputs("\\endinput\n", gpoutfile);
 	}
+	/* deallocate image name if present */
+	if(CONTEXT_image_filename) {
+		free(CONTEXT_image_filename);
+		CONTEXT_image_filename = NULL;
+		CONTEXT_image_filename_length = 0;
+	};
 }
 
 /* **************
@@ -1213,7 +1302,12 @@ CONTEXT_graphics()
 		CONTEXT_params.ysize.value, unit_name(CONTEXT_params.ysize.unit));
 	fprintf(gpoutfile, "%% horizontal and vertical scaling factors\na:=w/%.2f; b:=h/%.2f;\n",
 		(term->xmax)/100.0, (term->ymax)/100.0);
-	fprintf(gpoutfile, "%% temporary variable for storing the path and images\nsave p, img, ima; path p; string img, ima;\n");
+	/* TODO: the following if-else could be slightly nicer */
+	if(CONTEXT_images == CONTEXT_IMAGES_INLINE) {
+		fprintf(gpoutfile, "%% temporary variable for storing the path and images\nsave p, img, ima; path p; string img, ima;\n");
+	} else {
+		fprintf(gpoutfile, "%% temporary variable for storing the path\nsave p; path p;\n");
+	}
 	fprintf(gpoutfile, "%% -------------------------\n");
 	fprintf(gpoutfile, "%% Different initialisations\n");
 	fprintf(gpoutfile, "%% -------------------------\n");
@@ -2139,80 +2233,100 @@ CONTEXT_image (unsigned M, unsigned N, coordval *image, gpiPoint *corner, t_imag
 	rgb_color color;
 	TBOOLEAN is_clipped = FALSE;
 
-	/* Palette colors have to be converted into RGB first */
-	if (color_mode == IC_PALETTE) {
-		/* write the image data */
-		fprintf(gpoutfile, "img := \"%%\n");
-		line_length = 0;
-		for(i=0; i<M*N; i++) {
-			if(line_length++ >= 16) {
-				line_length = 1;
-				fprintf(gpoutfile, "%%\n");
-			}
-			rgb1maxcolors_from_gray(image[i], &color);
-			fprintf(gpoutfile, "%02x%02x%02x", (unsigned char)(255*color.r), (unsigned char)(255*color.g), (unsigned char)(255*color.b));
-		}
-		fprintf(gpoutfile, "\";\n");
-
-	/* IC_RGB or IC_RGBA */
-	} else {
-		if (color_mode == IC_RGBA) {
-			components_per_color = 4;
-		} else { /* IC_RGB */
-			components_per_color = 3;
-		}
-
-		/* write the image data */
-		fprintf(gpoutfile, "img := \"%%\n");
-		line_length = 0;
-		for(i=0; i<M*N; i++) {
-			if(line_length++ >= 16) {
-				line_length = 1;
-				fprintf(gpoutfile, "%%\n");
-			}
-			for(k=0; k<3; k++) {
-				fprintf(gpoutfile, "%02x", (unsigned char)(image[i*components_per_color+k]*255));
-			}
-		}
-		fprintf(gpoutfile, "\";\n");
-
-		/* transparency mask */
-		if (color_mode == IC_RGBA) {
-			fprintf(gpoutfile, "ima := \"%%\n");
-			line_length = 0;
-			for(i=0; i<M*N; i++) {
-				if(line_length++ >= 3*16) {
-					line_length = 1;
-					fprintf(gpoutfile, "%%\n");
-				};
-				fprintf(gpoutfile, "%02x", (unsigned char)(image[i*components_per_color+3]*255));
-			}
-			fprintf(gpoutfile, "\";\n");
-		}
-	}
-
-	/* TODO: transparency handling is not yet supported in ConTeXt */
 	if((corner[2].x > corner[0].x) || (corner[0].y > corner[2].y) ||
 	   (corner[1].x > corner[3].x) || (corner[3].y > corner[1].y)) {
 		is_clipped = TRUE;
 	}
-	if(is_clipped) {
-		fprintf(gpoutfile, "draw image(\n  ");
-	}
-	fprintf(gpoutfile, "draw bitmapimage (%u,%u,img) xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb);\n",
-		N, M, corner[1].x/100.0-corner[0].x/100.0, corner[0].y/100.0-corner[1].y/100.0, corner[0].x/100.0, corner[1].y/100.0);
-	if(is_clipped) {
-		fprintf(gpoutfile, "  clip currentpicture to unitsquare xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb););\n",
-			corner[3].x/100.0-corner[2].x/100.0, corner[2].y/100.0-corner[3].y/100.0, corner[2].x/100.0, corner[3].y/100.0);
-	}
-	/* (alternative implementation) *
 
-	fprintf(gpoutfile, "gp_image_rgb");
-	if (color_mode == IC_RGB)
-		fprintf(gpoutfile, "_alpha");
-	fprintf(gpoutfile, "((%u,%u),(%.2fa,%.2fb),(%.2fa,%.2fb));\n",
-		N, M, corner[0].x/100.0, corner[1].y/100.0, corner[1].x/100.0, corner[0].y/100.0);
-	*/
+	if(CONTEXT_images == CONTEXT_IMAGES_EXTERNAL) {
+#ifdef WRITE_PNG_IMAGE
+		/* we reserved 10 extra bytes, so we can afford images up to 9999 */
+		snprintf(CONTEXT_image_filename + CONTEXT_image_filename_length, 9, "_%02d.png", ++CONTEXT_image_counter);
+		write_png_image (M, N, image, color_mode, CONTEXT_image_filename);
+
+		if(is_clipped) {
+			fprintf(gpoutfile, "draw image(\n  ");
+		}
+		fprintf(gpoutfile, "externalfigure \"%s\" xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb);\n",
+			CONTEXT_image_filename, corner[1].x/100.0-corner[0].x/100.0, corner[0].y/100.0-corner[1].y/100.0, corner[0].x/100.0, corner[1].y/100.0);
+		if(is_clipped) {
+			fprintf(gpoutfile, "  clip currentpicture to unitsquare xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb););\n",
+				corner[3].x/100.0-corner[2].x/100.0, corner[2].y/100.0-corner[3].y/100.0, corner[2].x/100.0, corner[3].y/100.0);
+		}
+#endif
+	} else {
+
+		/* Palette colors have to be converted into RGB first */
+		if (color_mode == IC_PALETTE) {
+			/* write the image data */
+			fprintf(gpoutfile, "img := \"%%\n");
+			line_length = 0;
+			for(i=0; i<M*N; i++) {
+				if(line_length++ >= 16) {
+					line_length = 1;
+					fprintf(gpoutfile, "%%\n");
+				}
+				rgb1maxcolors_from_gray(image[i], &color);
+				fprintf(gpoutfile, "%02x%02x%02x", (unsigned char)(255*color.r), (unsigned char)(255*color.g), (unsigned char)(255*color.b));
+			}
+			fprintf(gpoutfile, "\";\n");
+
+		/* IC_RGB or IC_RGBA */
+		} else {
+			if (color_mode == IC_RGBA) {
+				components_per_color = 4;
+			} else { /* IC_RGB */
+				components_per_color = 3;
+			}
+
+			/* write the image data */
+			fprintf(gpoutfile, "img := \"%%\n");
+			line_length = 0;
+			for(i=0; i<M*N; i++) {
+				if(line_length++ >= 16) {
+					line_length = 1;
+					fprintf(gpoutfile, "%%\n");
+				}
+				for(k=0; k<3; k++) {
+					fprintf(gpoutfile, "%02x", (unsigned char)(image[i*components_per_color+k]*255));
+				}
+			}
+			fprintf(gpoutfile, "\";\n");
+
+			/* transparency mask */
+			if (color_mode == IC_RGBA) {
+				fprintf(gpoutfile, "ima := \"%%\n");
+				line_length = 0;
+				for(i=0; i<M*N; i++) {
+					if(line_length++ >= 3*16) {
+						line_length = 1;
+						fprintf(gpoutfile, "%%\n");
+					};
+					fprintf(gpoutfile, "%02x", (unsigned char)(image[i*components_per_color+3]*255));
+				}
+				fprintf(gpoutfile, "\";\n");
+			}
+		}
+
+		/* TODO: transparency handling is not yet supported in ConTeXt */
+		if(is_clipped) {
+			fprintf(gpoutfile, "draw image(\n  ");
+		}
+		fprintf(gpoutfile, "draw bitmapimage (%u,%u,img) xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb);\n",
+			N, M, corner[1].x/100.0-corner[0].x/100.0, corner[0].y/100.0-corner[1].y/100.0, corner[0].x/100.0, corner[1].y/100.0);
+		if(is_clipped) {
+			fprintf(gpoutfile, "  clip currentpicture to unitsquare xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb););\n",
+				corner[3].x/100.0-corner[2].x/100.0, corner[2].y/100.0-corner[3].y/100.0, corner[2].x/100.0, corner[3].y/100.0);
+		}
+
+		/* (alternative implementation) *
+		fprintf(gpoutfile, "gp_image_rgb");
+		if (color_mode == IC_RGB)
+			fprintf(gpoutfile, "_alpha");
+		fprintf(gpoutfile, "((%u,%u),(%.2fa,%.2fb),(%.2fa,%.2fb));\n",
+			N, M, corner[0].x/100.0, corner[1].y/100.0, corner[1].x/100.0, corner[0].y/100.0);
+		*/
+	}
 }
 
 /*
@@ -2294,6 +2408,9 @@ START_HELP(context)
 "                       {linewidth | lw <lw>}",
 "                       {fontscale <fontscale>}",
 "                       {mppoints | texpoints}",
+#ifdef WRITE_PNG_IMAGE
+"                       {inlineimages | externalimages}",
+#endif
 "                       {defaultfont | font {<fontsize>} |",
 "                        font \"<fontname>{,<fontsize>}\" {fontsize}}",
 "",
@@ -2350,6 +2467,12 @@ START_HELP(context)
 "      \\defineconversion[my own points][+,{\\ss x},\\mathematics{\\circ}]",
 "      \\setupGNUPLOTterminal[context][points=tex,pointset=my own points]",
 "",
+#ifdef WRITE_PNG_IMAGE
+" `inlineimages` writes binary images to a string and only works in ConTeXt MKIV.",
+" `externalimages` writes PNG files to disk and also works with ConTeXt MKII.",
+" Gnuplot needs to have support for PNG images built in for this to work."
+"",
+#endif
 " With `font` you can set font name and size in standalone graphics.",
 " In non-standalone (`input`) mode only the font size is important",
 " to reserve enough space for text labels.",
