@@ -1291,17 +1291,15 @@ CONTEXT_graphics()
 		fprintf(gpoutfile, "\\startGNUPLOTgraphic[%d]\n", ++CONTEXT_counter);
 	}
 
-	fprintf(gpoutfile, "string gnuplotversion, termversion;\n");
-	fprintf(gpoutfile, "gnuplotversion := \"%s\"; termversion := \"%s\";\n",
-		gnuplot_version, CONTEXT_term_version);
+	fprintf(gpoutfile, "string gnuplotversion; gnuplotversion := \"%s\";\n", gnuplot_version);
+	fprintf(gpoutfile, "string termversion;    termversion    := \"%s\";\n", CONTEXT_term_version);
 	/*
 	 * MetaPost can only handle numbers up to 4096. Too high resolution
 	 * would thus result in number overflow, that's why we scale down all the
 	 * integers from gnuplot by 1000 and multiply those numbers later by
 	 * appropriate scaling factor 'a' to get the proper dimensions.
 	 */
-	fprintf(gpoutfile, "%% scaling factor\na := 1cm;\n");
-	fprintf(gpoutfile, "%% width and height of the figure\nw := %.3fa; h := %.3fa; %% (%g%s, %g%s)\n",
+	fprintf(gpoutfile, "%% scaling factor, width and height of the figure\na := 1cm; w := %.3fa; h := %.3fa; %% (%g%s, %g%s)\n",
 		0.001*(term->xmax), 0.001*(term->ymax),
 		CONTEXT_params.xsize.value, unit_name(CONTEXT_params.xsize.unit),
 		CONTEXT_params.ysize.value, unit_name(CONTEXT_params.ysize.unit));
