@@ -1289,6 +1289,7 @@ CONTEXT_graphics()
 		fprintf(gpoutfile, "\\startGNUPLOTgraphic[%d]\n", ++CONTEXT_counter);
 	}
 
+	fprintf(gpoutfile, "string gnuplotversion, termversion;\n");
 	fprintf(gpoutfile, "gnuplotversion := \"%s\"; termversion := \"%s\";\n",
 		gnuplot_version, CONTEXT_term_version);
 	/*
