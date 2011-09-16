@@ -141,9 +141,11 @@ TERM_PUBLIC void CONTEXT_image __PROTO((unsigned, unsigned, coordval *, gpiPoint
 
 /* Metapost can only deal with numbers between 2^{-16} and 2^12=4069 */
 /* the values will be set later */
-/* scale is 1bp = 100 units, resolution is 2400 'big points per inch' */
+/* scale is 1cm = 1000 units */
 
-#define CONTEXT_DPI (2400)
+// #define CONTEXT_DPI (2400)
+#define CONTEXT_DPCM 1000
+#define CONTEXT_DPI (2.54*CONTEXT_DPCM)
 /* default plot size will be 5in x 3in*/
 #define CONTEXT_XSIZE_VALUE 5
 #define CONTEXT_YSIZE_VALUE 3
@@ -184,7 +186,7 @@ TERM_PUBLIC void CONTEXT_image __PROTO((unsigned, unsigned, coordval *, gpiPoint
  */
 static const char CONTEXT_term_version[] = "1.0";
 static const char CONTEXT_term_patch[]   = "0";
-static const char CONTEXT_term_date[]    = "2011-09-14";
+static const char CONTEXT_term_date[]    = "2011-09-16";
 
 /*********
  * UNITS *
@@ -1295,14 +1297,14 @@ CONTEXT_graphics()
 	/*
 	 * MetaPost can only handle numbers up to 4096. Too high resolution
 	 * would thus result in number overflow, that's why we scale down all the
-	 * integers from gnuplot by 100 and multiply those numbers later by
-	 * appropriate scaling factors 'a' and 'b' to get the proper dimensions.
+	 * integers from gnuplot by 1000 and multiply those numbers later by
+	 * appropriate scaling factor 'a' to get the proper dimensions.
 	 */
-	fprintf(gpoutfile, "%% width and height of the figure\nw:=%g%s; h:=%g%s;\n",
+	fprintf(gpoutfile, "%% scaling factor\na := 1cm;\n");
+	fprintf(gpoutfile, "%% width and height of the figure\nw := %.3fa; h := %.3fa; %% (%g%s, %g%s)\n",
+		0.001*(term->xmax), 0.001*(term->ymax),
 		CONTEXT_params.xsize.value, unit_name(CONTEXT_params.xsize.unit),
 		CONTEXT_params.ysize.value, unit_name(CONTEXT_params.ysize.unit));
-	fprintf(gpoutfile, "%% horizontal and vertical scaling factors\na:=w/%.2f; b:=h/%.2f;\n",
-		(term->xmax)/100.0, (term->ymax)/100.0);
 	/* TODO: the following if-else could be slightly nicer */
 	if(CONTEXT_images == CONTEXT_IMAGES_INLINE) {
 		fprintf(gpoutfile, "%% temporary variable for storing the path and images\nsave p, img, ima; path p; string img, ima;\n");
@@ -1352,7 +1354,7 @@ CONTEXT_endpath()
 {
 	/* if we have a dot, draw only the dot */
 	if(CONTEXT_path_is_dot) {
-		fprintf(gpoutfile, "gp_dot(%.2fa,%.2fb);\n", CONTEXT_posx / 100.0, CONTEXT_posy / 100.0);
+		fprintf(gpoutfile, "gp_dot(%.3fa,%.3fa);\n", 0.001*CONTEXT_posx, 0.001*CONTEXT_posy);
 		CONTEXT_path_is_dot = 0;
 	
 	/* cyclic path, so let's end it with "--cycle" */
@@ -1361,7 +1363,7 @@ CONTEXT_endpath()
 	
 	/* regular non-cyclic path */
 	} else {
-		fprintf(gpoutfile, "--(%.2fa,%.2fb);\ngp_draw(p);\n", CONTEXT_posx / 100.0, CONTEXT_posy / 100.0);
+		fprintf(gpoutfile, "--(%.3fa,%.3fa);\ngp_draw(p);\n", 0.001*CONTEXT_posx, 0.001*CONTEXT_posy);
 	}
 
 	/* we're not inside path any more */
@@ -1407,7 +1409,7 @@ CONTEXT_startpath()
 	CONTEXT_path_start_y = CONTEXT_posy;
 	CONTEXT_path_count = 2;
 
-	fprintf(gpoutfile, "p := (%.2fa,%.2fb)", CONTEXT_posx / 100.0, CONTEXT_posy / 100.0);
+	fprintf(gpoutfile, "p := (%.3fa,%.3fa)", 0.001*CONTEXT_posx, 0.001*CONTEXT_posy);
 }
 
 /* ****************
@@ -1453,7 +1455,7 @@ CONTEXT_vector(unsigned int x, unsigned int y)
 			CONTEXT_path_count = 2;
 		}
 		/* and output the previous point */
-		fprintf(gpoutfile, "--(%.2fa,%.2fb)", CONTEXT_posx / 100.0, CONTEXT_posy / 100.0);
+		fprintf(gpoutfile, "--(%.3fa,%.3fa)", 0.001*CONTEXT_posx, 0.001*CONTEXT_posy);
 	}
 
 	CONTEXT_posx = x;
@@ -1530,7 +1532,7 @@ CONTEXT_put_text(unsigned int x, unsigned int y, const char str[])
 	for(s=str; s[0] == ' '; s++);
 
 	/* label position */
-	fprintf(gpoutfile, "gp_put_text((%.2fa, %.2fb), ", x/100.0, y/100.0);
+	fprintf(gpoutfile, "gp_put_text((%.3fa, %.3fa), ", 0.001*x, 0.001*y);
 	/* angle of rotation - optional and needed only if it's different from 0 */
 	if (CONTEXT_ang != 0) {
 		fprintf(gpoutfile, "angle(%d), ", CONTEXT_ang);
@@ -1594,7 +1596,7 @@ CONTEXT_point (unsigned int x, unsigned int y, int number)
 	if(CONTEXT_path_count > 0)
 		CONTEXT_endpath();
 
-	fprintf(gpoutfile, "gp_point(%.2fa,%.2fb,%d);\n", x/100.0, y/100.0, number);
+	fprintf(gpoutfile, "gp_point(%.3fa,%.3fa,%d);\n", 0.001*x, 0.001*y, number);
 }
 
 /* ***************
@@ -1848,8 +1850,8 @@ CONTEXT_fillbox(int style, unsigned int x1, unsigned int y1, unsigned int width,
 		CONTEXT_endpath();
 
 	/* create a new path */
-	fprintf(gpoutfile, "p := unitsquare xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb);\n", width/100.0, height/100.0, x1/100.0, y1/100.0);
-	/* fprintf(gpoutfile, "p := gp_rect ((%.2fa,%.2fb),(%.2fa,%.2fb));\n", x1/100.0, y1/100.0, width/100.0, height/100.0); */
+	fprintf(gpoutfile, "p := unitsquare xyscaled (%.3fa,%.3fa) shifted (%.3fa,%.3fa);\n", 0.001*width, 0.001*height, 0.001*x1, 0.001*y1);
+	/* fprintf(gpoutfile, "p := gp_rect ((%.3fa,%.3fa),(%.3fa,%.3fa));\n", 0.001*x1, 0.001*y1, 0.001*width, 0.001*height); */
 	
 	/* fills the box according to the "style"
 	 * the code went out of this routine because of undocumented behaviour
@@ -1905,7 +1907,7 @@ CONTEXT_fill(int style)
 		/* fill the box with density "density": if no parameter density is specified,
 		   it implies 100% density by default */
 		if (density < 100) {
-			fprintf(gpoutfile, ",density(%.2f)", density*0.01);
+			fprintf(gpoutfile, ",density(%.2f)", 0.01*density);
 		}
 		break;
 
@@ -2169,11 +2171,11 @@ CONTEXT_filled_polygon (int points, gpiPoint *corners)
 
 	/* create new path with corners */
 	fputs("p := ", gpoutfile);
-	fprintf(gpoutfile, "(%.2fa,%.2fb)", corners[0].x/100.0, corners[0].y/100.0);
+	fprintf(gpoutfile, "(%.3fa,%.3fa)", 0.001*corners[0].x, 0.001*corners[0].y);
 	for (i=1; i<points; i++) {
 		if (i % CONTEXT_LINEMAX == 0)
 			fputs("\n  ", gpoutfile);
-		fprintf(gpoutfile, "--(%.2fa,%.2fb)", corners[i].x/100.0, corners[i].y/100.0);
+		fprintf(gpoutfile, "--(%.3fa,%.3fa)", 0.001*corners[i].x, 0.001*corners[i].y);
 	}
 	/* and fill it */
 	fprintf(gpoutfile, "--cycle;\n");
@@ -2248,11 +2250,11 @@ CONTEXT_image (unsigned M, unsigned N, coordval *image, gpiPoint *corner, t_imag
 		if(is_clipped) {
 			fprintf(gpoutfile, "draw image(\n  ");
 		}
-		fprintf(gpoutfile, "externalfigure \"%s\" xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb);\n",
-			CONTEXT_image_filename, corner[1].x/100.0-corner[0].x/100.0, corner[0].y/100.0-corner[1].y/100.0, corner[0].x/100.0, corner[1].y/100.0);
+		fprintf(gpoutfile, "externalfigure \"%s\" xyscaled (%.3fa,%.3fa) shifted (%.3fa,%.3fa);\n",
+			CONTEXT_image_filename, 0.001*(corner[1].x-corner[0].x), 0.001*(corner[0].y-corner[1].y), 0.001*corner[0].x, 0.001*corner[1].y);
 		if(is_clipped) {
-			fprintf(gpoutfile, "  clip currentpicture to unitsquare xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb););\n",
-				corner[3].x/100.0-corner[2].x/100.0, corner[2].y/100.0-corner[3].y/100.0, corner[2].x/100.0, corner[3].y/100.0);
+			fprintf(gpoutfile, "  clip currentpicture to unitsquare xyscaled (%.3fa,%.3fa) shifted (%.3fa,%.3fa););\n",
+				0.001*(corner[3].x-corner[2].x), 0.001*(corner[2].y-corner[3].y), 0.001*corner[2].x, 0.001*corner[3].y);
 		}
 #endif
 	} else {
@@ -2313,19 +2315,19 @@ CONTEXT_image (unsigned M, unsigned N, coordval *image, gpiPoint *corner, t_imag
 		if(is_clipped) {
 			fprintf(gpoutfile, "draw image(\n  ");
 		}
-		fprintf(gpoutfile, "draw bitmapimage (%u,%u,img) xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb);\n",
-			N, M, corner[1].x/100.0-corner[0].x/100.0, corner[0].y/100.0-corner[1].y/100.0, corner[0].x/100.0, corner[1].y/100.0);
+		fprintf(gpoutfile, "draw bitmapimage (%u,%u,img) xyscaled (%.3fa,%.3fa) shifted (%.3fa,%.3fa);\n",
+			N, M, 0.001*(corner[1].x-corner[0].x), 0.001*(corner[0].y-corner[1].y), 0.001*corner[0].x, 0.001*corner[1].y);
 		if(is_clipped) {
-			fprintf(gpoutfile, "  clip currentpicture to unitsquare xyscaled (%.2fa,%.2fb) shifted (%.2fa,%.2fb););\n",
-				corner[3].x/100.0-corner[2].x/100.0, corner[2].y/100.0-corner[3].y/100.0, corner[2].x/100.0, corner[3].y/100.0);
+			fprintf(gpoutfile, "  clip currentpicture to unitsquare xyscaled (%.3fa,%.3fa) shifted (%.3fa,%.3fa););\n",
+				0.001*(corner[3].x-corner[2].x), 0.001*(corner[2].y-corner[3].y), 0.001*corner[2].x, 0.001*corner[3].y);
 		}
 
 		/* (alternative implementation) *
 		fprintf(gpoutfile, "gp_image_rgb");
 		if (color_mode == IC_RGB)
 			fprintf(gpoutfile, "_alpha");
-		fprintf(gpoutfile, "((%u,%u),(%.2fa,%.2fb),(%.2fa,%.2fb));\n",
-			N, M, corner[0].x/100.0, corner[1].y/100.0, corner[1].x/100.0, corner[0].y/100.0);
+		fprintf(gpoutfile, "((%u,%u),(%.3fa,%.3fa),(%.3fa,%.3fa));\n",
+			N, M, 0.001*corner[0].x, 0.001*corner[1].y, 0.001*corner[1].x, 0.001*corner[0].y);
 		*/
 	}
 }
