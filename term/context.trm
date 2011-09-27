@@ -1916,7 +1916,8 @@ CONTEXT_fill(int style)
 		break;
 
 	case FS_TRANSPARENT_PATTERN:
-		/* just a flag that should be interpreted in metapost, bun no idea what transparent pattern means */
+		/* just a flag that should be interpreted in metapost,
+		   non-transparent patterns have to fill with background color before drawing the pattern */
 		fprintf(gpoutfile, ",transparent");
 	case FS_PATTERN:
 		pattern = (style >> 4);
