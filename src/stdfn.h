@@ -1,5 +1,5 @@
 /*
- * $Id: stdfn.h,v 1.38 2011/05/02 18:37:00 markisch Exp $
+ * $Id: stdfn.h,v 1.40 2011/09/21 11:43:50 markisch Exp $
  */
 
 /* GNUPLOT - stdfn.h */
@@ -378,6 +378,8 @@ size_t strnlen __PROTO((const char *str, size_t n));
 # define GP_ATEXIT(x) /* you lose */
 #endif
 
+char * gp_basename __PROTO((char *path));
+
 #if !defined(HAVE_DIRENT_H) && defined(WIN32) && (!defined(__WATCOMC__))
 /*
 
@@ -424,7 +426,11 @@ void          rewinddir __PROTO((DIR *));
 
 /* Definitions for debugging */
 /* #define NDEBUG */
-#include <assert.h>
+/* #include <assert.h> */
+#ifndef assert
+#define assert(X) if (!(X)) int_error(-1,"Assertion failed: %s", #X )
+#endif
+
 
 #ifdef DEBUG
 # define DEBUG_WHERE do { fprintf(stderr,"%s:%d ",__FILE__,__LINE__); } while (0)

@@ -1,4 +1,4 @@
-C RCS $Id: gnuplot.doc,v 1.685 2011/08/19 18:42:08 sfeam Exp $
+C RCS $Id: gnuplot.doc,v 1.690 2011/09/23 16:34:28 sfeam Exp $
 C
 C Copyright (C) 1986 - 1993, 1998, 1999, 2000, 2001, 2004   Thomas Williams, Colin Kelley et al.
 C
@@ -1477,8 +1477,8 @@ C marker below is used to signal this to doc2html:
 ?expressions functions strcol
 ?functions strcol
 ?strcol
-#stringcolumn(x) & int & content of column $x$ as a string. \\
-%stringcolumn(x)@int@ content column $x$ as a string.
+#stringcolumn(x) & int or string & content of column $x$ as a string. \\
+%stringcolumn(x)@int or string@ content column $x$ as a string.
  `stringcolumn(x)` may be used only in expressions as part of `using` manipulations
  to fits or datafile plots.  It returns the content of column x as a string variable.
  See `plot datafile using`.
@@ -2040,7 +2040,7 @@ C^ <img align=bottom src="http://www.gnuplot.info/doc/userdefined.gif" alt="[use
  another. Brief documentation of font mechanisms that apply to more than one
  terminal type is given here. For information on font use by other individual
  terminals, see the documentation for that terminal.
-3 cairo (pdfcairo, pngcairo, wxt terminals)
+3 cairo (pdfcairo, pngcairo, epscairo, wxt terminals)
 ?fonts cairo
 =fonts
 =pdf
@@ -3475,7 +3475,7 @@ Ffigure_histcols
 ?plotting style histograms newhistogram
  Syntax:
 
-      newhistogram {"<title>"} {<linetype>} {<fillstyle>} {at <x-coord>}
+      newhistogram {"<title>"} {lt <linetype>} {fs <fillstyle>} {at <x-coord>}
 
  More than one set of histograms can appear in a single plot. In this case you
  can force a gap between them, and a separate label for each set, by using the
@@ -5865,7 +5865,9 @@ C^ <img align=bottom src="http://www.gnuplot.info/doc/population.gif" alt="[popu
        plot 'datafile' using (column("Age")):(column(1)), \
                     '' using (column("Age")):(column(2))
        plot 'datafile' using "Age":"Height", '' using "Age":"Weight"
- To use the column labels in the plot legend, use `set key autotitle columnhead`.
+
+ To use the column labels in the plot legend, use 
+ `set key autotitle columnhead`.
 
  In addition to the actual columns 1...N in the input data file, gnuplot
  presents data from several "pseudo-columns" that hold bookkeeping information.
@@ -6638,7 +6640,7 @@ C^ <img align=bottom src="http://www.gnuplot.info/doc/population.gif" alt="[popu
  that the various options take.
 
  The following are _not_ affected by `reset`.
-      `set term` `set output` `set loadpath` `set fontpath`
+      `set term` `set output` `set loadpath` `set fontpath` `set linetype`
       `set encoding` `set decimalsign` `set locale` `set psdir`
 
 =error state

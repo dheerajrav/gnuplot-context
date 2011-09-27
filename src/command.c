@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: command.c,v 1.220 2011/08/23 11:06:50 markisch Exp $"); }
+static char *RCSid() { return RCSid("$Id: command.c,v 1.225 2011/09/08 05:19:07 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - command.c */
@@ -96,13 +96,10 @@ static char *RCSid() { return RCSid("$Id: command.c,v 1.220 2011/08/23 11:06:50 
 
 #ifdef USE_MOUSE
 # include "mouse.h"
+int paused_for_mouse = 0;
 #endif
 
 #define PROMPT "gnuplot> "
-
-#if defined(MSDOS) && defined(__TURBOC__) && !defined(_Windows)
-unsigned _stklen = 16394;        /* increase stack size */
-#endif /* MSDOS && TURBOC */
 
 #ifdef OS2_IPC
 #  define INCL_DOSMEMMGR
@@ -180,10 +177,6 @@ int plot_token;			/* start of 'plot' command */
 /* flag to disable `replot` when some data are sent through stdin;
  * used by mouse/hotkey capable terminals */
 TBOOLEAN replot_disabled = FALSE;
-
-#ifdef USE_MOUSE
-int paused_for_mouse = 0;
-#endif
 
 /* output file for the print command */
 FILE *print_out = NULL;
@@ -573,8 +566,7 @@ void
 undefine_command()
 {
     char key[MAX_ID_LEN+1];
-    struct udvt_entry **udv_ptr = &first_udv;
-    TBOOLEAN isWildcard;
+    TBOOLEAN wildcard;
 
     c_token++;               /* consume the command name */
 
@@ -584,34 +576,14 @@ undefine_command()
 
 	/* Peek ahead - must do this, because a '*' is returned as a 
 	   separate token, not as part of the 'key' */
-	isWildcard = equals(c_token+1,"*");
-	if (isWildcard)
+	wildcard = equals(c_token+1,"*");
+	if (wildcard)
 	    c_token++;
 
         /* ignore internal variables */
-	if (strncmp(key, "GPVAL_", 6) && strncmp(key, "MOUSE_", 6)) {
-	    udv_ptr = &first_udv;
+	if (strncmp(key, "GPVAL_", 6) && strncmp(key, "MOUSE_", 6))
+	    del_udv_by_name( key, wildcard );
 
-	    /* iterate over variables */
-	    while (*udv_ptr) {
- 	        /* exact match */
-		if (!isWildcard && !strcmp(key, (*udv_ptr)->udv_name)) {
-		    (*udv_ptr)->udv_undef = TRUE;
-		    gpfree_string(&((*udv_ptr)->udv_value));
-		    break;
-		}
-
-		/* wildcard match: prefix matches */
-		if ( isWildcard &&
-		     !strncmp(key, (*udv_ptr)->udv_name, strlen(key)) ) {
-		    (*udv_ptr)->udv_undef = TRUE;
-		    gpfree_string(&((*udv_ptr)->udv_value));
-		    /* no break - keep looking! */
-		}
-
-		udv_ptr = &((*udv_ptr)->next_udv); /* move on */
-	    }
-	}
 	c_token++;
     }
 }
@@ -649,7 +621,7 @@ raise_lower_command(int lower)
 	    x11_lower_terminal_group();
 #endif
 #ifdef _Windows
-	    win_lower_terminal_window();
+	    win_lower_terminal_group();
 #endif
 #ifdef WXWIDGETS
 	    wxt_lower_terminal_group();
@@ -662,7 +634,7 @@ raise_lower_command(int lower)
 	    x11_raise_terminal_group();
 #endif
 #ifdef _Windows
-	    win_raise_terminal_window();
+	    win_raise_terminal_group();
 #endif
 #ifdef WXWIDGETS
 	    wxt_raise_terminal_group();
@@ -686,7 +658,7 @@ raise_lower_command(int lower)
 		x11_lower_terminal_window(number);
 #endif
 #ifdef _Windows
-		win_lower_terminal_window();
+		win_lower_terminal_window(number);
 #endif
 #ifdef WXWIDGETS
 		wxt_lower_terminal_window(number);
@@ -699,7 +671,7 @@ raise_lower_command(int lower)
 		x11_raise_terminal_window(number);
 #endif
 #ifdef _Windows
-		win_raise_terminal_window();
+		win_raise_terminal_window(number);
 #endif
 #ifdef WXWIDGETS
 		wxt_raise_terminal_window(number);
@@ -709,7 +681,10 @@ raise_lower_command(int lower)
 	    return;
 	}
     }
-    int_error(c_token, "usage: raise {x11_plot_n}");
+    if (lower)
+	int_error(c_token, "usage: lower {plot_id}");
+    else
+	int_error(c_token, "usage: raise {plot_id}");
 }
 
 void
@@ -1093,7 +1068,6 @@ else_command()
     * New if/else syntax permits else clause to appear on a new line
     */
     if (equals(c_token+1,"{")) {
-	int i, depth;
 	int clause_start, clause_end;
 	char *clause;
 
@@ -1439,13 +1413,10 @@ pause_command()
 	    /* term->waitforinput() will return,
 	     * if CR was hit */
 	    term->waitforinput();
-	} else {
+	} else
 #endif /* USE_MOUSE */
 	(void) fgets(buf, sizeof(buf), stdin);
-	/* Hold until CR hit. */
-#ifdef USE_MOUSE
-	}
-#endif /* USE_MOUSE */
+
 #endif /* !(_Windows || OS2 || _Macintosh) */
     }
     if (sleep_time > 0)
@@ -2082,10 +2053,7 @@ changedir(char *path)
 	(void) _chdrive(driveno + 1);
 # endif
 
-
-/* HBB: recent versions of DJGPP also have setdisk():,
- * so I del'ed the special code */
-# if ((defined(MSDOS) || defined(_Windows)) && defined(__TURBOC__)) || defined(DJGPP)
+# ifdef DJGPP
 	(void) setdisk(driveno);
 # endif
 	path += 2;		/* move past drive letter */
@@ -2479,9 +2447,9 @@ help_command()
 	/* if can't find environment variable then just use HELPFILE */
 
 /* patch by David J. Liu for getting GNUHELP from home directory */
-#  if (defined(__TURBOC__) && defined(MSDOS)) || defined(__DJGPP__)
+#  ifdef __DJGPP__
 	help_ptr = HelpFile;
-#  else			/* __TURBOC__ */
+#  else
 	help_ptr = HELPFILE;
 #  endif
 #ifdef OS2
@@ -2684,6 +2652,8 @@ rlgets(char *s, size_t n, const char *prompt)
 	    while (previous_history());
 	    if (strcmp(current_history()->line, line) != 0)
 		add_history(line);
+#  else /* builtin readline */
+	    add_history(line);
 #  endif
 	}
     }
@@ -2768,33 +2738,6 @@ do_shell()
 #define PUT_STRING(s) cputs(s)
 #define GET_STRING(s,l) ((interactive) ? cgets_emu(s,l) : fgets(s,l,stdin))
 
-#   ifdef __TURBOC__
-/* cgets implemented using dos functions */
-/* Maurice Castro 22/5/91 */
-static char *doscgets __PROTO((char *));
-
-static char *
-doscgets(char *s)
-{
-    long datseg;
-
-    /* protect and preserve segments - call dos to do the dirty work */
-    datseg = _DS;
-
-    _DX = FP_OFF(s);
-    _DS = FP_SEG(s);
-    _AH = 0x0A;
-    geninterrupt(33);
-    _DS = datseg;
-
-    /* check for a carriage return and then clobber it with a null */
-    if (s[s[1] + 2] == '\r')
-	s[s[1] + 2] = 0;
-
-    /* return the input string */
-    return (&(s[2]));
-}
-#   endif			/* __TURBOC__ */
 
 /* emulate a fgets like input function with DOS cgets */
 char *
@@ -2805,11 +2748,7 @@ cgets_emu(char *str, int len)
 
     if (buffer[leftover] == NUL) {
 	buffer[0] = 126;
-#   ifdef __TURBOC__
-	doscgets(buffer);
-#   else
 	cgets(buffer);
-#   endif
 	fputc('\n', stderr);
 	if (buffer[2] == 26)
 	    return NULL;

@@ -1,5 +1,5 @@
 /*
- * $Id: command.h,v 1.54 2011/06/19 22:10:37 sfeam Exp $
+ * $Id: command.h,v 1.56 2011/09/04 11:08:33 markisch Exp $
  */
 
 /* GNUPLOT - command.h */
@@ -96,11 +96,6 @@ extern struct udft_entry *dummy_func;
 # ifdef DJGPP
 extern char HelpFile[];         /* patch for do_help  - AP */
 # endif                         /* DJGPP */
-# ifdef __TURBOC__
-#  ifndef _Windows
-extern char HelpFile[];         /* patch for do_help  - DJL */
-#  endif                        /* _Windows */
-# endif                         /* TURBOC */
 #endif /* MSDOS */
 
 #ifdef _Windows
@@ -133,8 +128,10 @@ extern void x11_lower_terminal_window __PROTO((int));
 extern void x11_lower_terminal_group __PROTO((void));
 #endif
 #ifdef _Windows
-extern void win_raise_terminal_window();
-extern void win_lower_terminal_window();
+extern void win_raise_terminal_window __PROTO((int));
+extern void win_raise_terminal_group __PROTO((void));
+extern void win_lower_terminal_window __PROTO((int));
+extern void win_lower_terminal_group __PROTO((void));
 #endif
 #ifdef WXWIDGETS
 extern void wxt_raise_terminal_window __PROTO((int));

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: term.c,v 1.222 2011/07/12 18:38:52 juhaszp Exp $"); }
+static char *RCSid() { return RCSid("$Id: term.c,v 1.225 2011/09/06 03:17:42 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - term.c */
@@ -96,6 +96,11 @@ static char *RCSid() { return RCSid("$Id: term.c,v 1.222 2011/07/12 18:38:52 juh
 
 #ifdef USE_MOUSE
 #include "mouse.h"
+#else
+/* Some terminals (svg canvas) can provide mousing information */
+/* even if the interactive gnuplot session itself cannot.      */
+long mouse_mode = 0;
+char* mouse_alt_string = NULL;
 #endif
 
 #ifdef _Windows
@@ -312,7 +317,7 @@ void fflush_binary();
 #endif /* !VMS */
 
 #if defined(MSDOS) || defined(WIN32)
-# if defined(__DJGPP__) || defined (__TURBOC__)
+# if defined(__DJGPP__)
 #  include <io.h>
 # endif
 # include <fcntl.h>
@@ -1608,6 +1613,14 @@ change_term(const char *origname, int length)
 	length = 3;
     }
 
+#ifdef HAVE_CAIROPDF
+    /* To allow "set term eps" as short for "set term epscairo" */
+    if (!strncmp(origname,"eps",length)) {
+	name = "epscairo";
+	length = 8;
+    }
+#endif
+
     for (i = 0; i < TERMCOUNT; i++) {
 	if (!strncmp(name, term_tbl[i].name, length)) {
 	    if (t)
@@ -1674,7 +1687,7 @@ void
 init_terminal()
 {
     char *term_name = DEFAULTTERM;
-#if (defined(__TURBOC__) && defined(MSDOS) && !defined(_Windows)) || defined(NEXT) || defined(SUN) || defined(X11)
+#if (defined(MSDOS) && !defined(_Windows)) || defined(NEXT) || defined(SUN) || defined(X11)
     char *env_term = NULL;      /* from TERM environment var */
 #endif
 #ifdef X11

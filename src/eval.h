@@ -1,5 +1,5 @@
 /*
- * $Id: eval.h,v 1.37 2011/08/01 05:14:23 sfeam Exp $
+ * $Id: eval.h,v 1.39 2011/09/08 05:19:07 sfeam Exp $
  */
 
 /* GNUPLOT - eval.h */
@@ -63,7 +63,7 @@ enum operators {
     JUMP, JUMPZ, JUMPNZ, JTERN, SF_START,
 
     /* functions specific to using spec */
-    COLUMN
+    COLUMN, STRINGCOLUMN
 };
 #define is_jump(operator) \
     ((operator) >=(int)JUMP && (operator) <(int)SF_START)
@@ -161,6 +161,7 @@ void evaluate_at __PROTO((struct at_type *at_ptr, struct value *val_ptr));
 void free_at __PROTO((struct at_type *at_ptr));
 struct udvt_entry * add_udv_by_name __PROTO((char *key));
 struct udvt_entry * get_udv_by_name __PROTO((char *key));
+void del_udv_by_name __PROTO(( char *key, TBOOLEAN isWildcard ));
 
 /* update GPVAL_ variables available to user */
 void update_gpval_variables __PROTO((int from_plot_command));

@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: datafile.c,v 1.203 2011/07/25 06:51:29 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: datafile.c,v 1.208 2011/09/04 11:06:19 markisch Exp $"); }
 #endif
 
 /* GNUPLOT - datafile.c */
@@ -283,6 +283,7 @@ static int df_pseudospan = 0;
 struct use_spec_s use_spec[MAXDATACOLS];
 static char *df_format = NULL;
 static char *df_binary_format = NULL;
+static int current_using_spec;
 TBOOLEAN evaluate_inside_using = FALSE;
 
 /* rather than three arrays which all grow dynamically, make one
@@ -1731,6 +1732,7 @@ df_readascii(double v[], int max)
 		/* if there was no using spec, column is output+1 and
 		 * at=NULL */
 		int column = use_spec[output].column;
+		current_using_spec = output;
 
 		/* Handle cases where column holds a meta-data string */
 		/* Axis labels, plot titles, etc.                     */
@@ -2172,10 +2174,32 @@ f_stringcolumn(union argument *arg)
 
     (void) arg;                 /* avoid -Wunused warning */
     (void) pop(&a);
-    column = (int) real(&a);
 
     if (!evaluate_inside_using || df_matrix)
 	int_error(c_token-1, "stringcolumn() called from invalid context");
+
+    if (a.type == STRING) {
+	int j;
+	char *name = a.v.string_val;
+	column = DF_COLUMN_HEADERS;
+	for (j=0; j<df_no_cols; j++) {
+	    if (df_column[j].header) {
+		int offset = (*df_column[j].header == '"') ? 1 : 0;
+		if (0 == strncmp(name, df_column[j].header + offset, 
+				strlen(name))) {
+		    column = j+1;
+		    if (!df_key_title) /* EAM DEBUG - on the off chance we want it */
+			df_key_title = gp_strdup(df_column[j].header);
+		    break;
+		}
+	    }
+	}
+	if (column == DF_COLUMN_HEADERS)
+	    int_error(NO_CARET,"could not find column with header \"%s\"\n",
+			a.v.string_val);
+	gpfree_string(&a);
+    } else
+	column = (int) real(&a);
 
     if (column == -2) {
 	char temp_string[32];
@@ -2246,6 +2270,12 @@ f_valid(union argument *arg)
  * least.  First, the datafile column number.  Second either a timefmt
  * string (variable), or an axis index.  For now, we have to try to
  * guess the right axis index */
+/* JP 20110823: Each using spec has an axis (thus the correct timefmt)
+ * associated with it, in df_axis[]. Furthermore, this function can 
+ * only be called while evaluating an using spec, we just didn't know
+ * which one it was called from - hence the need for guessing.
+ * This information is now stored in the new global variable 
+ * current_using_spec. */
 void
 f_timecolumn(union argument *arg)
 {
@@ -2263,6 +2293,7 @@ f_timecolumn(union argument *arg)
     if (!evaluate_inside_using)
 	int_error(c_token-1, "timecolumn() called from invalid context");
 
+#if 0
     /* try to match datafile column with spec field number */
     whichaxis = FIRST_X_AXIS;
     for (spec = 0; spec<limit; spec++)
@@ -2274,6 +2305,8 @@ f_timecolumn(union argument *arg)
 	    whichaxis = df_axis[spec];
 	    break;
 	}
+#endif
+    whichaxis = df_axis[current_using_spec];
 
     if (column < 1
 	|| column > df_no_cols
@@ -2353,6 +2386,16 @@ int
 expect_string(const char column)
 {
     use_spec[column-1].expected_type = CT_STRING;
+    /* Nasty hack to make 'plot "file" using "A":"B":"C" with labels' work.
+     * The case of named columns is handled by create_call_column_at(),
+     * which fakes an action table as if '(column("string"))' was written 
+     * in the using spec instead of simply "string". In this specific case, however,
+     * we need the values as strings - so we change the action table to call 
+     * f_stringcolumn() instead of f_column. */
+    if (use_spec[column-1].at 
+    && (use_spec[column-1].at->a_count == 2)
+    && (use_spec[column-1].at->actions[1].index == COLUMN))
+        use_spec[column-1].at->actions[1].index = STRINGCOLUMN;
     return(use_spec[column-1].column);
 }
 
@@ -4099,9 +4142,9 @@ df_swap_bytes_by_endianess(char *data, int read_order, int read_size)
 static int
 df_skip_bytes(int nbytes)
 {
+#if defined(PIPES)
     char cval;
 
-#if defined(PIPES)
     if (df_pipe_open || plotted_data_from_stdin) {
 	while (nbytes--) {
 	    if (1 == fread(&cval, 1, 1, data_fp))

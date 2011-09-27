@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: gplt_x11.c,v 1.207 2011/06/21 01:10:43 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: gplt_x11.c,v 1.209 2011/09/06 03:17:00 sfeam Exp $"); }
 #endif
 
 #define X11_POLYLINE 1
@@ -114,11 +114,13 @@ static char *RCSid() { return RCSid("$Id: gplt_x11.c,v 1.207 2011/06/21 01:10:43
 # include <X11/Xlocale.h>
 #endif
 
+#include <assert.h>
 #include "syscfg.h"
 #include "stdfn.h"
 #include "gp_types.h"
 #include "term_api.h"
 #include "gplt_x11.h"
+#include "version.h"
 
 #ifdef EXPORT_SELECTION
 # undef EXPORT_SELECTION
@@ -4846,7 +4848,7 @@ preset(int argc, char *argv[])
     signal(SIGTSTP, SIG_IGN);
 #endif
 
-/*---prescan arguments for "-name"----------------------------------------*/
+/*---prescan arguments for "-name"  or "--version"  ----------------------*/
 
     while (++Argv, --Argc > 0) {
 	if (!strcmp(*Argv, "-name") && Argc > 1) {
@@ -4857,6 +4859,11 @@ preset(int argc, char *argv[])
 	    X_Class[sizeof(X_Class) - 1] = NUL;
 	    if (X_Class[0] >= 'a' && X_Class[0] <= 'z')
 		X_Class[0] -= 0x20;
+	}
+	if (!strcmp(*Argv, "--version")) {
+	    printf("gnuplot %s patchlevel %s\n",
+		    gnuplot_version, gnuplot_patchlevel);
+	    exit(1);
 	}
     }
     Argc = argc;

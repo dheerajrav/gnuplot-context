@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: graphics.c,v 1.374 2011/07/29 22:54:26 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: graphics.c,v 1.376 2011/09/09 17:28:30 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - graphics.c */
@@ -1028,7 +1028,7 @@ boundary(struct curve_points *plots, int count)
 	if (axis_array[FIRST_X_AXIS].tic_rotate == 90)
 	    projection = 1.0;
 	else if (axis_array[FIRST_X_AXIS].tic_rotate == TEXT_VERTICAL)
-	    projection = 1.0;
+	    projection = -1.0;
 	else
 	    projection = -sin((double)axis_array[FIRST_X_AXIS].tic_rotate*DEG2RAD);
 	if (axis_array[FIRST_X_AXIS].label.pos == RIGHT)
@@ -6130,7 +6130,8 @@ plot_image_or_update_axes(void *plot, TBOOLEAN update_axes)
     t_imagecolor pixel_planes;
     TBOOLEAN project_points = FALSE;		/* True if 3D plot */
 
-    if (((struct surface_points *)plot)->plot_type == DATA3D)
+    if ((((struct surface_points *)plot)->plot_type == DATA3D)
+    ||  (((struct surface_points *)plot)->plot_type == FUNC3D))
 	project_points = TRUE;
 
     if (project_points) {

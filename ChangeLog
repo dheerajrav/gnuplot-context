@@ -1,3 +1,221 @@
+2011-09-23  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* docs/gnuplot.doc src/plot2d.c:  Defer interpretation of newhistogram
+	linetype until the histogram itself is drawn.
+
+2011-09-21  Bastian Maerkisch  <bmaerkisch@web.de>
+
+	* demo/borders.dem: Use loop instead of `reread`.
+
+	* demo/image2.dem: Explicitely `reverse` axes.
+
+	* src/win/wgraph.c (drawhraph) [W_filled_polygon_draw]: Transparent
+	pattern fill actually fills with white background since 2011-05-15.
+	Fixed.
+
+	* src/win/wgnuplib.h src/win/wgraph.c (WndGraphProc) term/win.trm
+	(WIN_options, WIN_update_options): Update term options on changes via
+	graph window/menu. Track font face and size as read from ini-file.
+
+	* src/stdfn.c|h (gp_basename) term/pslatex.trm (PSTEX_common_init):
+	Move code from pslatex.trm to new function gp_basename which takes
+	two different directory separators into account and does not change
+	its argument.
+
+2011-09-16  Peter Hedwig <peter@affenbande.org>
+
+	* term/lua/gnuplot-tikz.lua:  Modify the commands used for rgb color 
+	selection so that they are compatible with context as well as tikz.
+	Bug #3401068
+
+2011-09-16  Oliver Jennrich
+
+	* term/lua/gnuplot-tikz.lua:  Update syntax used for setting line join
+	properties.
+	Bug #3410554
+
+2011-09-12  Bastian Maerkisch  <bmaerkisch@web.de>
+
+	* config/mingw/Makefile: Fix building gnuplot.ps and gnuplot.pdf.
+	Include figures in gnuplot.pdf. Define new targets 'console', 'windows'
+	and 'pipes' to build different versions of gnuplot. Use separate
+	file extensions for each version. Let 'make all' build all versions.
+	Match 'install' target to Tatsuro Matsuoka's packages.
+
+2011-09-09  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* docs/doc2tex.c docs/titlepag.tex:  Tweak format of TeX documentation
+	(no section numbers in table of contents, text width appropriate for
+	paper size).
+
+2011-09-09  Bastian Maerkisch  <bmaerkisch@web.de>
+
+	src/win/wgnuplib.h src/win/wgraph.c src/win/wresourc.h term/win.trm:
+	Add a toolbar to the graph window. Currently, it offers icons for Copy,
+	Print, Save and Options. Additionaly, plot elements can be temporarily
+	hidden, ie. without a `replot`. This is much like what can be done
+	using canvas and svg terminals and is implemented using term->layer.
+
+2011-09-08  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/graphics.c (plot_image_or_update_axes):  "with image" from a
+	function may not make sense, but at least it should not segfault.
+	Bug #3406642
+
+2011-09-07  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/parse.c (parse_sum_expression): Simplify construction of summation
+	action table.
+	
+	* src/command.c (undefine_command) src/eval.c (del_udv_by_name):
+	Break out the guts of undefine_command into a utility routine that can
+	be called internally.
+
+	* src/hidden3d.c (build_networks): Valgrind found a test against an
+	uninitialized field.
+
+2011-09-06  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* configure.in: cairo_ps_surface_set_eps is only supported by cairo
+	version 1.6.0 or later.
+
+2011-09-05  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/term.c term/canvas.trm: Allow canvas and svg terminals to provide
+	mousing even if gnuplot itself is built without USE_MOUSE.
+
+	* src/gplt_x11.c src/Makefile.am:  gnuplot_x11 --version
+
+2011-09-04  Bastian Maerkisch  <bmaerkisch@web.de>
+
+	* src/readline.c (fn_completion, tab_completion, isdoublewidth)
+	src/win/screenbuf.h (sb_calc_length) src/win/wcommon.h (open_printer,
+	close_printer) src/win/wgraph.c (UnicodeText) src/win/winmain.c
+	(ShutDown, CheckMemory) src/win/wmenu.c: Add missing prototypes, 
+	make local functions static.
+
+	* src/alloc.c src/alloc.h src/ansicheck.h src/command.c src/command.h
+	src/plot.c src/scanner.c src/stdfn.c src/syscfg.h src/term.c:
+	Remove conditional code for Atari Pure C and Borland C compilers.
+
+	* src/axis.c src/command.c src/datafile.c src/getcolor.c src/misc.c
+	src/pm3d.c src/variable.c: Remove unused variables and prototypes.
+
+2011-09-03  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* term/svg.trm term/canvas.trm term/js/gnuplot_mouse.js
+	term/js/gnuplot_svg.js:  Add support for time coordinates to the mousing
+	code used by svg and canvas terminals.  In this initial implementation,
+	only the primary X axis is checked, and there is no provision for a
+	user-supplied format.
+
+2011-09-02  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* configure.in term/cairo.trm:  Check for the presence of cairo-ps.h
+	before trying to build the epscairo terminal.
+
+2011-09-02  Bastian Maerkisch  <bmaerkisch@web.de>
+
+	* docs/makefile.ami docs/old/README.ami docs/old/README.win 
+	src/gnuplot.prj src/linkopt.ztc: Removed.
+
+	* config/makefile.unx docs/Makefile.in src/Makefile.am: Remove
+	references to obsolete files.
+
+2011-09-01  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* configure.in: Yet another rewrite of the installation path rules for
+	TeX files.
+	Bug #3401370
+
+	* configure.in: Remove some obsolete status messages.
+
+2011-09-01  Shigeharu Takeno  <shige@iee.niit.ac.jp>
+
+	* term/emf.trm (EMF_put_text):  Use iconv to handle Shift_JIS encoding.
+
+2011-08-31  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* m4/apple.m4:  Revert change of 2011-07-23 (aquaterm LIBS)
+
+	* configure.in: Rewrite the installation path rules for TeX files.
+	Bug #3401370
+
+2011-08-29  Bastian Maerkisch  <bmaerkisch@web.de>
+
+	* src/winmain.c (_WIN32_IE): MinGW64 headers require IE >= 501.
+	Bug #3398189
+
+2011-08-29  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* src/gplt_x11.c src/stdfn.h src/getcolor.c:  Make "assert" statements
+	trigger int_error() rather than abort(), so that debugging is easier.
+
+2011-08-28  Shigeharu Takeno  <shige@iee.niit.ac.jp>
+
+	* docs/gnuplot-ja.doc docs/term-ja.diff:  sync to docs version 1.688
+
+2011-08-28  Peter Juhasz  <juhaszp@users.sourceforge.net>
+
+	* src/plot2d.c (get_data): Revert yesterday's change to this file 
+	because it broke stringvar.dem.
+
+2011-08-27  Ethan A Merritt  <merritt@u.washington.edu>
+
+	* PORTING src/makefile.all src/makefile.awc src/term.h configure.vms
+	config/config.cyg config/config.dj2 config/config.mgw config/config.nt
+	config/config.os2 config/config.oww config/makefile.unx configure.in:
+	Remove obsolete mgr terminal driver.  The mgr window system offered a
+	terminal sort of like xterm+graphics in the era of Sun3 (i.e. early-mid
+	1990s). Source for the mgr server has apparently disappeared from the
+	net.  Gnuplot's mgr.trm supported only text and vector commands, so
+	even if an operational installation of mgr could be found, features 
+	added to gnuplot since about version 3.7 would be irrelevant. Let it go.
+
+2011-08-27  Peter Juhasz  <juhaszp@users.sourceforge.net>
+
+	* src/datafile.c (expect_string) src/eval.c src/eval.h docs/gnuplot.doc:
+	Add patch #3397007 to complete the support for named columns with the 
+	"labels" style. The following now works: 
+	    plot 'data' using "A":"B":"labels" with labels
+	Update the documentation. 
+	
+	* src/datafile.c (f_timecolumn) src/plot2d.c:
+	Track the current using spec to ensure that the timecolumn function
+	gets the right timeformat. (fixes part of bug #3163386)
+
+	* demo/timedat.dem: Remove the relative date demo because it was 
+	misleading and incorrect.
+
+	* src/set.c (set_tics): For some options set_tics() 
+	didn't act on all axes.
+	
+	* src/graphics.c (boundary): Fix (?) boundary calculation for 
+	"set xtics rotate".
+
+2011-08-25  René Haber  <renehaber@users.sourceforge.net>
+
+	* term/cairo.trm: New terminal epscairo using the shared cairo/pango
+	code to produce and export an eps surface.
+
+	* term/term.c: Allow "set term eps" as short for "set term epscairo".
+
+2011-08-24  Bastian Maerkisch  <bmaerkisch@web.de>
+
+	* src/command.c src/command.h src/win/winmain.c: "raise/lower <id>"
+	command for windows terminal.
+
+	* src/command.c (rlgets): Restore code for builtin readline which was
+	deleted by accident.
+
+2011-08-23  Peter Juhasz  <juhaszp@users.sourceforge.net>
+
+	* src/datafile.c (f_stringcolumn) docs/gnuplot.doc:
+	Implement 'stringcolumn("string")' in using specs to allow named columns
+	for the "labels" style too. The more natural 
+	    plot 'data' using "A":"B":"labels" with labels
+	still doesn't work: document this fact. 
+
 2011-08-23  Bastian Maerkisch  <bmaerkisch@web.de>
 
 	* src/command.c (rlgets): Removing duplicate entries trashes command
@@ -8,9 +226,11 @@
 	History indices are reversed compared to GNU readline. Fixes history ?.
 	Patch #3186010
 
-	* term/em.trm (EMF_put_text): Use iconv (if available) to convert
+	* term/emf.trm (EMF_put_text): Use iconv (if available) to convert
 	UTF-8 encoding to UTF-16 and store using wide characters.
 	Bug #3021779
+
+	* config/config.mgw config/mingw/Makefile: add support for libiconv
 
 2011-08-22  Ethan A Merritt  <merritt@u.washington.edu>
 

@@ -57,7 +57,7 @@ pkglibexec_PROGRAMS =
 
 if BUILD_GNUPLOT_X11
 pkglibexec_PROGRAMS += gnuplot_x11
-gnuplot_x11_SOURCES = gplt_x11.c gplt_x11.h gpexecute.c gpexecute.h mousecmn.h
+gnuplot_x11_SOURCES = gplt_x11.c gplt_x11.h gpexecute.c gpexecute.h mousecmn.h version.c version.h
 XLIBS = @LIBRARIES_FOR_X@
 gnuplot_x11_LDADD = getcolor_x11.o $(XLIBS)
 endif
@@ -76,8 +76,8 @@ SUBDIRS = $(d_beos) wxterminal qtterminal
 EXTRA_gnuplot_SOURCES = corplot.c os9.c strftime.c vms.c
 
 EXTRA_DIST = GNUmakefile Makefile.maint NeXT OpenStep README \
-corgraph.asm genopt.com gnuplot.opt gnuplot.prj header.mac \
-hrcgraph.asm intergra.x11 lasergnu lineproc.mac linkopt.vms linkopt.ztc \
+corgraph.asm genopt.com gnuplot.opt header.mac \
+hrcgraph.asm intergra.x11 lasergnu lineproc.mac linkopt.vms \
 makefile.all makefile.awc os2 pcgraph.asm win x11.opt \
 $(EXTRA_gnuplot_SOURCES)
 

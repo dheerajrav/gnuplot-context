@@ -1,5 +1,5 @@
 #ifndef lint
-static char *RCSid() { return RCSid("$Id: eval.c,v 1.93 2011/08/01 05:14:23 sfeam Exp $"); }
+static char *RCSid() { return RCSid("$Id: eval.c,v 1.95 2011/09/08 05:19:07 sfeam Exp $"); }
 #endif
 
 /* GNUPLOT - eval.c */
@@ -128,6 +128,8 @@ const struct ft_entry GPFAR ft[] =
 
 /* legal in using spec only */
     {"column",  f_column},
+    {"stringcolumn",  f_stringcolumn},	/* for using specs */
+    {"strcol",  f_stringcolumn},	/* shorthand form */
     {"columnhead",  f_columnhead},
     {"valid",  f_valid},
     {"timecolumn",  f_timecolumn},
@@ -194,8 +196,6 @@ const struct ft_entry GPFAR ft[] =
     {"tm_wday",  f_tmwday},	/* for timeseries */
     {"tm_yday",  f_tmyday},	/* for timeseries */
 
-    {"stringcolumn",  f_stringcolumn},	/* for using specs */
-    {"strcol",  f_stringcolumn},	/* shorthand form */
     {"sprintf",  f_sprintf},	/* for string variables only */
     {"gprintf",  f_gprintf},	/* for string variables only */
     {"strlen",  f_strlen},	/* for string variables only */
@@ -689,6 +689,30 @@ get_udv_by_name(char *key)
     }
 
     return NULL;
+}
+
+void
+del_udv_by_name( char *key, TBOOLEAN wildcard )
+{
+    struct udvt_entry *udv_ptr = first_udv;
+
+    while (udv_ptr) {
+ 	/* exact match */
+	if (!wildcard && !strcmp(key, udv_ptr->udv_name)) {
+	    udv_ptr->udv_undef = TRUE;
+	    gpfree_string(&(udv_ptr->udv_value));
+	    break;
+	}
+
+	/* wildcard match: prefix matches */
+	if ( wildcard && !strncmp(key, udv_ptr->udv_name, strlen(key)) ) {
+	    udv_ptr->udv_undef = TRUE;
+	    gpfree_string(&(udv_ptr->udv_value));
+	    /* no break - keep looking! */
+	}
+
+	udv_ptr = udv_ptr->next_udv;
+    }
 }
 
 static void update_plot_bounds __PROTO((void));
