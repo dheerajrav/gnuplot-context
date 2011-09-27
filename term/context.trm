@@ -186,7 +186,7 @@ TERM_PUBLIC void CONTEXT_image __PROTO((unsigned, unsigned, coordval *, gpiPoint
  */
 static const char CONTEXT_term_version[] = "1.0";
 static const char CONTEXT_term_patch[]   = "0";
-static const char CONTEXT_term_date[]    = "2011-09-16";
+static const char CONTEXT_term_date[]    = "2011-09-27";
 
 /*********
  * UNITS *
@@ -2415,9 +2415,7 @@ START_HELP(context)
 "                       {linewidth | lw <lw>}",
 "                       {fontscale <fontscale>}",
 "                       {mppoints | texpoints}",
-#ifdef WRITE_PNG_IMAGE
 "                       {inlineimages | externalimages}",
-#endif
 "                       {defaultfont | font {<fontsize>} |",
 "                        font \"<fontname>{,<fontsize>}\" {fontsize}}",
 "",
@@ -2474,12 +2472,10 @@ START_HELP(context)
 "      \\defineconversion[my own points][+,{\\ss x},\\mathematics{\\circ}]",
 "      \\setupGNUPLOTterminal[context][points=tex,pointset=my own points]",
 "",
-#ifdef WRITE_PNG_IMAGE
 " `inlineimages` writes binary images to a string and only works in ConTeXt MKIV.",
 " `externalimages` writes PNG files to disk and also works with ConTeXt MKII.",
 " Gnuplot needs to have support for PNG images built in for this to work."
 "",
-#endif
 " With `font` you can set font name and size in standalone graphics.",
 " In non-standalone (`input`) mode only the font size is important",
 " to reserve enough space for text labels.",
