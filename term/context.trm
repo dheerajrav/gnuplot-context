@@ -417,14 +417,16 @@ enum CONTEXT_POINTS { CONTEXT_POINTS_WITH_METAPOST, CONTEXT_POINTS_WITH_TEX };
 enum CONTEXT_IMAGES { CONTEXT_IMAGES_INLINE, CONTEXT_IMAGES_EXTERNAL };
 
 /* counts the number of graphics */
-static int CONTEXT_counter = 0;
+static int   CONTEXT_counter = 0;
 /* counts the number of external PNG images */
-static int CONTEXT_image_counter = 0;
+static int   CONTEXT_image_counter = 0;
+/* length of basename for storing image name (including path, excluding extension) */
+static int   CONTEXT_image_filename_length = 0;
+/* if name is a path, remember at which index basename starts */
+static int   CONTEXT_image_filename_start = 0;
 static char *CONTEXT_image_filename = NULL;
-static int  CONTEXT_image_filename_length = 0;
 /* whether images will be external or not */
 enum CONTEXT_IMAGES CONTEXT_images = CONTEXT_IMAGES_INLINE;
-static char CONTEXT_image_name[MAX_ID_LEN+1] = "";
 
 /* Pallete has to be stored for the usage in later plots */
 static t_sm_palette *CONTEXT_old_palette;
@@ -1070,6 +1072,7 @@ CONTEXT_init()
 		free(CONTEXT_image_filename);
 		CONTEXT_image_filename = NULL;
 		CONTEXT_image_filename_length = 0;
+		CONTEXT_image_filename_start  = 0;
 	};
 #ifdef WRITE_PNG_IMAGE
 	if(CONTEXT_params.images == CONTEXT_IMAGES_EXTERNAL) {
@@ -1078,6 +1081,7 @@ CONTEXT_init()
 		/* but only if 'set output' was set because we use that string as base for image names */
 		if(outstr) {
 			CONTEXT_image_filename_length = strlen(outstr);
+			CONTEXT_image_filename_start  = strlen(outstr) - strlen(gp_basename(outstr));
 			/* we will cut off the last .tex ending if present */
 			/* find the last dot if present */
 			for(i=CONTEXT_image_filename_length-1; i>=0 && outstr[i] != '.'; i--);
@@ -1092,6 +1096,7 @@ CONTEXT_init()
 			CONTEXT_image_filename[CONTEXT_image_filename_length] = 0;
 		} else {
 			CONTEXT_image_filename_length = strlen("gp_image");
+			CONTEXT_image_filename_start  = 0;
 			/* <name>.xx.png; must be at least 7 characters long */
 			CONTEXT_image_filename = (char *)gp_alloc(CONTEXT_image_filename_length + 10, "ConTeXt image filename");
 			strncpy(CONTEXT_image_filename, "gp_image", CONTEXT_image_filename_length);
@@ -1246,6 +1251,7 @@ CONTEXT_reset()
 		free(CONTEXT_image_filename);
 		CONTEXT_image_filename = NULL;
 		CONTEXT_image_filename_length = 0;
+		CONTEXT_image_filename_start  = 0;
 	};
 }
 
@@ -2249,7 +2255,7 @@ CONTEXT_image (unsigned M, unsigned N, coordval *image, gpiPoint *corner, t_imag
 			fprintf(gpoutfile, "draw image(\n  ");
 		}
 		fprintf(gpoutfile, "externalfigure \"%s\" xyscaled (%.3fa,%.3fa) shifted (%.3fa,%.3fa);\n",
-			CONTEXT_image_filename, 0.001*(corner[1].x-corner[0].x), 0.001*(corner[0].y-corner[1].y), 0.001*corner[0].x, 0.001*corner[1].y);
+			CONTEXT_image_filename + CONTEXT_image_filename_start, 0.001*(corner[1].x-corner[0].x), 0.001*(corner[0].y-corner[1].y), 0.001*corner[0].x, 0.001*corner[1].y);
 		if(is_clipped) {
 			fprintf(gpoutfile, "  clip currentpicture to unitsquare xyscaled (%.3fa,%.3fa) shifted (%.3fa,%.3fa););\n",
 				0.001*(corner[3].x-corner[2].x), 0.001*(corner[2].y-corner[3].y), 0.001*corner[2].x, 0.001*corner[3].y);
