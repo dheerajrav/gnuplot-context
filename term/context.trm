@@ -814,8 +814,7 @@ CONTEXT_options()
 		case CONTEXT_OPT_FONT:
 			c_token++;
 			if ((tmp_string = try_to_get_string())) {
-				/* if string with font name (and size) has been provided, parse it,
-				 * otherwise expect font size (as an integer {+units}) */
+				/* if string with font name (and size) has been provided, parse it */
 				if (tmp_string) {
 					/*
 					 * copies font name from tmp_string to tmp_font,
@@ -829,50 +828,6 @@ CONTEXT_options()
 					/* free allocated memmory */
 					free(tmp_string);
 
-					/* (TODO: this code repeats three times!!!)
-					 * save font size:
-					 *
-					 * - if size > 0, copy
-					 * - if size < 0, fix the size to default value (12pt)
-					 * - if size = 0, ignore
-					 */
-					if (tmp_dimension.value > 0 && tmp_dimension.unit != UNIT_OTHER) {
-						CONTEXT_params.fontsize.value = tmp_dimension.value;
-						CONTEXT_params.fontsize.unit  = tmp_dimension.unit;
-					} else if (tmp_dimension.value < 0 || tmp_dimension.unit == UNIT_OTHER) {
-						CONTEXT_params.fontsize.value = CONTEXT_FONTSIZE;
-						CONTEXT_params.fontsize.unit  = UNIT_PT;
-					}
-					/* optional font size at the end */
-					/*
-					 * XXX: this code repeats twice, which is a bad programming habit!
-					 *      (plese be polite and provide a function instead)
-					 */
-					if (isanumber(c_token)) {
-						/* fontsize */
-						tmp_dimension.value = real(const_express(&a));
-						tmp_dimension.unit  = UNIT_PT;
-						/* optional dimension of font size */
-						switch (lookup_table(&units[0], c_token)) {
-							case UNIT_IN:
-							case UNIT_CM:
-							case UNIT_MM:
-							case UNIT_PT:
-							case UNIT_PC:
-							case UNIT_BP:
-							case UNIT_DD:
-							case UNIT_CC:
-								tmp_dimension.unit = lookup_table(&units[0], c_token);
-								c_token++;
-								break;
-							case UNIT_PX:
-								int_error(c_token,"Fontsize cannot be specified in pixels. Use other unit or leave dimension out.");
-								break;
-							default:
-								/* apparently no unit has been specified */
-								break;
-						}
-					}
 					/*
 					 * save font size:
 					 *
@@ -887,49 +842,12 @@ CONTEXT_options()
 						CONTEXT_params.fontsize.value = CONTEXT_FONTSIZE;
 						CONTEXT_params.fontsize.unit  = UNIT_PT;
 					}
+				} else {
+				 	int_error(c_token,"String containing font name and/or size expected");
 				}
 			/* font size (and possibly dimension) */
 			} else {
-				/* used to be:
-				 * int_error(c_token,"String containing font name and/or size expected");
-				 */
-				/* fontsize */
-				tmp_dimension.value = real(const_express(&a));
-				tmp_dimension.unit  = UNIT_PT;
-				/* optional dimension of font size */
-				switch (lookup_table(&units[0], c_token)) {
-					case UNIT_IN:
-					case UNIT_CM:
-					case UNIT_MM:
-					case UNIT_PT:
-					case UNIT_PC:
-					case UNIT_BP:
-					case UNIT_DD:
-					case UNIT_CC:
-						tmp_dimension.unit = lookup_table(&units[0], c_token);
-						c_token++;
-						break;
-					case UNIT_PX:
-						int_error(c_token,"Fontsize cannot be specified in pixels. Use other unit or leave dimension out.");
-						break;
-					default:
-						/* apparently no unit has been specified */
-						break;
-				}
-				/*
-				 * save font size (same as above):
-				 *
-				 * - if size > 0, copy
-				 * - if size < 0, fix the size to default value (12pt)
-				 * - if size = 0, ignore
-				 */
-				if (tmp_dimension.value > 0) {
-					CONTEXT_params.fontsize.value = tmp_dimension.value;
-					CONTEXT_params.fontsize.unit  = tmp_dimension.unit;
-				} else if (tmp_dimension.value < 0) {
-					CONTEXT_params.fontsize.value = CONTEXT_FONTSIZE;
-					CONTEXT_params.fontsize.unit  = UNIT_PT;
-				}
+				 int_error(c_token,"String containing font name and/or size expected");
 			}
 			break;
 		case CONTEXT_OPT_OTHER:
@@ -1019,12 +937,12 @@ CONTEXT_options()
 #endif
 	strncat(term_options,"font \"",           sizeof(term_options)-strlen(term_options));
 	strncat(term_options,CONTEXT_params.font, sizeof(term_options)-strlen(term_options));
-	strncat(term_options,"\" ",               sizeof(term_options)-strlen(term_options));
-
 	snprintf(tmp_term_options, sizeof(tmp_term_options),
-		"%g%s", CONTEXT_params.fontsize.value, unit_name(CONTEXT_params.fontsize.unit)
+		",%g%s", CONTEXT_params.fontsize.value, unit_name(CONTEXT_params.fontsize.unit)
 		);
-	strncat(term_options, tmp_term_options, sizeof(term_options)-strlen(term_options));
+	strncat(term_options, tmp_term_options,   sizeof(term_options)-strlen(term_options));
+	strncat(term_options,"\"",                sizeof(term_options)-strlen(term_options));
+
 	/* just for debugging:
 	snprintf(tmp_term_options, sizeof(tmp_term_options),
 		"(%d)", sizeof(term_options)
@@ -2417,8 +2335,7 @@ START_HELP(context)
 "                       {fontscale <fontscale>}",
 "                       {mppoints | texpoints}",
 "                       {inlineimages | externalimages}",
-"                       {defaultfont | font {<fontsize>} |",
-"                        font \"<fontname>{,<fontsize>}\" {fontsize}}",
+"                       {defaultfont | font \"<fontname>{,<fontsize>}\"}",
 "",
 " In non-standalone (`input`) graphic only parameters `size` to select graphic",
 " size, `fontscale` to scale all the labels for a factor <fontscale>",
@@ -2481,7 +2398,7 @@ START_HELP(context)
 " In non-standalone (`input`) mode only the font size is important",
 " to reserve enough space for text labels.",
 " The command"
-"      set term context font \"myfont,ss\" 10pt",
+"      set term context font \"myfont,ss,10pt\"",
 " will result in",
 "      \\setupbodyfont[myfont,ss,10pt]",
 " If you additionaly set `fontscale` to 0.8 for example,",
