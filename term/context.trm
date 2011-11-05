@@ -1,37 +1,33 @@
-/* Hello, Emacs, this is -*-C-*-
+/*
  * $Id:$
  */
 
 /* GNUPLOT - context.trm */
 
 /*[
- * Copyleft 2006-2011 Mojca Miklavec
+ * Copyright (c) 2006-2011, Mojca Miklavec
+ * All rights reserved.
  *
- * Permission to use, copy, and distribute this software and its
- * documentation for any purpose with or without fee is hereby granted,
- * provided that the above copyright notice appear in all copies and
- * that both that copyright notice and this permission notice appear
- * in supporting documentation.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- * Permission to modify the software is granted, but not the right to
- * distribute the complete modified source code.  Modifications are to
- * be distributed as patches to the released version.  Permission to
- * distribute binaries produced by compiling modified sources is granted,
- * provided you
- *   1. distribute the corresponding source modifications from the
- *    released version in the form of a patch file along with the binaries,
- *   2. add special version identification to distinguish your version
- *    in addition to the base release version number,
- *   3. provide your name and address as the primary contact for the
- *    support of your modified version, and
- *   4. retain our contact information in regard to use of the base
- *    software.
- * Permission to distribute the released version of the source code along
- * with corresponding source modifications in the form of a patch file is
- * granted with same provisions 2 through 4 for binary distributions.
+ * - Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ * - Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
  *
- * This software is provided "as is" without express or implied warranty
- * to the extent permitted by applicable law.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
 ]*/
 
 /*
@@ -63,10 +59,11 @@
  *     - http://wiki.contextgarden.net/Gnuplot
  *
  * With special thanks to:
- * - Peter M\"unster for the initiative (Peter, sory for \")
- * - Renaud Aubin for maintaining the darcs repository
- * - Aditya Mahajan for some tricky parts in m-gnuplot.tex
- * - Timoth\'ee Lecomte for many suggestion about improving this terminal
+ * - Peter Münster (ctx) for the initiative
+ * - Renaud Aubin (ctx) for maintaining the first source code repository
+ * - Aditya Mahajan (ctx) for some tricky parts in m-gnuplot.tex
+ * - Timothée Lecomte & Ethan A Merritt (gnuplot) for many suggestion about improving this terminal
+ * - Bastian Märkisch (gnuplot) for code improvements
  *
  */
 
@@ -97,12 +94,14 @@
  * - advanced functionality with reference to PostScript terminal
  *
  * Future plans:
+ * - most important
+ *   - different syntax for font switching
+ *   - improve support for (transparent) binary images
  * - add missing functionality:
  *   - improved support for palettes
- *   - other color spaces
- *   - enable support for binary images
  *   - smooth shading in color bars
  *   - gouraud shading (if it will be implemented in gnuplot)
+ *   - other color spaces
  * - derive a better metapost terminal out of this one (to replace the old one)
  */
 
@@ -139,36 +138,33 @@ TERM_PUBLIC void CONTEXT_set_color __PROTO((t_colorspec *colorspec));
 TERM_PUBLIC void CONTEXT_filled_polygon __PROTO((int points, gpiPoint *corners));
 TERM_PUBLIC void CONTEXT_image __PROTO((unsigned, unsigned, coordval *, gpiPoint *, t_imagecolor));
 
-/* Metapost can only deal with numbers between 2^{-16} and 2^12=4069 */
-/* the values will be set later */
+/* Metapost < 1.750 can only deal with numbers between 2^{-16} and 2^12=4069 */
 /* scale is 1cm = 1000 units */
 
-// #define CONTEXT_DPI (2400)
 #define CONTEXT_DPCM 1000
-#define CONTEXT_DPI (2.54*CONTEXT_DPCM)
-/* default plot size will be 5in x 3in*/
+#define CONTEXT_DPI (2.54 * CONTEXT_DPCM)
+/* default plot size will be 5in x 3in */
 #define CONTEXT_XSIZE_VALUE 5
 #define CONTEXT_YSIZE_VALUE 3
-#define CONTEXT_XSIZE_UNIT UNIT_IN
-#define CONTEXT_YSIZE_UNIT UNIT_IN
-#define CONTEXT_XMAX (CONTEXT_XSIZE_VALUE*CONTEXT_DPI)
-#define CONTEXT_YMAX (CONTEXT_YSIZE_VALUE*CONTEXT_DPI)
+#define CONTEXT_SIZE_UNIT INCHES
+#define CONTEXT_XMAX (CONTEXT_XSIZE_VALUE * CONTEXT_DPI)
+#define CONTEXT_YMAX (CONTEXT_YSIZE_VALUE * CONTEXT_DPI)
 /* default fontsize: 12pt */
 #define CONTEXT_FONTSIZE 12.0
 /* default height of char: 12pt by default */
-#define CONTEXT_VCHAR (CONTEXT_DPI*CONTEXT_FONTSIZE/72.27)
+#define CONTEXT_VCHAR (CONTEXT_DPI * CONTEXT_FONTSIZE / 72.27)
 /* in ConTeXt 12pt LM font is the default;
  * at that size digits are 5.8749847pt wide
  * in LaTeX, which assumes 11pt, the ratio is 5.3/11, which is similar */
 #define CONTEXT_LM_H_TO_V_RATIO 0.4895
-#define CONTEXT_HCHAR (CONTEXT_LM_H_TO_V_RATIO*CONTEXT_VCHAR)
+#define CONTEXT_HCHAR (CONTEXT_LM_H_TO_V_RATIO * CONTEXT_VCHAR)
 /* default tic size: 3.5bp (chosen to suit the size of plot approximately)
  * - in LaTeX it is 5bp
  * - in TikZ it is 0.18cm (approximately 5.1bp)
  * - in PostScript it is 3.15pt
  * - MetaPost uses 5pt or 5bp
  */
-#define CONTEXT_HTIC (3.5*CONTEXT_DPI/72)
+#define CONTEXT_HTIC (3.5 * CONTEXT_DPI / 72)
 #define CONTEXT_VTIC CONTEXT_HTIC
 
 #endif /* TERM_PROTO */
@@ -178,7 +174,7 @@ TERM_PUBLIC void CONTEXT_image __PROTO((unsigned, unsigned, coordval *, gpiPoint
 #ifdef TERM_BODY
 
 /*
- * we will start counting when the code is included into CVS
+ * started counting when the code was included into CVS
  *
  * major number should change only in case of a complete rewrite or major incompatibility
  * minor number should change for every new functionality
@@ -186,173 +182,12 @@ TERM_PUBLIC void CONTEXT_image __PROTO((unsigned, unsigned, coordval *, gpiPoint
  */
 static const char CONTEXT_term_version[] = "1.0";
 static const char CONTEXT_term_patch[]   = "0";
-static const char CONTEXT_term_date[]    = "2011-09-27";
-
-/*********
- * UNITS *
- *********
- *
- * This part of code is meant for parsing the units in
- *     set term context size 5in,3in
- * or even
- *     set term context size (5+3/2) cm, 8-2**2in
- * which will make the picture 6.5 centimeters wide and 4 inches high.
- *
- * It is also used for (rather dirty) parsing of font sizes,
- * which is needed for estimating character width & height.
- *
- * This code may be taken out of the terminal if anyone needs it.
- *
- * Similar functionality is provided for some drivers (such as PostScript),
- * to parse terminal size, but is more limited and supports less units.
- */
-
-typedef enum size_unit {
-	UNIT_PT, /* point                          */
-	UNIT_PC, /* pica:        1pc = 12pt        */
-	UNIT_IN, /* inch:        1in = 72.27pt     */
-	UNIT_BP, /* big point:   72bp = 1in        */
-	UNIT_CM, /* centimeter:  2.54cm = 1in      */
-	UNIT_MM, /* millimeter:  10mm = 1cm        */
-	UNIT_DD, /* didot point: 1157dd = 1238pt   */
-	UNIT_CC, /* cicero:      1cc = 12dd        */
-	/* ----- // --- [not absolute units]       */
-	UNIT_PX, /* pixel:        [dpi resolution] * 1px = 1in */
-	UNIT_RELATIVE, /* relative: no specific unit           */
-	UNIT_OTHER
-} size_unit;
-
-static struct gen_table units[] = {
-	{ "pt",    UNIT_PT }, /* point       */
-	{ "pc",    UNIT_PC }, /* pica        */
-	{ "in$ch", UNIT_IN }, /* inch        */
-	{ "bp",    UNIT_BP }, /* big point   */
-	{ "cm",    UNIT_CM }, /* centimeter  */
-	{ "mm",    UNIT_MM }, /* millimeter  */
-	{ "dd",    UNIT_DD }, /* didot point */
-	{ "cc",    UNIT_CC }, /* cicero      */
-	{ "px",    UNIT_PX }, /* pixel       */
-	{ NULL,    UNIT_OTHER }
-};
-
-typedef struct dimension_t {
-    double value;
-    size_unit unit;
-} dimension_t;
-
-static double convert_to_unit __PROTO((dimension_t from, size_unit to_unit));
-static char*  unit_name __PROTO((size_unit unit));
-/* needs a better name; lookup_table should be OK for it, but only if unit is a token,
- * otherwise the work has to be done "manually" */
-static size_unit string_to_unit __PROTO((char *unit_name));
-
-/* --------------
- * string_to_unit
- * --------------
- *
- * Returns two-letter name for the unit
- * (it can be used in TeX or metapost directly)
- */
-static char*
-unit_name(size_unit unit)
-{
-	switch(unit) {
-		case UNIT_PT: return "pt";
-		case UNIT_PC: return "pc";
-		case UNIT_IN: return "in";
-		case UNIT_BP: return "bp";
-		case UNIT_CM: return "cm";
-		case UNIT_MM: return "mm";
-		case UNIT_DD: return "dd";
-		case UNIT_CC: return "cc";
-		case UNIT_PX: return "px";
-		default: return NULL; /* XXX: do we need some error handling here? */
-	}
-}
-
-/* --------------
- * string_to_unit
- * --------------
- *
- * Accepts a two-letter name for an unit
- * and returns the unit type
- */
-static size_unit
-string_to_unit(char *name)
-{
-	/* invalid unit for no string or for a string of any other size than two */
-	if (name == NULL) return UNIT_OTHER;
-	if (strlen(name) != 2) return UNIT_OTHER;
-
-	switch (name[0]) {
-		case 'b':
-			if (name[1] == 'p') return UNIT_BP;
-		case 'c':
-			if (name[1] == 'c') return UNIT_CC;
-			if (name[1] == 'm') return UNIT_CM;
-		case 'd':
-			if (name[1] == 'd') return UNIT_DD;
-		case 'i':
-			if (name[1] == 'n') return UNIT_IN;
-		case 'm':
-			if (name[1] == 'm') return UNIT_MM;
-		case 'p':
-			if (name[1] == 'c') return UNIT_PC;
-			if (name[1] == 't') return UNIT_PT;
-			if (name[1] == 'x') return UNIT_PX;
-		default:
-			return UNIT_OTHER;
-	}
-}
-
-/* ---------------
- * convert_to_unit
- * ---------------
- *
- * Converts the value (from.value) from one unit (from.unit)
- * to another (to_unit).
- *
- * This "stupid" converter should be rewritten completely for better efficiency,
- * although it currently works OK. It should be initilized only once.
- */
-static double
-convert_to_unit(dimension_t from, size_unit to_unit)
-{
-	/* conversion is done via inches
-	 * conversion[UNIT_CM] returns how much inches is one cm (ie. 1/2.54) */
-	double conversion[20]; /* XXX: shoud be sizeof(size_unit) */
-
-	if(from.unit == to_unit) {
-		return (double)from.value;
-	/* XXX: this is wrong, but I have no other idea what to do with it.
-	        It's not yet used anywhere so far, so let's care about it
-	        when the need arises. */
-	} else if(to_unit == UNIT_RELATIVE || to_unit == UNIT_OTHER) {
-		return (double)from.value;
-	}
-
-	conversion[UNIT_PT] = 1.0/72.27;
-	conversion[UNIT_PC] = 12.0*conversion[UNIT_PT];
-	conversion[UNIT_IN] = 1.0;
-	conversion[UNIT_BP] = 1.0/72.0;
-	conversion[UNIT_CM] = 1.0/2.54;
-	conversion[UNIT_MM] = conversion[UNIT_CM]/10.0;
-	conversion[UNIT_DD] = 1238.0/1157.0*conversion[UNIT_PT];
-	conversion[UNIT_CC] = 12.0*conversion[UNIT_DD];
-	/* for pixel some resolution would be needed */
-	conversion[UNIT_PX] = 1/72.0; /* XXX: wrong! (but not used anywhere yet) */
-
-	return from.value*conversion[from.unit]/conversion[to_unit];
-}
-
-/****************
- * End of UNITS *
- ****************/
+static const char CONTEXT_term_date[]    = "2011-11-05";
 
 static void CONTEXT_params_reset __PROTO((void));
 
 static void CONTEXT_adjust_dimensions __PROTO((void));
-static void CONTEXT_fontstring_parse __PROTO((char *from_string, char *to_string, int to_size, dimension_t *dimension));
+static void CONTEXT_fontstring_parse __PROTO((char *from_string, char *to_string, int to_size, double *fontsize));
 
 static void CONTEXT_startpath __PROTO((void));
 static void CONTEXT_endpath __PROTO((void));
@@ -367,7 +202,7 @@ static int CONTEXT_posy;
 /* remembers where we started the path:
  * if we finish it in the same point, the path is closed with --cycle
  * 
- * After I impplemented this, the functionality has been added to gnuplot core
+ * After I implemented this, the functionality has been added to gnuplot core
  * and PostScript terminal uses it, but to be on the safe side,
  * I prefer not to add last-minute patches which could potentially break something.
  * (the code written here proved to be rather safe & working so far)
@@ -377,12 +212,12 @@ static int CONTEXT_path_start_x;
 static int CONTEXT_path_start_y;
 /* fontname, fontsize */
 static char CONTEXT_font[MAX_ID_LEN+1] = "";
-static dimension_t CONTEXT_fontsize = {CONTEXT_FONTSIZE, UNIT_PT};
+static double CONTEXT_fontsize = CONTEXT_FONTSIZE;
 
 /* fontname,fontsize to be put next to font labels if needed */
 static char CONTEXT_font_explicit[2*MAX_ID_LEN+1] = "";
-/* this is only set to >0 if asked for explicitely (for example with set_font(",15pt")) */
-static dimension_t CONTEXT_fontsize_explicit = {0, UNIT_PT};
+/* this is only set to >0 if asked for explicitely (for example with set_font(",15")) */
+static double CONTEXT_fontsize_explicit = 0.0;
 
 /* the last pointsize used (it will only be changed if it becomes different) */
 static double CONTEXT_old_pointsize = 1.0;
@@ -436,28 +271,30 @@ static t_sm_palette *CONTEXT_old_palette;
 /*********************/
 
 typedef struct CONTEXT_params_t {
-	dimension_t         xsize;               /* 5in   */
-	dimension_t         ysize;               /* 3in   */
-	TBOOLEAN            standalone;          /* false */
-	TBOOLEAN            timestamp;           /* true  */
-	char               *header;              /* ""    */
-	TBOOLEAN            color;               /* true  */
-	TBOOLEAN            dashed;              /* true  */
-	enum LINEJOIN       linejoin;            /* MITER */
-	enum LINECAP        linecap;             /* BUTT  */
-	double              scale_dashlength;    /* 1.0   */
-	double              scale_linewidth;     /* 1.0   */
-	double              scale_text;          /* 1.0   */
+	double              xsize;               /* 5in    */
+	double              ysize;               /* 3in    */
+	size_units          unit;                /* INCHES */
+	TBOOLEAN            standalone;          /* false  */
+	TBOOLEAN            timestamp;           /* true   */
+	char               *header;              /* ""     */
+	TBOOLEAN            color;               /* true   */
+	TBOOLEAN            dashed;              /* true   */
+	enum LINEJOIN       linejoin;            /* MITER  */
+	enum LINECAP        linecap;             /* BUTT   */
+	double              scale_dashlength;    /* 1.0    */
+	double              scale_linewidth;     /* 1.0    */
+	double              scale_text;          /* 1.0    */
 	enum CONTEXT_POINTS points;              /* CONTEXT_POINTS_WITH_METAPOST */
 	enum CONTEXT_IMAGES images;              /* CONTEXT_IMAGES_INLINE */
-	char                font[MAX_ID_LEN+1];  /* ""    */
-	dimension_t         fontsize;            /* 12pt  */
+	char                font[MAX_ID_LEN+1];  /* ""     */
+	double              fontsize;            /* 12pt   */
 } CONTEXT_params_t;
 
 
 #define CONTEXT_PARAMS_DEFAULT { \
-	{CONTEXT_XSIZE_VALUE, CONTEXT_XSIZE_UNIT},\
-	{CONTEXT_YSIZE_VALUE, CONTEXT_YSIZE_UNIT},\
+	CONTEXT_XSIZE_VALUE,\
+	CONTEXT_YSIZE_VALUE,\
+	INCHES,\
 	FALSE,\
 	TRUE,\
 	NULL,\
@@ -471,7 +308,7 @@ typedef struct CONTEXT_params_t {
 	CONTEXT_POINTS_WITH_METAPOST,\
 	CONTEXT_IMAGES_INLINE,\
 	"",\
-	{CONTEXT_FONTSIZE, UNIT_PT}\
+	CONTEXT_FONTSIZE\
 }
 
 static CONTEXT_params_t CONTEXT_params = CONTEXT_PARAMS_DEFAULT;
@@ -533,9 +370,9 @@ static struct gen_table CONTEXT_opts[] = {
 	{ NULL, CONTEXT_OPT_OTHER }
 };
 
-/* ****************
- * CONTEXT_options*
- * ****************
+/* **********************
+ * CONTEXT_params_reset *
+ * **********************
  *
  * Resets all parameters of the terminal to their default value.
  */
@@ -554,24 +391,18 @@ CONTEXT_params_reset()
 }
 
 
-/* ****************
- * CONTEXT_options*
- * ****************
+/* *****************
+ * CONTEXT_options *
+ * *****************
  *
  * Parses "set term context [options]".
  */
 TERM_PUBLIC void
 CONTEXT_options()
 {
-	int    i;
 	struct value a;
 	char   *tmp_string;
-	char   tmp_font[MAX_ID_LEN+1] = "";
 	char   tmp_term_options[MAX_LINE_LEN+1] = "";
-
-	enum   size_unit tmp_unit[2];
-	double tmp_double[2];
-	dimension_t tmp_dimension;
 
 	while (!END_OF_COMMAND) {
 		switch (lookup_table(&CONTEXT_opts[0], c_token)) {
@@ -580,86 +411,27 @@ CONTEXT_options()
 			/* there should be a better way to do it, but I don't know how */
 			CONTEXT_params_reset();
 			break;
-		/*---------------------------------------------------*/
-		case CONTEXT_OPT_SIZE:
+		case CONTEXT_OPT_SIZE: {
+			float xmax_t, ymax_t;
+			size_units unit;
 			c_token++;
-			/* size <xsize> {cm|in}, <ysize> {cm|in}
-			 *
-			 * value of the xsize
-			 * XXX: perhaps the values shouldn't be saved right away
-			 * just take care that all the values supported here are supported in conversion and
-			 * in output routine as well
-			 */
-			for (i=0; i<2; i++) {
-				tmp_double[i] = real(const_express(&a));
-				/* check if the size is positive (minimal requirement) */
-				if (tmp_double[i] <= 0)
-					int_error(c_token-1,"Size has to be positive.");
-				/* if unit (inch or cm) is used, use that one, otherwise interpret that value
-				 * as if it was a relative to the default value (5in); ie: 1.5 means 7.5 inches */
-				switch (lookup_table(&units[0], c_token)) {
-					case UNIT_IN:
-					case UNIT_CM:
-					case UNIT_MM:
-						tmp_unit[i] = lookup_table(&units[0], c_token);
-						c_token++;
-						/* read the comma after the first number */
-						if (i==0) {
-							if (equals(c_token, ",")) {
-								c_token++;
-							} else {
-								int_error(c_token,"',' expected.\nSize has to be specified as\n\tsize <xsize> {in|cm}, <ysize> {in|cm}\nor as\n\tsize <relative to default>");
-							}
-						}
-						break;
-					case UNIT_PT:
-					case UNIT_PC:
-					case UNIT_BP:
-					case UNIT_DD:
-					case UNIT_CC:
-						int_error(c_token,"Sorry, this unit is not supported. Use cm or in.");
-						break;
-					case UNIT_PX:
-						int_error(c_token,"Size for this terminal cannot be specified in pixels. Use cm or in.");
-						break;
-					/* if comma follows, interpret as relative unit
-					 * if some other unit follows */
-					default:
-						/* first run: if no unit is specified, we expect at least a comma */
-						if (i==0) {
-							if (equals(c_token, ",")) {
-								c_token++;
-								/* default xsize is 5in - use the current size as relative value */
-								tmp_double[0] *= CONTEXT_XSIZE_VALUE;
-								tmp_unit[0]    = CONTEXT_XSIZE_UNIT;
-							} else {
-								tmp_double[1] = tmp_double[0]*CONTEXT_YSIZE_VALUE;
-								tmp_double[0] = tmp_double[0]*CONTEXT_XSIZE_VALUE;
-								tmp_unit[0]   = CONTEXT_XSIZE_UNIT;
-								tmp_unit[1]   = CONTEXT_YSIZE_UNIT;
-								i++;
-							}
-						/* second run: if no unit is specified, proceed to next command
-						 * and interpret the expression as being relative to the default size */
-						} else {
-							tmp_double[1] *= CONTEXT_YSIZE_VALUE;
-							tmp_unit[1]    = CONTEXT_YSIZE_UNIT;
-						}
-						break;
-				}
+
+			/* size <xsize> {cm|in}, <ysize> {cm|in} */
+			unit = parse_term_size(&xmax_t, &ymax_t, CM);
+			CONTEXT_params.xsize = (double)xmax_t / gp_resolution;
+			CONTEXT_params.ysize = (double)ymax_t / gp_resolution;
+			CONTEXT_params.unit  = unit;
+			if (unit == CM) {
+				CONTEXT_params.xsize *= 2.54;
+				CONTEXT_params.ysize *= 2.54;
 			}
-			CONTEXT_params.xsize.value = tmp_double[0];
-			CONTEXT_params.ysize.value = tmp_double[1];
-			CONTEXT_params.xsize.unit  = tmp_unit[0];
-			CONTEXT_params.ysize.unit  = tmp_unit[1];
 			break;
-		/*---------------------------------------------------*/
+		}
 		case CONTEXT_OPT_SIZE_DEFAULT:
 			c_token++;
-			CONTEXT_params.xsize.value = CONTEXT_XSIZE_VALUE;
-			CONTEXT_params.ysize.value = CONTEXT_YSIZE_VALUE;
-			CONTEXT_params.xsize.unit  = CONTEXT_XSIZE_UNIT;
-			CONTEXT_params.ysize.unit  = CONTEXT_YSIZE_UNIT;
+			CONTEXT_params.xsize = CONTEXT_XSIZE_VALUE;
+			CONTEXT_params.ysize = CONTEXT_YSIZE_VALUE;
+			CONTEXT_params.unit  = CONTEXT_SIZE_UNIT;
 			break;
 		case CONTEXT_OPT_INPUT:
 			c_token++;
@@ -769,8 +541,7 @@ CONTEXT_options()
 			/* CONTEXT_params.font should be an empty string */
 			CONTEXT_params.font[0] = 0;
 			/* default fontsize is 12pt */
-			CONTEXT_params.fontsize.value = CONTEXT_FONTSIZE;
-			CONTEXT_params.fontsize.unit = UNIT_PT;
+			CONTEXT_params.fontsize = CONTEXT_FONTSIZE;
 			break;
 		case CONTEXT_OPT_POINTS_WITH_METAPOST:
 			c_token++;
@@ -796,11 +567,11 @@ CONTEXT_options()
 		 * The preferred way to set the font is to set it in a document itself,
 		 * labels in gnuplot in graphs will then inherit that font.
 		 *
-		 * However, it is polite to tell gnuplot which size is going to be used,
+		 * However, it is important to tell gnuplot which size is going to be used,
 		 * so that it can estimate size of text labels.
 		 *
 		 * Whenever you specify
-		 *     set term context font "fontname,14pt" (or "fontname,14")
+		 *     set term context font "fontname,14"
 		 *
 		 * there are two possibilities:
 		 * - if STANDALONE mode is on, then the whole string will be used as
@@ -811,66 +582,49 @@ CONTEXT_options()
 		 *   internally to estimate sizes of labels, but the font name
 		 *   won't be written anywhere
 		 */
-		case CONTEXT_OPT_FONT:
+		case CONTEXT_OPT_FONT: {
+			double tmp_fontsize;
+			char tmp_font[MAX_ID_LEN+1] = "";
 			c_token++;
-			if ((tmp_string = try_to_get_string())) {
-				/* if string with font name (and size) has been provided, parse it */
-				if (tmp_string) {
-					/*
-					 * copies font name from tmp_string to tmp_font,
-					 * but leaves out font size and saves it to tmp_dimension instead
-					 *
-					 * if no font size is specified, then tmp_dimension.value is set to 0
-					 */
-					CONTEXT_fontstring_parse(tmp_string, tmp_font, sizeof(tmp_font), &tmp_dimension);
-					/* copies font name to parameters */
-					strncpy(CONTEXT_params.font, tmp_font, sizeof(CONTEXT_params.font));
-					/* free allocated memmory */
-					free(tmp_string);
-
-					/*
-					 * save font size:
-					 *
-					 * - if size > 0, copy
-					 * - if size < 0, fix the size to default value (12pt)
-					 * - if size = 0, ignore
-					 */
-					if (tmp_dimension.value > 0 && tmp_dimension.unit != UNIT_OTHER) {
-						CONTEXT_params.fontsize.value = tmp_dimension.value;
-						CONTEXT_params.fontsize.unit  = tmp_dimension.unit;
-					} else if (tmp_dimension.value < 0 || tmp_dimension.unit == UNIT_OTHER) {
-						CONTEXT_params.fontsize.value = CONTEXT_FONTSIZE;
-						CONTEXT_params.fontsize.unit  = UNIT_PT;
-					}
-				} else {
-				 	int_error(c_token,"String containing font name and/or size expected");
-				}
-			/* font size (and possibly dimension) */
-			} else {
-				 int_error(c_token,"String containing font name and/or size expected");
+			if ((tmp_string = try_to_get_string()) && (tmp_string != NULL)) {
+				CONTEXT_fontstring_parse(tmp_string, tmp_font, MAX_ID_LEN+1, &tmp_fontsize);
+				/* copies font name to parameters */
+				strncpy(CONTEXT_params.font, tmp_font, sizeof(CONTEXT_params.font));
+				tmp_font[MAX_ID_LEN] = NUL;
+				free(tmp_string);
+				/* save font size:
+				 *
+				 * - if size > 0, copy
+				 * - if size < 0, fix the size to default value (12pt)
+				 * - if size = 0, ignore
+				 */
+				if (tmp_fontsize > 0)
+					CONTEXT_params.fontsize = tmp_fontsize;
+				else if (tmp_fontsize < 0)
+					CONTEXT_params.fontsize = CONTEXT_FONTSIZE;
 			}
 			break;
+		}
 		case CONTEXT_OPT_OTHER:
 		default:
 			/* error */
-				int_error(c_token, "extraneous argument in set terminal %s",term->name);
+			int_error(c_token, "extraneous argument in set terminal %s",term->name);
 			break;
 		}
 	}
 
 	/* current font size in pt (to be used in CONTEXT_adjust_dimensions) */
-	CONTEXT_fontsize.value = CONTEXT_params.fontsize.value;
-	CONTEXT_fontsize.unit  = CONTEXT_params.fontsize.unit;
+	CONTEXT_fontsize = CONTEXT_params.fontsize;
 
 	/* sets term->xmax, ymax, vchar, hchar */
 	CONTEXT_adjust_dimensions();
 
 	snprintf(term_options, sizeof(term_options),
 			"size %g%s,%g%s %s %s %s",
-			CONTEXT_params.xsize.value,
-			unit_name(CONTEXT_params.xsize.unit),
-			CONTEXT_params.ysize.value,
-			unit_name(CONTEXT_params.ysize.unit),
+			CONTEXT_params.xsize,
+			(CONTEXT_params.unit == INCHES) ? "in" : "cm",
+			CONTEXT_params.ysize,
+			(CONTEXT_params.unit == INCHES) ? "in" : "cm",
 			CONTEXT_params.standalone ? "standalone" : "input",
 			CONTEXT_params.timestamp ? "timestamp" : "notimestamp",
 			CONTEXT_params.header == NULL ? "noheader \\\n   " : "\\\n   header ");
@@ -885,7 +639,7 @@ CONTEXT_options()
 		CONTEXT_params.color ? "color " : "monochrome ",
 		sizeof(term_options)-strlen(term_options));
 
-	switch(CONTEXT_params.linejoin) {
+	switch (CONTEXT_params.linejoin) {
 		case LINEJOIN_MITER:
 			strncat(term_options, "mitered ",
 				sizeof(term_options)-strlen(term_options)); break;
@@ -896,7 +650,7 @@ CONTEXT_options()
 			strncat(term_options, "beveled ",
 				sizeof(term_options)-strlen(term_options)); break;
 	}
-	switch(CONTEXT_params.linecap) {
+	switch (CONTEXT_params.linecap) {
 		case LINECAP_BUTT  :
 			strncat(term_options, "butt",
 				sizeof(term_options)-strlen(term_options)); break;
@@ -935,25 +689,14 @@ CONTEXT_options()
 				sizeof(term_options)-strlen(term_options)); break;
 	}
 #endif
-	strncat(term_options,"font \"",           sizeof(term_options)-strlen(term_options));
-	strncat(term_options,CONTEXT_params.font, sizeof(term_options)-strlen(term_options));
-	snprintf(tmp_term_options, sizeof(tmp_term_options),
-		",%g%s", CONTEXT_params.fontsize.value, unit_name(CONTEXT_params.fontsize.unit)
-		);
-	strncat(term_options, tmp_term_options,   sizeof(term_options)-strlen(term_options));
-	strncat(term_options,"\"",                sizeof(term_options)-strlen(term_options));
-
-	/* just for debugging:
-	snprintf(tmp_term_options, sizeof(tmp_term_options),
-		"(%d)", sizeof(term_options)
-		);
-	strncat(term_options, tmp_term_options, sizeof(term_options)-strlen(term_options));
-	*/
+	snprintf(tmp_term_options, sizeof(tmp_term_options), "font \"%s,%g\"",
+		CONTEXT_params.font, CONTEXT_params.fontsize);
+	strncat(term_options, tmp_term_options, sizeof(term_options) - strlen(term_options));
 }
 
-/* *************
- * CONTEXT_init*
- * *************
+/* **************
+ * CONTEXT_init *
+ * **************
  *
  * Starts a new file.
  *
@@ -986,26 +729,25 @@ CONTEXT_init()
 	
 	/* only if external images are both requested and supported, we switch to them (double paranoia) */
 	/* delete the stored filename first */
-	if(CONTEXT_image_filename) {
+	if (CONTEXT_image_filename) {
 		free(CONTEXT_image_filename);
 		CONTEXT_image_filename = NULL;
 		CONTEXT_image_filename_length = 0;
 		CONTEXT_image_filename_start  = 0;
 	};
 #ifdef WRITE_PNG_IMAGE
-	if(CONTEXT_params.images == CONTEXT_IMAGES_EXTERNAL) {
+	if (CONTEXT_params.images == CONTEXT_IMAGES_EXTERNAL) {
 		CONTEXT_images = CONTEXT_IMAGES_EXTERNAL;
 
 		/* but only if 'set output' was set because we use that string as base for image names */
-		if(outstr) {
+		if (outstr) {
 			CONTEXT_image_filename_length = strlen(outstr);
 			CONTEXT_image_filename_start  = strlen(outstr) - strlen(gp_basename(outstr));
 			/* we will cut off the last .tex ending if present */
 			/* find the last dot if present */
-			for(i=CONTEXT_image_filename_length-1; i>=0 && outstr[i] != '.'; i--);
-			if(outstr[i] == '.') {
+			for (i = CONTEXT_image_filename_length - 1; i >= 0 && outstr[i] != '.'; i--);
+			if (outstr[i] == '.')
 				CONTEXT_image_filename_length = i;
-			}
 			/* it would also be very nice to do some sanity checks on filenames */
 
 			/* <name>.xx.png; must be at least 7 characters long */
@@ -1024,10 +766,9 @@ CONTEXT_init()
 #endif
 
 	fprintf(gpoutfile, "%% Written by ConTeXt terminal for GNUPLOT");
-	if(CONTEXT_params.timestamp) {
-		if(strftime(timebuffer, 100, "%Y-%m-%d %H:%M %Z", localtime(&now)) != 0) {
+	if (CONTEXT_params.timestamp) {
+		if (strftime(timebuffer, 100, "%Y-%m-%d %H:%M %Z", localtime(&now)) != 0)
 			fprintf(gpoutfile, " on: %s", timebuffer);
-		}
 	}
 	fprintf(gpoutfile, "\n");
 	fprintf(gpoutfile, "%% GNUPLOT version: %s.%s, terminal version: %s.%s (%s)\n",
@@ -1035,7 +776,7 @@ CONTEXT_init()
 	fprintf(gpoutfile, "%% See also http://wiki.contextgarden.net/Gnuplot\n%%\n");
 
 	/* place the header first if this is a standalone graphic */
-	if(CONTEXT_params.standalone) {
+	if (CONTEXT_params.standalone) {
 		/* If encoding is explicitely set to UTF-8 by gnuplot, use that setting.
 		 * \enableregime only makes a difference for pdfTeX; in LuaTeX and XeTeX UTF-8 is already default,
 		 * so this line will be ignored.
@@ -1044,7 +785,7 @@ CONTEXT_init()
 		 * - ConTeXt doesn't support all encodings supported by Gnuplot.
 		 * - In LuaTeX and XeTeX one should not use any other encoding anyway.
 		 * - pdfTeX users are free to use "header '\enableregime[...]'" */
-		switch(encoding) {
+		switch (encoding) {
 			case S_ENC_UTF8:
 				fputs("\\enableregime\n   [utf-8]\n", gpoutfile);
 				break;
@@ -1055,27 +796,22 @@ CONTEXT_init()
 		/* load the gnuplot module */
 		fputs("\\usemodule\n   [gnuplot]\n", gpoutfile);
 		/* enable color (the only place where "color" is indeed used so far) */
-		if (CONTEXT_params.color) {
+		if (CONTEXT_params.color)
 			fputs("\\setupcolors\n   [state=start]\n", gpoutfile);
-		}
 		/* additional user-provided header information (if available) */
-		if(CONTEXT_params.header) {
+		if (CONTEXT_params.header)
 			fprintf(gpoutfile, "%s\n", CONTEXT_params.header);
-		}
 		/* for some reason setting \bodyfontenvironment is needed,
 		 * otherwise \switchtobodyfont[name] doesn't work OK */
-		if (!(CONTEXT_params.fontsize.value == CONTEXT_FONTSIZE && CONTEXT_params.fontsize.unit == UNIT_PT)) {
-			fprintf(gpoutfile, "\\definebodyfontenvironment\n   [%g%s]\n",
-				CONTEXT_params.fontsize.value,
-				unit_name(CONTEXT_params.fontsize.unit));
-		}
+		if (!(CONTEXT_params.fontsize == CONTEXT_FONTSIZE))
+			fprintf(gpoutfile, "\\definebodyfontenvironment\n   [%gpt]\n",
+				CONTEXT_params.fontsize);
 		/* set the proper font: \setupbodyfont[{fontname,}fontsize sizeunit] */
-		fprintf(gpoutfile, "\\setupbodyfont\n   [%s%s%g%s]\n",
+		fprintf(gpoutfile, "\\setupbodyfont\n   [%s%s%gpt]\n",
 			CONTEXT_params.font,
 			/* write a comma only if the last string was non-empty */
 			((strlen(CONTEXT_params.font)>0) ? "," : ""),
-			CONTEXT_params.fontsize.value,
-			unit_name(CONTEXT_params.fontsize.unit));
+			CONTEXT_params.fontsize);
 
 		/*---------*
 		 * options *
@@ -1091,7 +827,7 @@ CONTEXT_init()
 		/* linejoin: mitered/rounded/beveled
 		 * default: mitered */
 		fprintf(gpoutfile, "linejoin=");
-		switch(CONTEXT_params.linejoin) {
+		switch (CONTEXT_params.linejoin) {
 			case LINEJOIN_MITER: fprintf(gpoutfile, "mitered"); break;
 			case LINEJOIN_ROUND: fprintf(gpoutfile, "rounded"); break;
 			case LINEJOIN_BEVEL: fprintf(gpoutfile, "beveled"); break;
@@ -1101,7 +837,7 @@ CONTEXT_init()
 		/* linecap: butt/rounded/squared
 		 * default: butt */
 		fprintf(gpoutfile, "    linecap=");
-		switch(CONTEXT_params.linecap) {
+		switch (CONTEXT_params.linecap) {
 			case LINECAP_BUTT  : fprintf(gpoutfile, "butt"); break;
 			case LINECAP_ROUND : fprintf(gpoutfile, "rounded"); break;
 			case LINECAP_SQUARE: fprintf(gpoutfile, "squared"); break;
@@ -1154,7 +890,7 @@ TERM_PUBLIC void
 CONTEXT_reset()
 {
 	/* we only have to end the document if this is a stand-alone graphic */
-	if(CONTEXT_params.standalone) {
+	if (CONTEXT_params.standalone) {
 		fputs("\\stoptext\n", gpoutfile);
 	} else {
 		/* This means that any subsequent plots to the same file will be ignored.
@@ -1165,7 +901,7 @@ CONTEXT_reset()
 		fputs("\\endinput\n", gpoutfile);
 	}
 	/* deallocate image name if present */
-	if(CONTEXT_image_filename) {
+	if (CONTEXT_image_filename) {
 		free(CONTEXT_image_filename);
 		CONTEXT_image_filename = NULL;
 		CONTEXT_image_filename_length = 0;
@@ -1186,10 +922,10 @@ CONTEXT_text()
 	if (CONTEXT_path_count > 0)
 		CONTEXT_endpath();
 
-	fprintf(gpoutfile, "setbounds currentpicture to unitsquare xyscaled (w,h); %% %g %g %g %g\n", xoffset, yoffset, xsize, ysize);
+	fprintf(gpoutfile, "setbounds currentpicture to unitsquare xyscaled (w,h);\n");
 
 	/* standalone graphic is a whole-page graphic */
-	if(CONTEXT_params.standalone) {
+	if (CONTEXT_params.standalone) {
 		fputs("\\stopGNUPLOTpage\n", gpoutfile);
 	/* otherwise we define a MPgraphic to be included later */
 	} else {
@@ -1207,7 +943,7 @@ TERM_PUBLIC void
 CONTEXT_graphics()
 {
 	/* standalone graphic is a whole-page graphic */
-	if(CONTEXT_params.standalone) {
+	if (CONTEXT_params.standalone) {
 		fprintf(gpoutfile, "\\startGNUPLOTpage %% Graphic Nr. %d\n", ++CONTEXT_counter);
 	/* otherwise we define a MPgraphic to be included later */
 	} else {
@@ -1224,11 +960,12 @@ CONTEXT_graphics()
 	 * appropriate scaling factor 'a' to get the proper dimensions.
 	 */
 	fprintf(gpoutfile, "%% scaling factor, width and height of the figure\na := 1cm; w := %.3fa; h := %.3fa; %% (%g%s, %g%s)\n",
-		0.001*(term->xmax), 0.001*(term->ymax),
-		CONTEXT_params.xsize.value, unit_name(CONTEXT_params.xsize.unit),
-		CONTEXT_params.ysize.value, unit_name(CONTEXT_params.ysize.unit));
+		CONTEXT_params.xsize * ((CONTEXT_params.unit == INCHES) ? 2.54 : 1), /* cm */
+		CONTEXT_params.ysize * ((CONTEXT_params.unit == INCHES) ? 2.54 : 1), /* cm */
+		CONTEXT_params.xsize, (CONTEXT_params.unit == INCHES) ? "in" : "cm",
+		CONTEXT_params.ysize, (CONTEXT_params.unit == INCHES) ? "in" : "cm");
 	/* TODO: the following if-else could be slightly nicer */
-	if(CONTEXT_images == CONTEXT_IMAGES_INLINE) {
+	if (CONTEXT_images == CONTEXT_IMAGES_INLINE) {
 		fprintf(gpoutfile, "%% temporary variable for storing the path and images\nsave p, img, ima; path p; string img, ima;\n");
 	} else {
 		fprintf(gpoutfile, "%% temporary variable for storing the path\nsave p; path p;\n");
@@ -1250,7 +987,7 @@ CONTEXT_graphics()
 
 	/* since palette is initialized only once, subsequent plots wouldn't see it
 	 * unless we write it on the top of relevant plots explicitely */
-	if(is_plot_with_palette()) {
+	if (is_plot_with_palette()) {
 		CONTEXT_write_palette(CONTEXT_old_palette);
 	}
 	
@@ -1275,12 +1012,12 @@ static void
 CONTEXT_endpath()
 {
 	/* if we have a dot, draw only the dot */
-	if(CONTEXT_path_is_dot) {
+	if (CONTEXT_path_is_dot) {
 		fprintf(gpoutfile, "gp_dot(%.3fa,%.3fa);\n", 0.001*CONTEXT_posx, 0.001*CONTEXT_posy);
 		CONTEXT_path_is_dot = 0;
 	
 	/* cyclic path, so let's end it with "--cycle" */
-	} else if((CONTEXT_posx == CONTEXT_path_start_x) && (CONTEXT_posy == CONTEXT_path_start_y)) {
+	} else if ((CONTEXT_posx == CONTEXT_path_start_x) && (CONTEXT_posy == CONTEXT_path_start_y)) {
 		fputs("--cycle;\ngp_draw(p);\n", gpoutfile);
 	
 	/* regular non-cyclic path */
@@ -1307,11 +1044,11 @@ TERM_PUBLIC void
 CONTEXT_move(unsigned int x, unsigned int y)
 {
 	/* we seem to be there already */
-	if((x == CONTEXT_posx) && (y == CONTEXT_posy))
+	if ((x == CONTEXT_posx) && (y == CONTEXT_posy))
 		return;
 
 	/* close and draw the current path before the move */
-	if(CONTEXT_path_count > 0)
+	if (CONTEXT_path_count > 0)
 		CONTEXT_endpath();
 
 	CONTEXT_posx = x;
@@ -1355,24 +1092,23 @@ CONTEXT_vector(unsigned int x, unsigned int y)
 	 * - move(0,0), vector(0,0), whatever: draw a dot
 	 * - move(0,0), vector(0,0), vector (1,1): draw a line
 	 */
-	if((x == CONTEXT_posx) && (y==CONTEXT_posy)) {
+	if ((x == CONTEXT_posx) && (y==CONTEXT_posy)) {
 		/* as long as this is still a dot candidate, mark it so
 		 * however - further vector() commands may set this back to 0 */
-		if(CONTEXT_path_count == 0) {
+		if (CONTEXT_path_count == 0)
 			CONTEXT_path_is_dot = 1;
-		}
 		/* if some path was already drawn up to this place, ignore (it's not a dot) */
 		return;
 	}
 
 	/* start the path if none is started yet */
-	if(CONTEXT_path_count == 0) {
+	if (CONTEXT_path_count == 0) {
 		/* the path is not a dot */
 		CONTEXT_path_is_dot = 0;
 		CONTEXT_startpath();
 	} else {
 		/* or prevent too long lines if you're in the middle of a path */
-		if((CONTEXT_path_count % CONTEXT_LINEMAX) == 2) {
+		if ((CONTEXT_path_count % CONTEXT_LINEMAX) == 2) {
 			fputs("\n  ", gpoutfile);
 			CONTEXT_path_count = 2;
 		}
@@ -1451,18 +1187,18 @@ CONTEXT_put_text(unsigned int x, unsigned int y, const char str[])
 	 * Example:
 	 *   -1 0 1 2: centered labels on x axis
 	 * if we had a space in front, positive numbers would be "centered" in a weird way*/
-	for(s=str; s[0] == ' '; s++);
+	for (s = str; s[0] == ' '; s++);
 
 	/* label position */
 	fprintf(gpoutfile, "gp_put_text((%.3fa, %.3fa), ", 0.001*x, 0.001*y);
 	/* angle of rotation - optional and needed only if it's different from 0 */
-	if (CONTEXT_ang != 0) {
+	if (CONTEXT_ang != 0)
 		fprintf(gpoutfile, "angle(%d), ", CONTEXT_ang);
-	}
+
 	/* alignment - "center" is optional, but we'll add it anyway */
 	fprintf(gpoutfile, "align(%s), \\sometxt[gp]", alignments[alignment]);
 	/* fontface/fontsize - optional second argument */
-	if(CONTEXT_font_explicit[0] != 0)
+	if (CONTEXT_font_explicit[0] != 0)
 		fprintf(gpoutfile, "[%s]", CONTEXT_font_explicit);
 	/* finally the text label itself */
 	fprintf(gpoutfile, "{%s});\n", s);
@@ -1478,8 +1214,8 @@ CONTEXT_put_text(unsigned int x, unsigned int y, const char str[])
 TERM_PUBLIC int
 CONTEXT_text_angle(int ang)
 {
-    CONTEXT_ang = ang;
-    return TRUE;
+	CONTEXT_ang = ang;
+	return TRUE;
 }
 
 /* **********************
@@ -1491,8 +1227,8 @@ CONTEXT_text_angle(int ang)
 TERM_PUBLIC int
 CONTEXT_justify_text(enum JUSTIFY mode)
 {
-    CONTEXT_justify = mode;
-    return TRUE;
+	CONTEXT_justify = mode;
+	return TRUE;
 }
 
 /* ***************
@@ -1515,7 +1251,7 @@ TERM_PUBLIC void
 CONTEXT_point (unsigned int x, unsigned int y, int number)
 {
 	/* finish the current line first before the move */
-	if(CONTEXT_path_count > 0)
+	if (CONTEXT_path_count > 0)
 		CONTEXT_endpath();
 
 	fprintf(gpoutfile, "gp_point(%.3fa,%.3fa,%d);\n", 0.001*x, 0.001*y, number);
@@ -1538,6 +1274,7 @@ CONTEXT_arrow (unsigned int sx, unsigned int sy, unsigned int ex, unsigned int e
 	do_arrow(sx, sy, ex, ey, head);
 }
 
+
 /* ------------------------
  * CONTEXT_fontstring_parse 
  * ------------------------
@@ -1546,108 +1283,31 @@ CONTEXT_arrow (unsigned int sx, unsigned int sy, unsigned int ex, unsigned int e
  * and copies the whole content to to_string except for the part
  * which starts with a numeric value.
  *
- * That value is interpreted separately, saved into dimension
- * and used for setting the proper font size.
- *
- * Only the latest valid dimension provided is stored.
- * If dimension->value is 0, it means that no font size has been provided in the string
+ * That value is interpreted separately and saved to fontsize.
  *
  * to_size is the size of to_string which may not be exceeded while copying the string
  */
 static void
-CONTEXT_fontstring_parse(char *from_string, char *to_string, int to_size, dimension_t *dimension)
+CONTEXT_fontstring_parse(char *from_string, char *to_string, int to_size, double *fontsize)
 {
-	int i;
-	char c;
-	char tmp_fontsize[MAX_ID_LEN+1], unit[MAX_ID_LEN+1];
-	/* temporary place for storing dimenstion -
-	 * we will only store the latest valid dimension
-	 * and ignore any other fields starting with a number and not containing a valid dimension */
-	dimension_t tmp_dimension;
-	double size;
+	double tmp_fontsize = 0.;
+	char * comma;
+	size_t n;
 
-	/* positions in input string between two commas (or start/stop) */
-	int from_start=0, from_stop=0;
-	/* last used position in output string */
-	int to_stop=0;
-
-	/* font size zero is forbidden anyway;
-	 * the output value zero means: no size has been set, so this field will be ignored */
-	dimension->value = 0;
-	dimension->unit  = UNIT_PT;
-
-	/* on empty input just reset the font */
-	if(from_string[0] == 0) {
-		to_string[0] = 0;
-		return;
+	comma = strrchr(from_string, ',');
+	if (comma) {
+		sscanf(comma + 1, "%lf", &tmp_fontsize);
+		n = comma - from_string;
+	} else {
+		n = strlen(from_string);
 	}
-	/* let's walk from comma to comma (or from start to stop)
-	 * and analyse content of each string separately */
-	/* as long as we don't hit the end of the string */
-	for (; (from_stop < strlen(from_string)) && (to_stop < to_size); from_start = ++from_stop) {
-		/* find next specification of font name/family/size/... between two commas */
-		while (from_string[from_stop] != 0 && from_string[from_stop] != ',') from_stop++;
-
-		/* if this looks like a real number (+ optional unit), parse interpret it as font size */
-		if (from_string[from_start] == '.' || (from_string[from_start]+1 > '0' && from_string[from_start]-1 < '9')) {
-			/* copy the content to tmp_string first */
-			for (i=0; i < sizeof(tmp_fontsize) && i < (from_stop-from_start); i++) {
-				tmp_fontsize[i] = from_string[from_start+i];
-			}
-			tmp_fontsize[i] = 0;
-			/* parse the value & unit */
-			unit[0] = 0; /* if no unit is given, we should get an empty string */
-			sscanf(tmp_fontsize, "%lf%s", &size, unit);
-			tmp_dimension.value = size;
-			/* if no unit given - default to pt */
-			if (unit == NULL || strlen(unit)==0) {
-				tmp_dimension.unit  = UNIT_PT;
-			/* otherwise determine the unit first */
-			} else {
-				tmp_dimension.unit  = string_to_unit(unit);
-			}
-			/* pixel is not a valid unit for a font size */
-			if (tmp_dimension.unit == UNIT_PX)
-				tmp_dimension.unit = UNIT_OTHER;
-
-			/*
-			 * store the size, but only if the size is valid and makes sense
-			 *
-			 * we want the font to be:
-			 * - at least 3pt
-			 * - at most half the height of the plot
-			 */
-			if(tmp_dimension.unit != UNIT_OTHER) {
-				if(convert_to_unit(tmp_dimension,UNIT_PT)*CONTEXT_params.scale_text > 3 &&
-				   convert_to_unit(tmp_dimension,UNIT_PT)*CONTEXT_params.scale_text < 0.5*convert_to_unit(CONTEXT_params.ysize,UNIT_PT)) {
-					dimension->value = tmp_dimension.value;
-					dimension->unit  = tmp_dimension.unit;
-				}
-			}
-
-		/* otherwise copy the content (almost) literally
-		 * from_stop can be a comma or 0 - in either case we simply copy that one as well */
-		} else {
-			for (i=from_start; i < from_stop+1; i++) {
-				c = from_string[i];
-				/* TODO: improve this filter - remove any other dangerous characters
-				 *       Do we need to remove {} ? */
-				if (!(c==']' || c=='[' || c=='$' || c=='#' ||
-					   c=='%' || c=='^' || c=='_' || c=='`' ||
-					   c=='\\' || c=='\n' || c=='\t' || c=='\r')) {
-					/* we may only write up to the pre-last character of to_string */
-					if (to_stop < to_size) {
-						to_string[to_stop++] = c;
-					}
-				}
-			}
-		}
-	}
-
-	/* it might have happened that the last character we wrote was a comma instead of 0,
-	 * so we have to make sure that we finish the string */
-	to_string[to_stop-1] = 0;
+	*fontsize = tmp_fontsize;
+	if (n >= to_size)
+		n = to_size - 1;
+	memcpy(to_string, from_string, n);
+	to_string[n] = NUL;
 }
+
 
 /* -------------------------
  * CONTEXT_adjust_dimensions
@@ -1661,14 +1321,19 @@ static void
 CONTEXT_adjust_dimensions()
 {
 	/* sets vertical dimension of characters based on current fontsize in pt */
-	term->v_char = (unsigned int)((double)CONTEXT_DPI *
-		convert_to_unit(CONTEXT_fontsize,UNIT_IN) * CONTEXT_params.scale_text);
+	term->v_char = (unsigned int)round((double)CONTEXT_DPI *
+		CONTEXT_fontsize / 72.27 * CONTEXT_params.scale_text);
 	/* based on proportions of LM digits at 12pt */
-	term->h_char = (unsigned int)(CONTEXT_LM_H_TO_V_RATIO*term->v_char);
+	term->h_char = (unsigned int)round(CONTEXT_LM_H_TO_V_RATIO * term->v_char);
 
 	/* we might want to fix CONTEXT_DPI in case that the figure becomes too big */
-	term->xmax = (unsigned int)((double)CONTEXT_DPI * convert_to_unit(CONTEXT_params.xsize,UNIT_IN) );
-	term->ymax = (unsigned int)((double)CONTEXT_DPI * convert_to_unit(CONTEXT_params.ysize,UNIT_IN) );
+	if (CONTEXT_params.unit == INCHES) {
+		term->xmax = (unsigned int)round((double)CONTEXT_DPI  * CONTEXT_params.xsize);
+		term->ymax = (unsigned int)round((double)CONTEXT_DPI  * CONTEXT_params.ysize);
+	} else {
+		term->xmax = (unsigned int)round((double)CONTEXT_DPCM * CONTEXT_params.xsize);
+		term->ymax = (unsigned int)round((double)CONTEXT_DPCM * CONTEXT_params.ysize);
+	}
 }
 
 /* *****************
@@ -1678,16 +1343,15 @@ CONTEXT_adjust_dimensions()
  * Official description:
  * - empty string restores the terminal's default font
  * - fonts are selected as strings "name,size",
- *   where size should be a floating point number by default, interpreted as "pt" (point)
+ *   where size should be a floating point number interpreted as "pt" (point)
  *
  * It's the user's own responsibility to make sure that the proper typescripts
  * are included in the header, else the selected font won't work out-of-the-box
  *
  * The ConTeXt terminal should support things such as
- *   "iwona,12pt,ss" (sans serif)      or
- *   "palatino,10dd" (10 didot points) or
- *   "tt"            (typewriter)      or
- * as well
+ *   "iwona,ss,12"   (iwona sans serif) or
+ *   ",10"           (10 points)  or
+ *   "tt"            (typewriter)
  *
  * The routine saves font name to CONTEXT_font
  * and fontsize to CONTEXT_fontsize.
@@ -1705,20 +1369,17 @@ CONTEXT_set_font(const char *font)
 	strncpy(CONTEXT_font_explicit, CONTEXT_font, sizeof(CONTEXT_font_explicit));
 
 	/* valid fontsize has been provided */
-	if (CONTEXT_fontsize_explicit.value > 0) { /* XXX: if valid */
+	if (CONTEXT_fontsize_explicit > 0.) { /* XXX: if valid */
 
-		CONTEXT_fontsize.value = CONTEXT_fontsize_explicit.value;
-		CONTEXT_fontsize.unit  = CONTEXT_fontsize_explicit.unit;
+		CONTEXT_fontsize = CONTEXT_fontsize_explicit;
 
-		snprintf(tmp_fontstring, sizeof(tmp_fontstring),
-			",%g%s", CONTEXT_fontsize_explicit.value, unit_name(CONTEXT_fontsize_explicit.unit)
-		);
-		strncat(CONTEXT_font_explicit, tmp_fontstring, sizeof(CONTEXT_font_explicit)-strlen(CONTEXT_font_explicit));
+		snprintf(tmp_fontstring, sizeof(tmp_fontstring), ",%gpt", CONTEXT_fontsize_explicit);
+		strncat(CONTEXT_font_explicit, tmp_fontstring, sizeof(CONTEXT_font_explicit) - strlen(CONTEXT_font_explicit));
+		tmp_fontstring[MAX_ID_LEN] = NUL;
 
 	/* no fontsize has been provided: switch back to default terminal fontsize */
-	} else if (CONTEXT_fontsize_explicit.value == 0) {
-		CONTEXT_fontsize.value = CONTEXT_params.fontsize.value;
-		CONTEXT_fontsize.unit  = CONTEXT_params.fontsize.unit;
+	} else if (CONTEXT_fontsize_explicit == 0) {
+		CONTEXT_fontsize = CONTEXT_params.fontsize;
 	}
 
 	/* tell to gnuplot how big the fonts in labels are */
@@ -1744,13 +1405,13 @@ CONTEXT_pointsize(double pointsize)
 	 * but I see no reason why one shouldn't be able to play with
 	 * inverted point shapes, so finally I commented this out again
 	 *
-	 *   if(pointsize < 0)
+	 *   if (pointsize < 0)
 	 *      pointsize = 1;
 	 */
 	
-	if(CONTEXT_old_pointsize != pointsize) {
+	if (CONTEXT_old_pointsize != pointsize) {
 		/* close and draw the current path first */
-		if (CONTEXT_path_count>0)
+		if (CONTEXT_path_count > 0)
 			CONTEXT_endpath();
 		fprintf(gpoutfile, "gp_set_pointsize(%.3f);\n", pointsize);
 		CONTEXT_old_pointsize = pointsize;
@@ -1809,15 +1470,15 @@ CONTEXT_fill(int style)
 	/* used in FS_[TRANSPARENT_]SOLID --> fill with intensity according to filldensity 
 	   it extracts a percentage out of "style" */
 	density = (style >> 4);
-	if(density < 0)
+	if (density < 0)
 		density = 0;
-	if(density > 100)
+	if (density > 100)
 		density = 100;
 
 	fputs("gp_fill(p", gpoutfile);
 
 	/* do some strange trickery */
-	switch(style & 0xf) {
+	switch (style & 0xf) {
 
 	case FS_DEFAULT:
 		break;
@@ -1828,9 +1489,8 @@ CONTEXT_fill(int style)
 	case FS_SOLID:
 		/* fill the box with density "density": if no parameter density is specified,
 		   it implies 100% density by default */
-		if (density < 100) {
+		if (density < 100)
 			fprintf(gpoutfile, ",density(%.2f)", 0.01*density);
-		}
 		break;
 
 	case FS_TRANSPARENT_PATTERN:
@@ -1861,12 +1521,12 @@ CONTEXT_fill(int style)
 TERM_PUBLIC void
 CONTEXT_linewidth(double linewidth)
 {
-	if(linewidth < 0)
+	if (linewidth < 0)
 		linewidth = 1.0;
 	
 	if (CONTEXT_old_linewidth != linewidth) {
 		/* close and draw the current path first */
-		if (CONTEXT_path_count>0)
+		if (CONTEXT_path_count > 0)
 			CONTEXT_endpath();
 		fprintf(gpoutfile, "gp_set_linewidth(%.3f);\n", linewidth);
 		CONTEXT_old_linewidth = linewidth;
@@ -1886,15 +1546,17 @@ CONTEXT_write_palette_gradient(gradient_struct *gradient, int cnt)
 	
 	/* i-th color */
 	fprintf(gpoutfile, "colors(");
-	for (i=0; i<cnt; i++) {
-		if(i>0) { fprintf(gpoutfile, ","); }
+	for (i = 0; i < cnt; i++) {
+		if (i > 0)
+		    fprintf(gpoutfile, ",");
 		fprintf(gpoutfile, "(%.3g,%.3g,%.3g)", gradient[i].col.r, gradient[i].col.g, gradient[i].col.b);
 	}
 	
 	/* position of the i-th color */
 	fprintf(gpoutfile, ");positions(");
-	for (i=0; i<cnt; i++) {
-		if(i>0) { fprintf(gpoutfile, ","); }
+	for (i = 0; i < cnt; i++) {
+		if (i > 0)
+			fprintf(gpoutfile, ",");
 		fprintf(gpoutfile, "%.4g", gradient[i].pos);
 	}
 	fprintf(gpoutfile, ")");
@@ -1906,11 +1568,10 @@ CONTEXT_write_palette_gradient(gradient_struct *gradient, int cnt)
  *
  */
 static void
-CONTEXT_write_palette (t_sm_palette *palette)
+CONTEXT_write_palette(t_sm_palette *palette)
 {
-	if (palette == NULL) {
+	if (palette == NULL)
 		return;
-	}
 
 /* TODO
 	// Color models: RGB, HSV, CMY, YIQ, XYZ
@@ -1926,7 +1587,7 @@ CONTEXT_write_palette (t_sm_palette *palette)
 	// http://cs.fit.edu/wds/classes/cse5255/cse5255/davis/index.html
 */
 	fprintf(gpoutfile, "gp_make_palette(");
-	switch(sm_palette.colorMode) {
+	switch (sm_palette.colorMode) {
 		/* grayscale only */
 		case SMPAL_COLOR_MODE_GRAY:
 			fprintf(gpoutfile, "color_mode(gray)");
@@ -1961,21 +1622,20 @@ CONTEXT_write_palette (t_sm_palette *palette)
  * *********************
  *
  * 1. if palette==NULL, then return nice/suitable
- * maximal number of colours supported by this terminal.
- * Returns 0 if it can make colours without palette (like
- * postscript).
+ *    maximal number of colours supported by this terminal.
+ *    Returns 0 if it can make colours without palette (like
+ *    postscript).
  * 2. if palette!=NULL, then allocate its own palette
- * return value is undefined
+ *    return value is undefined
  * 3. available: some negative values of max_colors for whatever
- * can be useful
+ *    can be useful
  */
 TERM_PUBLIC int
-CONTEXT_make_palette (t_sm_palette *palette)
+CONTEXT_make_palette(t_sm_palette *palette)
 {
-	if (palette == NULL) {
+	if (palette == NULL)
 		return 0;  /* ConTeXt can do continuous colors */
-	}
-	
+
 	/* save the palette */
 	CONTEXT_old_palette = palette;
 	
@@ -2002,7 +1662,7 @@ CONTEXT_make_palette (t_sm_palette *palette)
  * } t_colorspec;
  */
 TERM_PUBLIC void
-CONTEXT_set_color (t_colorspec *colorspec)
+CONTEXT_set_color(t_colorspec *colorspec)
 {
 	double gray, r, g, b;
 	/* ConTeXt doesn't offer full support for palettes yet
@@ -2020,7 +1680,7 @@ CONTEXT_set_color (t_colorspec *colorspec)
    Set current color to the rgb triple given in colorspec->lt. */
 
 	/* close and draw the current path first */
-	if(CONTEXT_path_count > 0)
+	if (CONTEXT_path_count > 0)
 		CONTEXT_endpath();
 
 	switch (colorspec->type) {
@@ -2048,8 +1708,8 @@ CONTEXT_set_color (t_colorspec *colorspec)
 		gray = colorspec->value;
 
 		/* limit negative and >1 values to [0:1] first */
-		if(gray < 0) gray = 0;
-		if(gray > 1) gray = 1;
+		if (gray < 0) gray = 0;
+		if (gray > 1) gray = 1;
 
 		/* TODO: if ConTeXt start supporting palettes, we'll uncomment the following: */
 		fprintf(gpoutfile, "%%gp_set_color(frac(%.4f));\n", gray);
@@ -2073,29 +1733,27 @@ CONTEXT_set_color (t_colorspec *colorspec)
  * Draws a polygon with the fill color set by set_color, and no border.
  */
 TERM_PUBLIC void
-CONTEXT_filled_polygon (int points, gpiPoint *corners)
+CONTEXT_filled_polygon(int points, gpiPoint *corners)
 {
 	int i;
 
 	/* nothing to be filled if less than 3 points */
-	if(points < 3)
+	if (points < 3)
 		return;
 
 	/* close and draw the current path first */
-	if(CONTEXT_path_count > 0) {
+	if (CONTEXT_path_count > 0)
 		CONTEXT_endpath();
-	}
 
 	/* if the first point equals the last one, skip the last point; --cycle does that already
 	 * this condition is probably always true in gnuplot, so the if condition may not be needed */
-	if((corners[0].x == corners[points-1].x) && (corners[0].y == corners[points-1].y)) {
+	if ((corners[0].x == corners[points-1].x) && (corners[0].y == corners[points-1].y))
 		points--;
-	}
 
 	/* create new path with corners */
 	fputs("p := ", gpoutfile);
 	fprintf(gpoutfile, "(%.3fa,%.3fa)", 0.001*corners[0].x, 0.001*corners[0].y);
-	for (i=1; i<points; i++) {
+	for (i = 1; i < points; i++) {
 		if (i % CONTEXT_LINEMAX == 0)
 			fputs("\n  ", gpoutfile);
 		fprintf(gpoutfile, "--(%.3fa,%.3fa)", 0.001*corners[i].x, 0.001*corners[i].y);
@@ -2145,37 +1803,42 @@ CONTEXT_filled_polygon (int points, gpiPoint *corners)
    image.
  */
 
-/* This code is working in ConTeXt MKIV,
- * but it needs some thinking and additional support in ConTeXt core before it is enabled.
+/* TODO: this code needs some improvements
  *
- * ConTeXt MKII needs a different strategy
- * (maybe writing out a PNG and including it as an image?).
+ * There are two different modes:
+ *
+ * 1. creating PNG image and including it
+ *    - it only works if gnuplot has been compiled with PNG library
+ *    - there are some bugs in MKII/MKIV handling: a different syntax is required
+ *      and can only be fixed in ConTeXt core; I could abstract the code a bit
+ * 2. printing out a string with colors
+ *    - MKIV: works, but transparency is not yet implemented
+ *    - MKII: requires MetaPost > 0.750 and is not implemented at all
+ *            two possible approaches: drawing rectangles & creating proper image
+ *            it might require one additional level of abstraction like gp_image(...)
  */
 TERM_PUBLIC void
-CONTEXT_image (unsigned M, unsigned N, coordval *image, gpiPoint *corner, t_imagecolor color_mode)
+CONTEXT_image(unsigned M, unsigned N, coordval *image, gpiPoint *corner, t_imagecolor color_mode)
 {
-	int i, j, k, line_length, components_per_color;
-	unsigned char byte;
+	int i, k, line_length, components_per_color;
 	rgb_color color;
 	TBOOLEAN is_clipped = FALSE;
 
-	if((corner[2].x > corner[0].x) || (corner[0].y > corner[2].y) ||
-	   (corner[1].x > corner[3].x) || (corner[3].y > corner[1].y)) {
+	if ((corner[2].x > corner[0].x) || (corner[0].y > corner[2].y) ||
+	    (corner[1].x > corner[3].x) || (corner[3].y > corner[1].y))
 		is_clipped = TRUE;
-	}
 
-	if(CONTEXT_images == CONTEXT_IMAGES_EXTERNAL) {
+	if (CONTEXT_images == CONTEXT_IMAGES_EXTERNAL) {
 #ifdef WRITE_PNG_IMAGE
 		/* we reserved 10 extra bytes, so we can afford images up to 9999 */
 		snprintf(CONTEXT_image_filename + CONTEXT_image_filename_length, 9, "_%02d.png", ++CONTEXT_image_counter);
 		write_png_image (M, N, image, color_mode, CONTEXT_image_filename);
 
-		if(is_clipped) {
+		if (is_clipped)
 			fprintf(gpoutfile, "draw image(\n  ");
-		}
 		fprintf(gpoutfile, "externalfigure \"%s\" xyscaled (%.3fa,%.3fa) shifted (%.3fa,%.3fa);\n",
 			CONTEXT_image_filename + CONTEXT_image_filename_start, 0.001*(corner[1].x-corner[0].x), 0.001*(corner[0].y-corner[1].y), 0.001*corner[0].x, 0.001*corner[1].y);
-		if(is_clipped) {
+		if (is_clipped) {
 			fprintf(gpoutfile, "  clip currentpicture to unitsquare xyscaled (%.3fa,%.3fa) shifted (%.3fa,%.3fa););\n",
 				0.001*(corner[3].x-corner[2].x), 0.001*(corner[2].y-corner[3].y), 0.001*corner[2].x, 0.001*corner[3].y);
 		}
@@ -2187,8 +1850,8 @@ CONTEXT_image (unsigned M, unsigned N, coordval *image, gpiPoint *corner, t_imag
 			/* write the image data */
 			fprintf(gpoutfile, "img := \"%%\n");
 			line_length = 0;
-			for(i=0; i<M*N; i++) {
-				if(line_length++ >= 16) {
+			for (i = 0; i < M * N; i++) {
+				if (line_length++ >= 16) {
 					line_length = 1;
 					fprintf(gpoutfile, "%%\n");
 				}
@@ -2208,12 +1871,12 @@ CONTEXT_image (unsigned M, unsigned N, coordval *image, gpiPoint *corner, t_imag
 			/* write the image data */
 			fprintf(gpoutfile, "img := \"%%\n");
 			line_length = 0;
-			for(i=0; i<M*N; i++) {
-				if(line_length++ >= 16) {
+			for (i = 0; i < M * N; i++) {
+				if (line_length++ >= 16) {
 					line_length = 1;
 					fprintf(gpoutfile, "%%\n");
 				}
-				for(k=0; k<3; k++) {
+				for (k = 0; k < 3; k++) {
 					fprintf(gpoutfile, "%02x", (unsigned char)(image[i*components_per_color+k]*255));
 				}
 			}
@@ -2223,8 +1886,8 @@ CONTEXT_image (unsigned M, unsigned N, coordval *image, gpiPoint *corner, t_imag
 			if (color_mode == IC_RGBA) {
 				fprintf(gpoutfile, "ima := \"%%\n");
 				line_length = 0;
-				for(i=0; i<M*N; i++) {
-					if(line_length++ >= 3*16) {
+				for (i = 0; i < M * N; i++) {
+					if (line_length++ >= 3*16) {
 						line_length = 1;
 						fprintf(gpoutfile, "%%\n");
 					};
@@ -2235,12 +1898,11 @@ CONTEXT_image (unsigned M, unsigned N, coordval *image, gpiPoint *corner, t_imag
 		}
 
 		/* TODO: transparency handling is not yet supported in ConTeXt */
-		if(is_clipped) {
+		if (is_clipped)
 			fprintf(gpoutfile, "draw image(\n  ");
-		}
 		fprintf(gpoutfile, "draw bitmapimage (%u,%u,img) xyscaled (%.3fa,%.3fa) shifted (%.3fa,%.3fa);\n",
 			N, M, 0.001*(corner[1].x-corner[0].x), 0.001*(corner[0].y-corner[1].y), 0.001*corner[0].x, 0.001*corner[1].y);
-		if(is_clipped) {
+		if (is_clipped) {
 			fprintf(gpoutfile, "  clip currentpicture to unitsquare xyscaled (%.3fa,%.3fa) shifted (%.3fa,%.3fa););\n",
 				0.001*(corner[3].x-corner[2].x), 0.001*(corner[2].y-corner[3].y), 0.001*corner[2].x, 0.001*corner[3].y);
 		}
@@ -2303,7 +1965,7 @@ TERM_TABLE_END(context_driver)
 
 #ifdef TERM_HELP
 START_HELP(context)
-"1 ConTeXt",
+"1 context",
 "?commands set terminal context",
 "?set terminal context",
 "?terminal context",
@@ -2322,7 +1984,7 @@ START_HELP(context)
 " Syntax:",
 "      set term context {default}",
 "                       {defaultsize | size <scale> |",
-"                        size <xsize> {in|cm}, <ysize> {in|cm}}",
+"                        size <xsize>{in|cm}, <ysize>{in|cm}}",
 "                       {input | standalone}",
 "                       {timestamp | notimestamp}",
 "                       {noheader | header \"<header>\"}",
@@ -2335,7 +1997,7 @@ START_HELP(context)
 "                       {fontscale <fontscale>}",
 "                       {mppoints | texpoints}",
 "                       {inlineimages | externalimages}",
-"                       {defaultfont | font \"<fontname>{,<fontsize>}\"}",
+"                       {defaultfont | font \"{<fontname>}{,<fontsize>}\"}",
 "",
 " In non-standalone (`input`) graphic only parameters `size` to select graphic",
 " size, `fontscale` to scale all the labels for a factor <fontscale>",
@@ -2398,28 +2060,24 @@ START_HELP(context)
 " In non-standalone (`input`) mode only the font size is important",
 " to reserve enough space for text labels.",
 " The command"
-"      set term context font \"myfont,ss,10pt\"",
+"      set term context font \"myfont,ss,10\"",
 " will result in",
 "      \\setupbodyfont[myfont,ss,10pt]",
 " If you additionaly set `fontscale` to 0.8 for example,",
 " then the resulting font will be 8pt big and",
-"      set label ... font \"myfont,12pt\"",
+"      set label ... font \"myfont,12\"",
 " will come out as 9.6pt.\n",
-" For compatibility with other terminals font size may be specified without units,",
-" in which case the default unit \"pt\" will be appended to it, but you can also",
-" use any other supported unit, for example \"11dd\".\n",
 " It is your own responsibility to provide proper typescripts (and header),",
 " otherwise switching the font will have no effect.\n",
 " For a standard font in ConTeXt MKII (pdfTeX) you could use:",
 "      set terminal context standalone header '\\usetypescript[iwona][ec]' \\",
-"          font \"iwona,ss,11pt\"",
+"          font \"iwona,ss,11\"",
 " Please take a look into ConTeXt documentation, wiki or mailing list (archives)",
 " for any up-to-date information about font usage."
 "",
 " Examples:",
-"      set terminal context size 1.5           # 7.5in, 4.5in",
 "      set terminal context size 10cm, 5cm     # 10cm, 5cm",
-"      set terminal context size 4/5, 2.54*4cm # 4in, 4in",
+"      set terminal context size 4in, 3in      # 4in, 3in",
 " For standalone (whole-page) plots with labels in UTF-8 encoding:",
 "      set terminal context standalone header '\\enableregime[utf-8]'",
 "", /* TODO: LaTeX formatting */
@@ -2430,7 +2088,7 @@ START_HELP(context)
 "^ </a>",
 " and a recent version of ConTeXt.",
 " If you want to call gnuplot on-the-fly, you also need write18 enabled.",
-" In most TeX distributionts this can be set with shell_escape=t in texmf.cnf.",
+" In most TeX distributions this can be set with shell_escape=t in texmf.cnf.",
 "",
 " See",
 "^ <a href=\"http://wiki.contextgarden.net/Gnuplot\">",
